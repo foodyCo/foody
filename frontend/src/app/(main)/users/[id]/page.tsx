@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { apiRequest, mapDjangoPostToDish, fixMediaUrl } from "@/lib/api";
+import SubscribeButton from "@/components/SubscribeButton";
 import styles from "../../profile/profile.module.css";
 
 export default async function UserProfile({ params }: {
@@ -26,25 +27,28 @@ export default async function UserProfile({ params }: {
             };
         }
 
-        const data = await apiRequest(`/posts/user_posts/?user_id=${id}`, options);
-        posts = Array.isArray(data.results || data) 
-            ? (data.results || data).map(mapDjangoPostToDish) 
+        const [postsData, userProfile] = await Promise.all([
+            apiRequest(`/posts/user_posts/?user_id=${id}`, options).catch(() => ({ results: [] })),
+            apiRequest(`/users/${id}/`, options).catch(() => null)
+        ]);
+
+        posts = Array.isArray(postsData.results || postsData) 
+            ? (postsData.results || postsData).map(mapDjangoPostToDish) 
             : [];
 
-        const firstPost = Array.isArray(data.results || data) ? (data.results || data)[0] : null;
-        
         userData = {
             id: id,
-            name: firstPost?.user?.username || "Пользователь",
-            handle: firstPost?.user?.username?.toLowerCase() || `user_${id}`,
-            avatar: fixMediaUrl(firstPost?.user?.avatar) || "https://lh3.googleusercontent.com/aida-public/AB6AXuCVqKo0rD50FVcxPyx63Wgx_ITuliGYflh1OSkByBsEkEvFEuAPiZuRed4mqQna6pJy0P9maE5ZVO9f_cADM_PLrIDIzqDCv9cwuhEE9DPgjfLx2kdmZtDNQrXw1OHvvTsjBUquMY3pTOoHnAMdne-3wBxCkiMQzGp4NWDPle5KmL0iw7ihuV20j4bVoUqBc3zBZrwaehTuxWAT4MLllYdvyRMRdqFSgealTXe8jKXHzN20PuXYxZj-9Lrzd8MY0LL47VdT6ouoleCX",
-            bio: "Заядлый кулинар. Обожаю исследовать новые места!", // Пока фейк данные, так как бэк не отдаёт
+            name: userProfile?.full_name || userProfile?.username || "Пользователь",
+            handle: userProfile?.username?.toLowerCase() || `user_${id}`,
+            avatar: fixMediaUrl(userProfile?.avatar) || "/default-avatar.svg",
+            bio: userProfile?.bio_text || "Заядлый кулинар. Обожаю исследовать новые места!",
             location: "Неизвестно",
             stats: {
-                posts: posts.length,
-                followers: 0,
-                following: 0
-            }
+                posts: userProfile?.posts_count || posts.length,
+                followers: userProfile?.followers_count || 0,
+                following: userProfile?.following_count || 0
+            },
+            is_following: userProfile?.is_following || false
         };
 
     } catch (error) {
@@ -85,8 +89,8 @@ export default async function UserProfile({ params }: {
                         src={userData.avatar} 
                         alt={userData.name} 
                         className={styles.avatar} 
-                        width={110} 
-                        height={110} 
+                        width={90} 
+                        height={90} 
                     />
                     <div className={styles.verifiedBadge}>
                         <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path></svg>
@@ -108,9 +112,7 @@ export default async function UserProfile({ params }: {
                     {userData.bio}
                 </p>
 
-                <button className={styles.editProfileBtn} style={{ background: 'var(--brand-green, #2ecc71)', color: 'white', border: 'none' }}>
-                    Подписаться
-                </button>
+                <SubscribeButton userId={id} initialIsFollowing={userData.is_following} session={session} />
 
                 <div className={styles.statsContainer}>
                     <div className={styles.statItem}>
@@ -146,7 +148,7 @@ export default async function UserProfile({ params }: {
                         />
                         <div className={styles.postRating}>
                             <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path></svg>
-                            <span>{dish.rating || "0.0"}</span>
+                            <span>{Math.round(dish.userRating || 0)}</span>
                         </div>
                     </Link>
                 )) : (

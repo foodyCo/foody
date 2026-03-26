@@ -1,5 +1,5 @@
 import FeedItem from "@/components/FeedItem";
-import { getFriendsPosts } from "@/app/actions/social";
+import { getFollowingPosts as getFriendsPosts } from "@/app/actions/post";
 import { auth } from "@/auth";
 import { mapDjangoPostToDish } from "@/lib/api";
 

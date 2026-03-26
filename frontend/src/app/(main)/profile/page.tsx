@@ -28,7 +28,7 @@ export default async function Profile({ searchParams }: { searchParams: Promise<
             }),
             apiRequest("/users/me/", {
                 headers: { "Authorization": `Bearer ${session.user.accessToken}` }
-            })
+            }).catch(() => null)
         ]);
         
         posts = Array.isArray(postsData?.results || postsData) 
@@ -49,17 +49,17 @@ export default async function Profile({ searchParams }: { searchParams: Promise<
         }
     }
 
-    const defaultAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80";
+    const defaultAvatar = "/default-avatar.svg";
     
-    // Fallbacks just in case
+        // Fallbacks just in case
     const mappedUser = {
         name: userProfile?.full_name || userProfile?.username || session.user.name || "Пользователь",
         handle: userProfile?.username || session.user.name?.toLowerCase().replace(/\s+/g, '_') || "user",
         avatar: fixMediaUrl(userProfile?.avatar) || session.user.image || defaultAvatar,
         bio: userProfile?.bio_text || "Здесь пока нет описания профиля...",
-        location: "Ростов-на-Дону", // Location can be hardcoded for now or left as is
+        location: userProfile?.city || "Ростов-на-Дону", 
         stats: {
-            posts: postsCount,
+            posts: userProfile?.posts_count ?? postsCount,
             followers: userProfile?.followers_count ?? 0, 
             following: userProfile?.following_count ?? 0
         }
@@ -85,8 +85,8 @@ export default async function Profile({ searchParams }: { searchParams: Promise<
                         src={mappedUser.avatar} 
                         alt={mappedUser.name} 
                         className={styles.avatar} 
-                        width={110} 
-                        height={110} 
+                        width={90} 
+                        height={90} 
                     />
                     <div className={styles.verifiedBadge}>
                         <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path></svg>
@@ -148,9 +148,13 @@ export default async function Profile({ searchParams }: { searchParams: Promise<
                                 sizes="(max-width: 768px) 50vw, 33vw"
                                 style={{ objectFit: 'cover' }}
                             />
+                            {dish.status === 'pending' && <div className={styles.pendingOverlay} />}
+                            {dish.status === 'pending' && <div className={styles.pendingBadge}>На модерации</div>}
+                            {dish.status === 'rejected' && <div className={styles.rejectedOverlay} />}
+                            {dish.status === 'rejected' && <div className={styles.rejectedBadge}>Отклонен</div>}
                             <div className={styles.postRating}>
                                 <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path></svg>
-                                <span>{dish.rating || "0.0"}</span>
+                                <span>{Math.round(dish.userRating || 0)}</span>
                             </div>
                         </Link>
                     )) : (
@@ -170,7 +174,7 @@ export default async function Profile({ searchParams }: { searchParams: Promise<
                             />
                             <div className={styles.postRating}>
                                 <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path></svg>
-                                <span>{dish.rating || "0.0"}</span>
+                                <span>{Math.round(dish.userRating || 0)}</span>
                             </div>
                         </Link>
                     )) : (

@@ -143,7 +143,7 @@ export default function CommentsSection({
                         </div>
                         <div className={styles.likes}>
                             <button className={c.isLiked ? styles.likedIcon : styles.likeIcon}>
-                                <span className="material-symbols-outlined" style={{ fill: c.isLiked ? 1 : 0, fontSize: '18px' }}>
+                                <span className="material-symbols-outlined" style={{ fontVariationSettings: `\'FILL\' ${c.isLiked ? 1 : 0}`, fontSize: '18px' }}>
                                     favorite
                                 </span>
                             </button>

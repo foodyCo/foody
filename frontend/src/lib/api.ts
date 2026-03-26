@@ -21,6 +21,7 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     const response = await fetch(url, {
         ...options,
         headers,
+        cache: "no-store", // disable nextjs fetch caching just in case
     });
 
     if (!response.ok) {
@@ -58,11 +59,8 @@ export function fixMediaUrl(url: string | null | undefined): string {
 
 export function mapDjangoPostToDish(post: any): Dish {
     const stats = post.statistics || {};
-    // Считаем средний рейтинг из трех если они есть, иначе 0
-    const taste = stats.rating_taste || 0;
-    const appearance = stats.rating_appearance || 0;
-    const satiety = stats.rating_satiety || 0;
-    const userRating = (taste + appearance + satiety) / 3 || 0;
+    // Fallback to stats.rating if user_rating isn't provided or is 0
+    const userRating = post.user_rating || stats.rating || 0;
 
     return {
         id: post.id.toString(),
@@ -71,17 +69,18 @@ export function mapDjangoPostToDish(post: any): Dish {
         description: post.description || "",
         imageUrl: fixMediaUrl(post.images?.[0]?.image) || "/placeholder.png",
         images: post.images?.map((img: any) => fixMediaUrl(img.image)).filter(Boolean) || [],
-        userRating: parseFloat(userRating.toFixed(1)),
+        userRating: parseFloat(Number(userRating).toFixed(1)),
         matchScore: 0,
+        price: post.price ? parseFloat(post.price) : undefined,
         author: {
             id: post.user?.id?.toString() || "unknown",
             name: post.user?.full_name || post.user?.username || "Аноним",
             username: post.user?.username || "user",
-            avatar: fixMediaUrl(post.user?.avatar) || "",
+            avatar: fixMediaUrl(post.user?.avatar) || "/default-avatar.svg",
             bio: post.user?.bio,
         },
         restaurant: {
-            id: post.restaurant?.toString() || "unknown",
+            id: (post.restaurant && post.restaurant !== 'unknown') ? (typeof post.restaurant === 'object' ? post.restaurant.id?.toString() : post.restaurant.toString()) : undefined,
             name: post.restaurant_name || "Неизвестно",
             location: { lat: 0, lng: 0 },
             address: post.restaurant_address || "",
@@ -98,5 +97,7 @@ export function mapDjangoPostToDish(post: any): Dish {
         createdAt: post.created_at,
         isLiked: post.is_liked || false,
         isSaved: post.is_saved || false,
+        status: post.status,
+        rejection_reason: post.rejection_reason
     };
 }

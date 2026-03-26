@@ -1,22 +1,31 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createPost } from "@/app/actions/post";
 import styles from "./page.module.css";
 
 const CATEGORIES = [
-  "Завтраки",
-  "Бургеры",
-  "Пицца",
-  "Суши и Роллы",
-  "Паста",
-  "Мясо и Стейки",
-  "Десерты",
-  "Кофе",
-  "Напитки",
-  "Здоровая еда"
+  "🌯 Шаурма и гирос",
+  "🍔 Бургеры и фастфуд",
+  "🍕 Пицца",
+  "🍲 Ланчи и столовые",
+  "🍜 Азия",
+  "🍣 Суши и роллы",
+  "🍜 Рамен",
+  "🥡 Вок и Паназия",
+  "🥙 Поке и боулы",
+  "💻 Кофе",
+  "☕ Кофейни",
+  "🍳 Завтраки весь день",
+  "🥐 Пекарни и десерты",
+  "🥩 Вечер и Компании",
+  "🔥 Мясо и гриль",
+  "🥟 Кавказ и Грузия",
+  "🍻 Бары и пабы",
+  "🥗 Альтернатива",
+  "🌿 ЗОЖ и Вег"
 ];
 
 export default function CreatePostPage() {
@@ -25,7 +34,8 @@ export default function CreatePostPage() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [restaurantName, setRestaurantName] = useState("");
   const [dishName, setDishName] = useState("");
-  const [category, setCategory] = useState("");
+  const [price, setPrice] = useState("");
+  const [category, setCategory] = useState("Все");
   const [rating, setRating] = useState(0);
   const [description, setDescription] = useState("");
   
@@ -84,6 +94,37 @@ export default function CreatePostPage() {
     });
   };
 
+  const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value.includes(',')) {
+      // Разделяем по запятым, убираем пробелы, фильтруем пустые и уже добавленные
+      const newTags = value
+        .split(',')
+        .map((t: string) => t.trim())
+        .filter((t: string) => t !== '' && !tags.includes(t));
+      
+      if (newTags.length > 0) {
+        setTags((prev: string[]) => [...prev, ...newTags]);
+      }
+      // Очищаем инпут (или оставляем то, что после последней запятой, но обычно все уходит в теги)
+      // Если кто-то вставит "тег1, тег2", в value будет "тег1, тег2", оба уйдут в newTags.
+      // Последний элемент после запятой может быть и пустым.
+      // Для простоты — просто сбрасываем. Но лучше оставлять последний неполный кусок, если он есть?
+      // На самом деле split(',') вернет в конце '' если строка заканчивается на ',', так что неполных кусков нет.
+      const parts = value.split(',');
+      const lastPart = parts[parts.length - 1];
+      if (!value.endsWith(',') && lastPart.trim() !== '') {
+         // То есть вставили "tag1, tag2", lastPart=" tag2", который мы добавили.
+         // Но если мы его добавили в теги, то инпут надо очистить.
+         setTagInput("");
+      } else {
+         setTagInput("");
+      }
+    } else {
+      setTagInput(value);
+    }
+  };
+
   const addTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim() !== '') {
       e.preventDefault();
@@ -108,6 +149,9 @@ export default function CreatePostPage() {
       formData.append("description", description);
       formData.append("restaurantName", restaurantName);
       formData.append("userRating", rating.toString());
+      if (price) {
+          formData.append("price", price);
+      }
       formData.append("category", category);
       
       files.forEach((file) => {
@@ -244,6 +288,18 @@ export default function CreatePostPage() {
         </div>
 
         <div className={styles.formSection}>
+          <span className={styles.sectionLabel}>Цена (₽)</span>
+          <input 
+            type="number" 
+            inputMode="decimal"
+            className={styles.formInput} 
+            placeholder="Например, 450..." 
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+        </div>
+
+        <div className={styles.formSection}>
           <span className={styles.sectionLabel}>Категория</span>
           <button className={styles.categorySelectBtn} onClick={() => setIsCategoryModalOpen(true)}>
             <div className={styles.categorySelectLeft}>
@@ -305,7 +361,7 @@ export default function CreatePostPage() {
               className={styles.tagInputField} 
               placeholder={tags.length === 0 ? "Добавьте теги..." : ""}
               value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
+              onChange={handleTagInputChange}
               onKeyDown={addTag}
             />
           </div>

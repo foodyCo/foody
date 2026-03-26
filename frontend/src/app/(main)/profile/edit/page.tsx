@@ -22,7 +22,7 @@ export default async function EditProfilePage() {
         console.error("Failed to load user profile", e);
     }
 
-    const defaultAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuCVqKo0rD50FVcxPyx63Wgx_ITuliGYflh1OSkByBsEkEvFEuAPiZuRed4mqQna6pJy0P9maE5ZVO9f_cADM_PLrIDIzqDCv9cwuhEE9DPgjfLx2kdmZtDNQrXw1OHvvTsjBUquMY3pTOoHnAMdne-3wBxCkiMQzGp4NWDPle5KmL0iw7ihuV20j4bVoUqBc3zBZrwaehTuxWAT4MLllYdvyRMRdqFSgealTXe8jKXHzN20PuXYxZj-9Lrzd8MY0LL47VdT6ouoleCX";
+    const defaultAvatar = "/default-avatar.svg";
 
     const initialData = {
         name: userProfile?.full_name || userProfile?.username || session.user.name || "Пользователь",

@@ -10,7 +10,8 @@ interface Comment {
     id: number;
     text: string;
     created_at: string;
-    user: {
+    user: number;
+    user_detail?: {
         id: number;
         username: string;
         avatar?: string;
@@ -30,7 +31,7 @@ export default function CommentsModal({ isOpen, onClose, dishId }: CommentsModal
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [touchStartY, setTouchStartY] = useState(0);
     const [translateY, setTranslateY] = useState(0);
-    const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/placeholder-avatar.png");
+    const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/default-avatar.svg");
     const modalRef = useRef<HTMLDivElement>(null);
     const { data: session } = useSession();
 
@@ -167,16 +168,16 @@ export default function CommentsModal({ isOpen, onClose, dishId }: CommentsModal
                         comments.map((comment) => (
                             <div key={comment.id} className={styles.commentItem}>
                                 <Image 
-                                    src={comment.user.avatar || "/placeholder-avatar.png"} 
+                                    src={comment.user_detail?.avatar ? (comment.user_detail.avatar.startsWith('http') ? comment.user_detail.avatar : `http://localhost:8000${comment.user_detail.avatar}`) : "/default-avatar.svg"} 
                                     className={styles.commentAvatar}
                                     width={36}
                                     height={36}
-                                    alt={comment.user.username}
+                                    alt={comment.user_detail?.username || "user"}
                                     unoptimized
                                 />
                                 <div className={styles.commentBody}>
                                     <div className={styles.commentAuthorRow}>
-                                        <div className={styles.commentAuthor}>{comment.user.username}</div>
+                                        <div className={styles.commentAuthor}>{comment.user_detail?.username || `User ${comment.user}`}</div>
                                         <div className={styles.commentTime}>
                                             {new Date(comment.created_at).toLocaleDateString('ru-RU')}
                                         </div>

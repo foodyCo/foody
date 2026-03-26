@@ -90,21 +90,44 @@
 }
 
 .detailCard {
-    background: var(--surface, #FFFFFF);
-    border-radius: 24px 24px 0 0;
-    margin-top: -30px;
+    background-color: var(--card-bg);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px;
+    z-index: 10;
+    margin-top: -24px;
     position: relative;
-    z-index: 2;
-    padding: 32px 24px;
-    box-shadow: 0 -20px 40px rgba(0,0,0,0.05);
-    flex: 1;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.rejectionNotice {
+    background-color: #ffebee;
+    border-radius: 12px;
+    padding: 16px;
+    color: #c62828;
+    margin-bottom: 8px;
+    border-left: 4px solid #c62828;
+}
+
+.rejectionNotice h3 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.rejectionNotice p {
+    margin: 0;
+    font-size: 14px;
+    opacity: 0.9;
 }
 
 .headerRow {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 16px;
+    margin-bottom: 0px;
 }
 
 .dishTitle {
@@ -127,8 +150,8 @@
 
 .tagsRow {
     display: flex;
-    gap: 10px;
-    margin: 16px 0;
+    gap: 8px;
+    margin: 0;
     flex-wrap: wrap;
 }
 
@@ -143,9 +166,11 @@
 }
 
 .locationSection {
-    margin: 20px 0 28px 0;
-    padding-bottom: 24px;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
+    background: var(--surface, #FFFFFF);
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 16px;
+    padding: 16px;
+    margin: 4px 0;
 }
 
 .locationInfo {
@@ -181,7 +206,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-top: 16px;
+    margin-top: 8px;
     padding-top: 16px;
     border-top: 1px solid rgba(0,0,0,0.04);
 }
@@ -223,8 +248,8 @@
 .overallRating {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 32px;
+    gap: 8px;
+    margin-bottom: 0px;
 }
 
 .ratingStars {
@@ -252,7 +277,7 @@
     font-size: 16px;
     line-height: 1.6;
     color: var(--text-secondary, #7A7D85);
-    margin-bottom: 32px;
+    margin-bottom: 8px;
 }
 
 .actionBar {

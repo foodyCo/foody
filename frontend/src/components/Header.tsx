@@ -1,9 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import React, { Suspense } from "react";
 import styles from "./Header.module.css";
+
+const SearchParamsTabs = () => {
+    const searchParams = useSearchParams();
+    return (
+        <div className={styles.tabsContainer}>
+            <Link href="/" className={`${styles.tab} ${searchParams?.get("tab") !== "following" ? styles.active : ""}`}>Рекомендации</Link>
+            <Link href="/?tab=following" className={`${styles.tab} ${searchParams?.get("tab") === "following" ? styles.active : ""}`}>Подписки</Link>
+        </div>
+    );
+};
 
 const Header = () => {
     const { data: session, status } = useSession();
@@ -34,10 +45,9 @@ const Header = () => {
             </div>
             
             {pathname === "/" && (
-                <div className={styles.tabsContainer}>
-                    <div className={`${styles.tab} ${styles.active}`}>Рекомендации</div>
-                    <div className={styles.tab}>Подписки</div>
-                </div>
+                <Suspense fallback={<div className={styles.tabsContainer}><div className={`${styles.tab} ${styles.active}`}>Рекомендации</div><div className={styles.tab}>Подписки</div></div>}>
+                    <SearchParamsTabs />
+                </Suspense>
             )}
         </header>
     );

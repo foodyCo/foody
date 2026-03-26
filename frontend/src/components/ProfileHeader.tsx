@@ -37,7 +37,7 @@ const ProfileHeader = ({ user, stats, isCurrentUser = false, initialIsFollowing 
         setIsFollowing(newIsFollowing);
         setFollowersCount(prev => newIsFollowing ? prev + 1 : prev - 1);
 
-        const res = await toggleFollow(user.id);
+        const res = await toggleFollow(user.id.toString(), null as any);
         if (res?.error) {
             setIsFollowing(!newIsFollowing);
             setFollowersCount(prev => !newIsFollowing ? prev + 1 : prev - 1);
@@ -49,7 +49,7 @@ const ProfileHeader = ({ user, stats, isCurrentUser = false, initialIsFollowing 
             <div className={styles.topRow}>
                 <div className={styles.avatarContainer}>
                     <Image
-                        src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
+                        src={user.avatar || "/default-avatar.svg"}
                         alt={user.name}
                         fill
                         className={styles.avatar}

@@ -76,7 +76,7 @@ const FeedItem = ({ dish, initialIsLiked = false, initialIsSaved = false, initia
                 <Link href={dish.author?.id === session?.user?.id ? "/profile" : `/users/${dish.author?.id}`} className={styles.postAuthor}>
                     <div className={styles.authorAvatar}>
                         <Image
-                            src={dish.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dish.author?.name || 'User'}`}
+                            src={dish.author?.avatar || "/default-avatar.svg"}
                             alt={dish.author?.name || "User"}
                             fill
                             sizes="36px"
@@ -114,16 +114,27 @@ const FeedItem = ({ dish, initialIsLiked = false, initialIsSaved = false, initia
                     </button>
                 </div>
 
-                <Link href={`/dish/${dish.id}`} className={styles.cardHeader} style={{ marginTop: '12px' }}>
+                <div onClick={(e) => {
+                    // Prevent navigation if clicked on restaurant link inside
+                    if ((e.target as HTMLElement).closest('a')) return;
+                    router.push(`/dish/${dish.id}`);
+                }} className={styles.cardHeader} style={{ marginTop: '12px', cursor: 'pointer' }}>
                     <div className={styles.dishInfo}>
                         <h2 className={styles.dishName}>{dish.title}</h2>
-                        <div className={styles.restaurantMeta}>
-                            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
-                            {dish.restaurant?.name || "Неизвестно"} {dish.restaurant?.address ? `· ${dish.restaurant.address}` : ""}
-                        </div>
+                        {dish.restaurant?.id ? (
+                            <Link href={`/restaurant/${dish.restaurant.id}`} className={styles.restaurantMeta}>
+                                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
+                                {dish.restaurant.name} {dish.restaurant.address ? `· ${dish.restaurant.address}` : ""}
+                            </Link>
+                        ) : (
+                            <div className={styles.restaurantMeta}>
+                                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
+                                {dish.restaurant?.name || "Неизвестно"} {dish.restaurant?.address ? `· ${dish.restaurant.address}` : ""}
+                            </div>
+                        )}
                     </div>
-                    <div className={styles.dishPrice}>{dish.price ? `$${dish.price}` : "Free"}</div>
-                </Link>
+                    <div className={styles.dishPrice}>{dish.price ? `${dish.price} ₽` : ""}</div>
+                </div>
                 
                 <p className={styles.postDescription}>
                     <Link href={dish.author?.id === session?.user?.id ? "/profile" : `/users/${dish.author?.id}`}>

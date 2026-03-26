@@ -34,9 +34,12 @@ const AuthorSection = ({ author, initialIsSubscribed = false, showFollowButton =
         const newIsSubscribed = !isSubscribed;
         setIsSubscribed(newIsSubscribed);
 
-        const res = await toggleFollow(author.id);
+        const res = await toggleFollow(author.id, isSubscribed);
         if (res?.error) {
+            console.error("Failed to toggle follow", res.error);
             setIsSubscribed(!newIsSubscribed);
+        } else {
+            router.refresh();
         }
     };
 
@@ -47,7 +50,7 @@ const AuthorSection = ({ author, initialIsSubscribed = false, showFollowButton =
             <Link href={isSelf ? "/profile" : `/users/${author.id}`} className={styles.authorLink}>
                 <div className={styles.authorInfo}>
                     <Image
-                        src={author.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${author.name}`}
+                        src={author.avatar || "/default-avatar.svg"}
                         alt={author.name}
                         width={40}
                         height={40}

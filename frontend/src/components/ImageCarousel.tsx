@@ -14,10 +14,11 @@ export default function ImageCarousel({ images, alt, isFullScreen = false }: Ima
     const [activeIndex, setActiveIndex] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
     
-    // JS Swipe state
-    const isDown = useRef(false);
+    // JS Swipe state for mouse drag only (desktop)
+    const isDrag = useRef(false);
     const startX = useRef(0);
     const scrollLeft = useRef(0);
+    const hasDragged = useRef(false);
 
     const handleScroll = () => {
         if (!scrollRef.current) return;
@@ -30,7 +31,8 @@ export default function ImageCarousel({ images, alt, isFullScreen = false }: Ima
     };
 
     const handleMouseDown = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
-        isDown.current = true;
+        isDrag.current = true;
+        hasDragged.current = false;
         if (!scrollRef.current) return;
         
         const pageX = 'touches' in e ? e.touches[0].pageX : e.pageX;
@@ -39,31 +41,25 @@ export default function ImageCarousel({ images, alt, isFullScreen = false }: Ima
     };
 
     const handleMouseLeave = () => {
-        isDown.current = false;
+        isDrag.current = false;
     };
 
     const handleMouseUp = () => {
-        if (!isDown.current) return;
-        // Delay resetting isDown to let onClickCapture read the dragging state
-        setTimeout(() => {
-            isDown.current = false;
-        }, 0);
+        isDrag.current = false;
         snapToClosest();
     };
 
     const handleMouseMove = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
-        if (!isDown.current || !scrollRef.current) return;
-        // Don't preventDefault unconditionally to keep vertical scrolling possible 
-        // if user swipes up. But for a pure carousel, we prevent native dragging.
+        if (!isDrag.current || !scrollRef.current) return;
+        
         const pageX = 'touches' in e ? e.touches[0].pageX : e.pageX;
         const x = pageX - scrollRef.current.offsetLeft;
+        const walk = (x - startX.current) * 1.5;
         
-        // Prevent link firing if dragging
-        if (Math.abs(x - startX.current) > 5) {
-            e.preventDefault();
+        if (Math.abs(walk) > 5) {
+            hasDragged.current = true;
         }
         
-        const walk = (x - startX.current) * 1.5; // scroll speed
         scrollRef.current.scrollLeft = scrollLeft.current - walk;
     };
 
@@ -77,11 +73,11 @@ export default function ImageCarousel({ images, alt, isFullScreen = false }: Ima
         });
     };
 
-    // To prevent clicking the link when user is just dragging
     const handleCaptureClick = (e: React.MouseEvent) => {
-        if (isDown.current) {
+        if (hasDragged.current) {
             e.preventDefault();
             e.stopPropagation();
+            hasDragged.current = false;
         }
     };
 

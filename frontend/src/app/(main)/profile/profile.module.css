@@ -53,7 +53,7 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 16px 24px 24px;
+    padding: 16px 16px 20px;
 }
 
 .avatarContainer {
@@ -62,37 +62,37 @@
 }
 
 .avatar {
-    width: 110px;
-    height: 110px;
+    width: 90px;
+    height: 90px;
     border-radius: 50%;
     object-fit: cover;
-    border: 4px solid var(--surface, #FFFFFF);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02);
+    border: 3px solid var(--surface, #FFFFFF);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.02);
 }
 
 .verifiedBadge {
     position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 28px;
-    height: 28px;
+    bottom: 2px;
+    right: 2px;
+    width: 22px;
+    height: 22px;
     background: var(--brand-green, #2ecc71);
-    border: 3px solid var(--bg-base, #F5F6F8);
+    border: 2px solid var(--bg-base, #F5F6F8);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.4);
+    box-shadow: 0 2px 6px rgba(46, 204, 113, 0.4);
 }
 
 .verifiedBadge svg {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     fill: white;
 }
 
 .fullName {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 800;
     letter-spacing: -0.02em;
     margin-bottom: 4px;
@@ -102,7 +102,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     margin-bottom: 12px;
 }
@@ -111,7 +111,7 @@
     color: var(--brand-green, #2ecc71);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .dot {
@@ -132,19 +132,19 @@
 }
 
 .bio {
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.4;
     color: var(--text-secondary, #7A7D85);
     max-width: 300px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .editProfileBtn {
     background: var(--surface, #FFFFFF);
     border: 1px solid rgba(0,0,0,0.05);
-    padding: 10px 24px;
+    padding: 8px 20px;
     border-radius: 40px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--text-main, #000000);
     box-shadow: 0 2px 8px rgba(0,0,0,0.02);
@@ -162,9 +162,9 @@
 .statsContainer {
     display: flex;
     justify-content: center;
-    gap: 32px;
+    gap: 24px;
     width: 100%;
-    padding-bottom: 24px;
+    padding-bottom: 20px;
 }
 
 .statItem {
@@ -174,7 +174,7 @@
 }
 
 .statValue {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 800;
     color: var(--text-main, #000000);
 }
@@ -236,19 +236,18 @@
 
 .postsGrid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 8px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    padding: 2px;
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px) + 20px);
 }
 
 .gridItem {
-    aspect-ratio: 3 / 4;
-    border-radius: 16px;
+    aspect-ratio: 1;
+    border-radius: 4px;
     overflow: hidden;
     position: relative;
     background: var(--surface, #FFFFFF);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02);
     cursor: pointer;
     display: block;
 }
@@ -274,8 +273,10 @@
     border-radius: 8px;
     display: flex;
     align-items: center;
-    gap: 2px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-main, #000000);
 }
 
 .postRating svg {
@@ -284,8 +285,90 @@
     fill: #FFC107;
 }
 
-.postRating span {
+.pendingBadge {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    padding: 4px 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
     font-size: 11px;
-    font-weight: 800;
-    color: var(--text-main, #000000);
+    font-weight: 600;
+    color: white;
+    z-index: 2;
+}
+
+.rejectedBadge {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgb(231, 76, 60);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    z-index: 2;
+}
+
+.pendingOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 1;
+}
+
+.rejectedOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(231, 76, 60, 0.2);
+    z-index: 1;
+}
+
+@media (max-width: 400px) {
+    .statsContainer {
+        flex-direction: row;
+        gap: 16px;
+    }
+
+    .statItem {
+        margin-bottom: 0px;
+    }
+
+    .statValue {
+        font-size: 16px;
+    }
+
+    .statLabel {
+        font-size: 10px;
+    }
+
+    .tab {
+        font-size: 14px;
+        padding: 12px 0;
+    }
+
+    .tabActive {
+        font-size: 14px;
+        padding: 12px 0;
+    }
+
+    .postsGrid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2px;
+        padding: 2px;
+    }
 }

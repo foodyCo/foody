@@ -17,10 +17,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 try {
                     const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
                     
+                    // Отправляем 'username' вместо 'email', потому что Django по умолчанию для аутентификации использует username field.
                     const response = await fetch(`${API_URL}/auth/token/`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ email, password }),
+                        body: JSON.stringify({ username: email, password }),
                     });
 
                     if (!response.ok) return null;

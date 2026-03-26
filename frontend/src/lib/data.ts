@@ -28,6 +28,7 @@ export interface Dish {
     description: string;
     userRating: number;
     matchScore: number;
+    price?: number;
     author: User;
     restaurant: Restaurant;
     stats: {
@@ -44,6 +45,8 @@ export interface Dish {
     latestPost?: any;
     isLiked?: boolean;
     isSaved?: boolean;
+    status?: string;
+    rejection_reason?: string;
 }
 
 export const MOCK_USERS: User[] = [

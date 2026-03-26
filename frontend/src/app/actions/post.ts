@@ -25,9 +25,14 @@ export async function createPost(formData: FormData) {
     const newFormData = new FormData();
     newFormData.append("dish_name", title);
     newFormData.append("description", description);
-    newFormData.append("taste", ratingValue.toString());
-    newFormData.append("appearance", ratingValue.toString());
-    newFormData.append("satiety", ratingValue.toString());
+    newFormData.append("rating", ratingValue.toString());
+    
+    // Add price if it exists
+    const priceStr = formData.get("price") as string;
+    const priceValue = parseFloat(priceStr);
+    if (!isNaN(priceValue)) {
+        newFormData.append("price", priceStr);
+    }
     
     const restName = (formData.get("restaurantName") as string)?.trim() || "Неизвестно";
     newFormData.append("restaurant_name", restName);
@@ -205,6 +210,7 @@ export async function getGroupedDishDetails(title: string, restaurantName: strin
         return {
             title,
             restaurantName,
+            restaurantId: first.restaurant.id,
             restaurantAddress: first.restaurant.address,
             category: "Все",
             weightedRating: first.userRating,
@@ -226,4 +232,83 @@ export async function getGroupedDishDetails(title: string, restaurantName: strin
         console.error("Error fetching grouped dish details:", error);
         return null;
     }
+}
+
+export async function getFollowingPosts(accessToken?: string) {
+    try {
+        const options: any = {};
+        if (accessToken) {
+            options.headers = {
+                "Authorization": `Bearer ${accessToken}`
+            };
+        }
+        
+        const response = await apiRequest("/posts/following/", options);
+        // Assuming your backend returns paginated results { results: [...] } or just an array
+        const results = Array.isArray(response?.results) ? response.results : (Array.isArray(response) ? response : []);
+        return results.map(mapDjangoPostToDish);
+    } catch (error) {
+        console.error("Search following posts error:", error);
+        return [];
+    }
+}
+
+export async function getTags(accessToken?: string) {
+    try {
+        const options: any = {};
+        if (accessToken) options.headers = { "Authorization": `Bearer ${accessToken}` };
+        const data = await apiRequest("/tags/", options);
+        return data?.results || data || [];
+    } catch (error) {
+        console.error("Fetch tags error:", error);
+        return [];
+    }
+}
+
+export async function getCategories(accessToken?: string) {
+    try {
+        const options: any = {};
+        if (accessToken) options.headers = { "Authorization": `Bearer ${accessToken}` };
+        const data = await apiRequest("/categories/", options);
+        return data?.results || data || [];
+    } catch (error) {
+        console.error("Fetch categories error:", error);
+        return [];
+    }
+}
+
+export async function getRestaurant(restaurantId: string | number, accessToken?: string) {
+    const url = `http://backend:8000/api/v1/restaurants/${restaurantId}/`;
+    const headers: Record<string, string> = {};
+    if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    const res = await fetch(url, { headers, cache: 'no-store' });
+    if (!res.ok) {
+        // Fallback to fetch without token if 401/error
+        const resNoToken = await fetch(url, { cache: 'no-store' });
+        if (resNoToken.ok) {
+            return resNoToken.json();
+        }
+        return null;
+    }
+    return res.json();
+}
+
+export async function getRestaurantPosts(restaurantId: string | number, accessToken?: string) {
+    const url = `http://backend:8000/api/v1/posts/?restaurant_id=${restaurantId}`;
+    const headers: Record<string, string> = {};
+    if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    const res = await fetch(url, { headers, cache: 'no-store' });
+    if (!res.ok) {
+        // Fallback to fetch without token if basic user request fails
+        const resNoToken = await fetch(url, { cache: 'no-store' });
+        if (resNoToken.ok) {
+            return resNoToken.json();
+        }
+        return { results: [] };
+    }
+    return res.json();
 }

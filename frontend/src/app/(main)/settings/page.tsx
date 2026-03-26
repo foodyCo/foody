@@ -1,20 +1,31 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { apiRequest, fixMediaUrl } from "@/lib/api";
 import SettingsForm from "./SettingsForm";
 
 export default async function SettingsPage() {
-    const session = await auth();
+    const session = await auth() as any;
 
-    if (!session?.user?.email) {
+    if (!session?.user?.accessToken) {
         redirect("/login");
     }
 
-    // Используем данные из сессии, так как на бэкенде пока нет эндпоинта /users/me/
+    let userProfile = null;
+    try {
+        userProfile = await apiRequest("/users/me/", {
+            headers: { "Authorization": `Bearer ${session.user.accessToken}` }
+        });
+    } catch (e: any) {
+        if (e.message === "UNAUTHORIZED") {
+            redirect("/login");
+        }
+    }
+
     const user = {
-        id: (session.user as any).id || session.user.email,
-        name: session.user.name || "",
-        email: session.user.email,
-        image: session.user.image || ""
+        id: session.user.id || session.user.email,
+        name: userProfile?.full_name || userProfile?.username || session.user.name || "",
+        email: userProfile?.email || session.user.email,
+        image: fixMediaUrl(userProfile?.avatar) || session.user.image || "/default-avatar.svg"
     };
 
     return <SettingsForm user={user as any} />;

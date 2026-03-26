@@ -1,7 +1,7 @@
 "use client";
 
+import React, { useState } from "react";
 import { registerUser } from "@/app/actions/auth";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
@@ -17,8 +17,6 @@ export default function RegisterPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
-    const IMAGE_URL = "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1200&auto=format&fit=crop";
-
     async function handleSubmit(formData: FormData) {
         setIsPending(true);
         setError(null);
@@ -33,110 +31,106 @@ export default function RegisterPage() {
     }
 
     return (
-        <div className={styles.container}>
-            <section className={styles.heroSection}>
-                <img src={IMAGE_URL} alt="Hero background" className={styles.imageBackground} />
-                <div className={styles.overlay}></div>
-                <div className={styles.heroContent}>
-                    <h1 className={styles.whiteLogo}>Foody</h1>
-                    <h2 className={styles.whiteSubtitle}>
-                        Присоединяйтесь к нам, чтобы находить лучшие блюда и заведения
-                    </h2>
-                </div>
-            </section>
+        <>
+            <div className={styles.ambientBg}></div>
+            <div className={styles.noiseOverlay}></div>
 
-            <main className={styles.bottomSheet}>
-                <div className={styles.formContainer}>
+            <div className={styles.authContainer}>
+                
+                <header className={styles.headerContent}>
+                    <h1 className={styles.logoTitle}>Foody</h1>
+                    <p className={styles.subtitle}>
+                        Присоединяйтесь к нам, чтобы находить лучшие блюда и заведения
+                    </p>
+                </header>
+
+                <main className={styles.glassCardBottom}>
                     <form 
                         onSubmit={(e) => {
                             e.preventDefault();
                             handleSubmit(new FormData(e.currentTarget));
                         }} 
-                        className={styles.form}
+                        style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
                     >
-                        <div className={styles.inputGroupWrapper}>
-                            <div className={styles.inputGroup}>
-                                <User className={styles.inputIcon} size={24} />
-                                <input
-                                    className={styles.input}
-                                    id="name"
-                                    type="text"
-                                    name="name"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="Ваше имя"
-                                    required
-                                />
-                            </div>
+                        <div className={styles.glassInputWrapper}>
+                            <User className={styles.inputIcon} />
+                            <input
+                                id="name"
+                                type="text"
+                                name="name"
+                                className={styles.glassInput}
+                                value={name}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+                                placeholder="Ваше имя"
+                                required
+                            />
                         </div>
 
-                        <div className={styles.inputGroupWrapper}>
-                            <div className={styles.inputGroup}>
-                                <Mail className={styles.inputIcon} size={24} />
-                                <input
-                                    className={styles.input}
-                                    id="email"
-                                    type="email"
-                                    name="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="Электронная почта"
-                                    required
-                                />
-                            </div>
+                        <div className={styles.glassInputWrapper}>
+                            <Mail className={styles.inputIcon} />
+                            <input
+                                id="email"
+                                type="email"
+                                name="email"
+                                className={styles.glassInput}
+                                value={email}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                                placeholder="Электронная почта"
+                                required
+                            />
                         </div>
                         
-                        <div className={styles.inputGroupWrapper}>
-                            <div className={styles.inputGroup}>
-                                <Lock className={styles.inputIcon} size={24} />
-                                <input
-                                    className={styles.input}
-                                    id="password"
-                                    type={showPassword ? "text" : "password"}
-                                    name="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Надежный пароль"
-                                    required
-                                    minLength={6}
-                                />
-                                <button
-                                    type="button"
-                                    className={styles.eyeButton}
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    tabIndex={-1}
-                                >
-                                    {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
-                                </button>
-                            </div>
+                        <div className={`${styles.glassInputWrapper} ${styles.glassInputWrapperMb3}`}>
+                            <Lock className={styles.inputIcon} />
+                            <input
+                                id="password"
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                className={`${styles.glassInput} ${styles.glassInputPassword}`}
+                                value={password}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                                minLength={6}
+                            />
+                            <button
+                                type="button"
+                                className={styles.eyeBtn}
+                                onClick={() => setShowPassword(!showPassword)}
+                                tabIndex={-1}
+                            >
+                                {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
+                            </button>
                         </div>
 
                         {error && (
-                            <div style={{ color: "red", fontSize: 14, textAlign: "center" }}>{error}</div>
+                            <div style={{ color: "var(--error, #e74c3c)", fontSize: 14, textAlign: "center", marginTop: "12px", fontWeight: 500 }}>
+                                {error}
+                            </div>
                         )}
                         
-                        <div style={{ paddingTop: "8px" }}>
-                            <button 
-                                className={styles.submitBtn} 
-                                type="submit" 
-                                disabled={isPending}
-                            >
-                                {isPending ? "Регистрация..." : "Зарегистрироваться"}
-                            </button>
-                        </div>
+                        <button 
+                            className={styles.glassBtnPrimary} 
+                            type="submit" 
+                            disabled={isPending}
+                        >
+                            {isPending ? "Регистрация..." : "Зарегистрироваться"}
+                        </button>
                         
-                        <div className={styles.bottomLink}>
-                            <p>Уже есть аккаунт? <Link href="/login">Войти</Link></p>
+                        <div className={styles.flexGrow}></div>
+
+                        <div className={styles.bottomContainer}>
+                            <p className={styles.noAccountText}>
+                                Уже есть аккаунт? <Link href="/login" className={styles.registerLink}>Войти</Link>
+                            </p>
+                            
+                            <p className={styles.disclaimerText}>
+                                ПРОДОЛЖАЯ, ВЫ СОГЛАШАЕТЕСЬ С<br />ПОЛИТИКОЙ КОНФИДЕНЦИАЛЬНОСТИ<br />FOODY
+                            </p>
                         </div>
                     </form>
-                </div>
-            </main>
-
-            <footer className={styles.footerWrapper}>
-                <p className={styles.disclaimer}>
-                    Продолжая, вы соглашаетесь с Политикой конфиденциальности Foody
-                </p>
-            </footer>
-        </div>
+                </main>
+            </div>
+        </>
     );
 }

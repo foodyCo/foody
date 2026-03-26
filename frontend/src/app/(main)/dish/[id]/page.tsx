@@ -94,6 +94,12 @@ export default async function DishPage({ params }: { params: Promise<{ id: strin
                     </div>
 
                     <div className={styles.detailCard}>
+                        {dish.status === 'rejected' && (
+                            <div className={styles.rejectionNotice}>
+                                <h3>Пост отклонен</h3>
+                                <p>{dish.rejection_reason || 'Причина не указана.'}</p>
+                            </div>
+                        )}
                         <div className={styles.headerRow}>
                             <h1 className={styles.dishTitle}>{dish.title}</h1>
                             {/* Dummy price conceptually kept, but maybe should just be hidden if unavailable. For now matching design. */}

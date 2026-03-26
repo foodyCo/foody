@@ -1,4 +1,6 @@
+import os
 
+content = """
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -45,6 +47,7 @@ export default function Search() {
     const [tags, setTags] = useState<any[]>([]);
     const [recentSearches, setRecentSearches] = useState<{text: string, type: string}[]>([]);
     
+    // Search state
     const [loading, setLoading] = useState(false);
     const [dishes, setDishes] = useState<Dish[]>([]);
 
@@ -76,6 +79,7 @@ export default function Search() {
             
             setLoading(true);
             try {
+                // In a real app we might pass accessToken down, but let's use what we have
                 const results = await getGroupedSearchDishes(searchQuery);
                 setDishes(results || []);
             } catch (error) {
@@ -123,139 +127,69 @@ export default function Search() {
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'var(--bg-base)' }}>
             <div className={styles.ambientBg}></div>
 
-            {searchQuery.trim() || isFocused ? (
-                <div className={styles.searchHeaderContainer}>
-                    <header className={styles.searchHeader}>
-                        <button 
-                            className={styles.headerActionBtn} 
-                            onClick={() => {
-                                setIsFocused(false);
-                                setSearchQuery("");
-                            }}
-                        >
-                            <svg viewBox="0 0 24 24"><path d="M19 12H5m7 7l-7-7 7-7"/></svg>
-                        </button>
+            <header className={styles.searchHeader} data-focus={isFocused ? "true" : "false"}>
+                <button 
+                    className={styles.headerActionBtn} 
+                    onClick={() => {
+                        if (isFocused || searchQuery) {
+                            setIsFocused(false);
+                            setSearchQuery("");
+                        } else {
+                            router.back();
+                        }
+                    }}
+                >
+                    <svg viewBox="0 0 24 24"><path d="M19 12H5m7 7l-7-7 7-7"/></svg>
+                </button>
 
-                        <div className={styles.omnibox}>
-                            <svg className={styles.omniboxIcon} viewBox="0 0 24 24">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                            </svg>
-                            
-                            <input 
-                                type="text" 
-                                className={styles.omniboxInput} 
-                                placeholder="Найти блюдо, место или человека..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onFocus={() => setIsFocused(true)}
-                                onBlur={() => {
-                                    setTimeout(() => setIsFocused(false), 200);
-                                }}
-                                onKeyDown={handleKeyDown}
-                                autoFocus={isFocused}
-                            />
-                            
-                            {searchQuery && (
-                                <button className={styles.clearBtn} onClick={() => setSearchQuery("")}>
-                                    <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
-                                </button>
-                            )}
-                        </div>
-                    </header>
-
-                    {searchQuery.trim() && (
-                        <div className={styles.quickFilters}>
-                            <div className={`${styles.filterChip} ${styles.filterChipActive}`}>
-                                <svg viewBox="0 0 24 24"><path d="M3 6h18M6 12h12m-9 6h6"></path></svg>
-                                Фильтры
-                            </div>
-                            <div className={styles.filterChip}>⭐ 4+</div>
-                            <div className={styles.filterChip}>Рядом (до 2 км)</div>
-                            <div className={styles.filterChip}>Открыто сейчас</div>
-                            <div className={styles.filterChip}>До 1000 ₽</div>
-                        </div>
-                    )}
-                </div>
-            ) : (
-                <header className={styles.searchHeaderWithoutFilters}>
-                    <button 
-                        className={styles.headerActionBtn} 
-                        onClick={() => router.back()}
-                    >
-                        <svg viewBox="0 0 24 24"><path d="M19 12H5m7 7l-7-7 7-7"/></svg>
-                    </button>
-
-                    <div className={styles.omnibox}>
-                        <svg className={styles.omniboxIcon} viewBox="0 0 24 24">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                <div className={styles.omnibox}>
+                    <svg className={styles.omniboxIcon} viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    
+                    <input 
+                        type="text" 
+                        className={styles.omniboxInput} 
+                        placeholder="Найти блюдо, место или человека..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => {
+                            // delayed blur so clicks on recents register
+                            setTimeout(() => setIsFocused(false), 200);
+                        }}
+                        onKeyDown={handleKeyDown}
+                    />
+                    
+                    <button className={styles.mapBtn}>
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
                         </svg>
-                        
-                        <input 
-                            type="text" 
-                            className={styles.omniboxInput} 
-                            placeholder="Найти блюдо, место или человека..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onFocus={() => setIsFocused(true)}
-                        />
-                        
-                        <button className={styles.mapBtn}>
-                            <svg viewBox="0 0 24 24">
-                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                <circle cx="12" cy="10" r="3"></circle>
-                            </svg>
-                        </button>
-                    </div>
-                </header>
-            )}
+                    </button>
+                </div>
+            </header>
 
             <main className={styles.mainContent}>
                 
                 {searchQuery.trim() ? (
-                    <>
-                        <div className={styles.resultsMeta}>
-                            <h2 className={styles.resultsTitle}>Посты</h2>
-                            <span className={styles.resultsCount}>{dishes.length} результатов</span>
+                    <section>
+                        <div className={styles.sectionHeader}>
+                            <h3 className={styles.sectionTitle}>Результаты для "{searchQuery}"</h3>
                         </div>
                         {loading ? (
                             <div style={{ textAlign: "center", padding: "20px" }}>Загрузка...</div>
                         ) : dishes.length > 0 ? (
-                            <div className={styles.resultsGrid}>
-                                {dishes.map((dish) => (
-                                    <div key={dish.id} className={styles.resultCard} onClick={() => router.push(`/dish/${dish.id}`)}>
-                                        <div className={styles.cardMedia}>
-                                            <img src={dish.imageUrl || "https://images.unsplash.com/photo-1555126634-323283e090fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80"} alt={dish.title} />
-                                            <div className={styles.ratingBadge}>
-                                                <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path></svg>
-                                                <span>{dish.userRating || 0}</span>
-                                            </div>
-                                            <button className={`${styles.bookmarkBtn} ${dish.isSaved ? styles.saved : ''}`}>
-                                                <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-                                            </button>
-                                        </div>
-                                        <div className={styles.cardInfo}>
-                                            <h3 className={styles.dishName}>{dish.title}</h3>
-                                            <div className={styles.dishPrice}>{dish.price ? `${dish.price} ₽` : "--- ₽"}</div>
-                                            <div className={styles.placeMeta}>
-                                                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
-                                                {dish.restaurant?.name || "Неизвестно"} • 1.2 км
-                                            </div>
-                                            <div className={styles.authorMeta}>
-                                                <img src={dish.author?.avatar || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80"} alt="Author" />
-                                                <span>{dish.author?.username || "Пользователь"}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            dishes.map((dish) => (
+                                <RestaurantCard key={dish.id} dish={dish} />
+                            ))
                         ) : (
                             <div style={{ textAlign: "center", color: "var(--text-secondary)", marginTop: "40px" }}>
                                 Ничего не найдено
                             </div>
                         )}
-                    </>
+                    </section>
                 ) : (
                     <>
                         {recentSearches.length > 0 && (
@@ -285,10 +219,7 @@ export default function Search() {
                                 </div>
                                 <div className={styles.categoriesGrid}>
                                     {visibleCategories.map(cat => (
-                                        <div key={cat.id} className={styles.categoryChip} onClick={() => {
-                                            setSearchQuery(cat.name);
-                                            setIsFocused(true);
-                                        }}>
+                                        <div key={cat.id} className={styles.categoryChip} onClick={() => setSearchQuery(cat.name)}>
                                             <span className={styles.categoryEmoji}>{getEmoji(cat.name)}</span>
                                             <span className={styles.categoryText}>{cat.name}</span>
                                         </div>
@@ -311,10 +242,7 @@ export default function Search() {
                                 </div>
                                 <div className={styles.tagsWrapper}>
                                     {tags.slice(0, 15).map(tag => (
-                                        <div key={tag.id} className={styles.trendTag} onClick={() => {
-                                            setSearchQuery(`#${tag.name}`);
-                                            setIsFocused(true);
-                                        }}>
+                                        <div key={tag.id} className={styles.trendTag} onClick={() => setSearchQuery(tag.name)}>
                                             <span>#</span>{tag.name}
                                         </div>
                                     ))}
@@ -327,3 +255,7 @@ export default function Search() {
         </div>
     );
 }
+"""
+
+with open('/home/jeka/foodyFront/frontend/src/app/(main)/search/page.tsx', 'w') as f:
+    f.write(content.strip() + "\n")

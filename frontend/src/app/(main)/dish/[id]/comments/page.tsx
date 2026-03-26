@@ -23,12 +23,12 @@ export default async function CommentsPage({ params }: { params: Promise<{ id: s
             comments = rawComments.map((c: any) => ({
                 id: c.id,
                 user: {
-                    id: c.user?.id || 0,
-                    username: c.user?.username || "Аноним",
-                    image: fixMediaUrl(c.user?.avatar) || ""
+                    id: c.user_detail?.id || c.user?.id || c.user || 0,
+                    username: c.user_detail?.username || c.user?.username || "Аноним",
+                    image: fixMediaUrl(c.user_detail?.avatar || c.user?.avatar) || "/default-avatar.svg"
                 },
                 text: c.text,
-                created_at: new Date(c.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
+                created_at: c.created_at ? new Date(c.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : 'Только что',
                 likes: 0
             }));
         } catch (e) {
@@ -50,9 +50,9 @@ export default async function CommentsPage({ params }: { params: Promise<{ id: s
 
     const dishName = postData?.dish?.name || "Название блюда";
     const restaurantName = postData?.restaurant?.name || "Ресторан";
-    const rating = postData?.statistics?.rating_taste?.toFixed(1) || "0.0";
+    const rating = Math.round(postData?.user_rating || postData?.statistics?.rating || 0);
     const coverImage = fixMediaUrl(postData?.images?.[0]?.image) || "https://lh3.googleusercontent.com/aida-public/AB6AXuBoOvekwGy6jO-3Q8OJJRQUJhF_A_C5vcRt6gPPfvd9GjbWwNxy7Wawky5QC1pSCU0ZBQYaocwCw4R6zP5mJXG8c7bCQj-56OO1VsnothrVoKBRL4a97h_mGHezTiqa_ZxK3jhyqsIJUZcwEFVF3eo_WU9oL6QcsI1th6pq80q7jeD3Vz2rkv3fx6k7ocVVWHje19CRcjWb0X6j721tCRrxWOZaNASVILxEtGqWqpqGZ4wZ9Z4GZVmw-RZL6eEunk-1b9BLMsCsgM5v";
-    const myAvatar = session?.user?.image || "https://lh3.googleusercontent.com/aida-public/AB6AXuCbJXyY8qcB2BJfgl3oMVfCtgT8hq3HUBgNO0ehmVvnaJ0Nmn7KPbvTQhN4zsqbWv4VNN_sV2mn9XUGsLYpxoM8cO5nnpshcfLvRphByeK1vvEPn-j3WLldF6RXdLkY9IxM79dUzLssZLokhcmol4K7MMfkRAC9ybmu7akI4vwp2flJPf3W3m8XR2C5Yy9nOZ7P5YEUKZUr_cs3QWRmy9AZZv0sBvvfKStVK0tyyBezwg-3mr9Ki5oPhdI661UvS_jatHv1j-ZCc-74";
+    const myAvatar = session?.user?.image || "/default-avatar.svg";
     
     return (
         <div className={styles.container}>
@@ -72,7 +72,7 @@ export default async function CommentsPage({ params }: { params: Promise<{ id: s
                             <h1 className={styles.dishTitle}>{dishName}</h1>
                             <div className={styles.statsRow}>
                                 <div className={styles.ratingBadge}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '14px', fill: 1 }}>star</span>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: `'FILL' 1` }}>star</span>
                                     <span>{rating}</span>
                                 </div>
                                 <span className={styles.dot}>•</span>

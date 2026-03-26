@@ -4,7 +4,7 @@
     flex-direction: column;
     position: relative;
     margin-bottom: 0;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
@@ -13,23 +13,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: 10px 12px;
 }
 
 .postAuthor {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     text-decoration: none;
 }
 
 .authorAvatar {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     overflow: hidden;
     background: #eee;
-    border: 2px solid rgba(46, 204, 113, 0.1);
+    border: 1px solid rgba(46, 204, 113, 0.1);
     position: relative;
 }
 
@@ -45,19 +45,19 @@
 }
 
 .authorName {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-main);
 }
 
 .authorUsername {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
 }
 
 .moreBtn {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -75,7 +75,7 @@
 .cardMedia {
     display: block;
     width: 100%;
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 1;
     position: relative;
     background: #eee;
 }
@@ -87,17 +87,17 @@
 }
 
 .cardContent {
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .cardHeader {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: var(--spacing-md);
+    gap: 12px;
     text-decoration: none;
     color: inherit;
 }
@@ -107,15 +107,15 @@
 }
 
 .dishName {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
     line-height: 1.2;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     color: var(--text-main);
 }
 
 .restaurantMeta {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-secondary);
     display: flex;
@@ -130,14 +130,14 @@
 }
 
 .dishPrice {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--brand-green);
 }
 
 .postDescription {
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.4;
     color: var(--text-main);
     margin: 0;
 }
@@ -152,19 +152,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .engagementStats {
     display: flex;
-    gap: 16px;
+    gap: 12px;
 }
 
 .stat {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 14px;
+    gap: 4px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-main);
     cursor: pointer;
@@ -175,8 +175,8 @@
 }
 
 .stat svg {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     fill: transparent;
     stroke: var(--text-main);
     stroke-width: 1.8;
@@ -201,8 +201,8 @@
 }
 
 .favoriteBtn svg {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     fill: transparent;
     stroke: var(--text-main);
     stroke-width: 1.8;
