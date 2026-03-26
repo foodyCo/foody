@@ -1,0 +1,92 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Порты базы наружу в продакшене не выставляем для безопасности
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Redis тоже спрятан внутри виртуальной сети Docker
+
+  backend:
+    build: ../../backend
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - django_static:/app/static
+      - django_media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Nginx будет пробрасывать запросы на бэкенд внутри сети Docker, наружу порт не выставляем
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    depends_on:
+      - backend
+    # Nginx также будет проксировать запросы к фронтенду внутри сети
+
+  celery_worker:
+    build: ../../backend
+    command: celery -A config worker -l info
+    env_file:
+      - ../.env
+    depends_on:
+      - db
+      - redis
+
+  celery_beat:
+    build: ../../backend
+    command: celery -A config beat -l info
+    env_file:
+      - ../.env
+    depends_on:
+      - db
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/default.conf.template:/etc/nginx/templates/default.conf.template
+      - django_static:/var/www/static
+      - django_media:/var/www/media
+    environment:
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
+      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  postgres_data:
+  django_static:
+  django_media:
