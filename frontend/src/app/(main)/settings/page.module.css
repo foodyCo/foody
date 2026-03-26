@@ -1,0 +1,242 @@
+.ambientBg {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background-color: var(--bg-base, #F5F6F8);
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(46, 204, 113, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 40%, rgba(65, 131, 255, 0.03) 0%, transparent 40%);
+    filter: blur(30px);
+}
+
+.settingsHeader {
+    display: flex;
+    align-items: center;
+    padding: calc(env(safe-area-inset-top, 16px) + 16px) 24px 16px;
+    position: sticky;
+    top: 0;
+    background: rgba(245, 246, 248, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 100;
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+
+.backBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-left: -8px;
+}
+
+.backBtn svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--text-main, #000000);
+}
+
+.headerTitle {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    flex: 1;
+    text-align: center;
+    margin-right: 24px;
+}
+
+.mainContent {
+    padding: 24px;
+    flex: 1;
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.sectionLabel {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-tertiary, #A0A3AB);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    margin-left: 12px;
+    display: block;
+}
+
+.sectionLabelDanger {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--error-red, #e74c3c);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    margin-left: 12px;
+    display: block;
+}
+
+.settingsGroup {
+    background: var(--surface, #FFFFFF);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.02);
+    margin-bottom: 32px;
+    overflow: hidden;
+}
+
+.settingsItem {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    background: var(--surface, #FFFFFF);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.settingsItem:last-child {
+    border-bottom: none;
+}
+
+.settingsItem:active {
+    background: var(--bg-base, #F5F6F8);
+}
+
+.itemIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--bg-base, #F5F6F8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+}
+
+.itemIcon svg {
+    width: 18px;
+    height: 18px;
+    fill: var(--text-secondary, #7A7D85);
+}
+
+.itemContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.itemTitle {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-main, #000000);
+}
+
+.itemSubtitle {
+    font-size: 13px;
+    color: var(--text-tertiary, #A0A3AB);
+}
+
+.itemAction {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary, #7A7D85);
+}
+
+.itemValue {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--brand-green, #2ecc71);
+}
+
+.itemValueNeutral {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary, #7A7D85);
+}
+
+.chevron svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text-tertiary, #A0A3AB);
+}
+
+.toggleSwitch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: var(--brand-green, #2ecc71);
+    border-radius: 12px;
+    transition: background 0.3s;
+}
+
+.toggleSwitch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 22px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: left 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggleSwitchOff {
+    background: #E0E0E0;
+}
+
+.toggleSwitchOff::after {
+    left: 2px;
+}
+
+.dangerGroup {
+    background: var(--surface, #FFFFFF);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.02);
+    overflow: hidden;
+    margin-bottom: 40px;
+    border: 1px solid rgba(231, 76, 60, 0.1);
+}
+
+.dangerItem {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+
+.dangerItem:last-child {
+    border-bottom: none;
+}
+
+.dangerItem:active {
+    background: var(--error-bg, #fdf0ef);
+}
+
+.dangerTitle {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--error-red, #e74c3c);
+    flex: 1;
+}
+
+.dangerIcon svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--error-red, #e74c3c);
+}
+
+.appVersion {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-tertiary, #A0A3AB);
+    margin-bottom: env(safe-area-inset-bottom, 20px);
+}

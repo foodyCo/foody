@@ -77,20 +77,27 @@ export async function registerUser(formData: FormData) {
 
 export async function authenticate(prevState: string | undefined, formData: FormData) {
     try {
-        await signIn("credentials", {
+        const result = await signIn("credentials", {
             ...Object.fromEntries(formData),
             redirect: false,
         });
+        
+        // В NextAuth v5 signIn с redirect: false может возвращать объект с ошибкой, а не выбрасывать исключение
+        if (result?.error) {
+            return "Неверный email или пароль";
+        }
     } catch (error) {
         if (error instanceof AuthError) {
-            switch (error.type) {
+            switch ((error as any).type) {
                 case "CredentialsSignin":
                     return "Неверный email или пароль";
                 default:
                     return "Произошла ошибка при входе";
             }
         }
-        throw error;
+        // Если это не редирект и не AuthError, логируем и возвращаем ошибку
+        console.error("Auth Exception:", error);
+        return "Неверный email или пароль"; // fallback
     }
 
     redirect("/profile");

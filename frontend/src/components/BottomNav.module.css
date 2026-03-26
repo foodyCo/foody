@@ -1,48 +1,69 @@
-.nav {
+.bottomNav {
     position: fixed;
     bottom: 0;
     left: 0;
-    width: 100%;
-    height: var(--nav-height);
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-top: 1px solid var(--border);
-    z-index: 100;
-    padding-bottom: env(safe-area-inset-bottom);
-}
-
-.container {
+    right: 0;
+    height: calc(var(--nav-height) + var(--safe-bottom));
+    background: var(--surface);
     display: flex;
     justify-content: space-around;
     align-items: center;
-    height: 100%;
-    max-width: 600px;
-    margin: 0 auto;
+    padding-bottom: var(--safe-bottom);
+    border-top: 1px solid rgba(0,0,0,0.05);
+    z-index: 100;
 }
 
-.item {
+.navItem {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: var(--text-secondary);
+    width: 44px;
+    height: 44px;
+    color: var(--text-tertiary);
     text-decoration: none;
-    width: 100%;
-    height: 100%;
-    transition: all 0.2s ease;
-    gap: 4px;
+    transition: transform 0.2s;
 }
 
-.item:active {
-    transform: scale(0.95);
+.navItem:active {
+    transform: scale(0.9);
+}
+
+.navItem svg {
+    width: 26px;
+    height: 26px;
+    fill: currentColor;
 }
 
 .active {
-    color: var(--primary);
+    color: var(--brand-green);
 }
 
-.label {
-    font-size: 10px;
-    font-weight: 500;
+.fabContainer {
+    position: relative;
+    top: -20px;
+    text-decoration: none;
+}
+
+.fab {
+    width: 56px;
+    height: 56px;
+    background: var(--brand-green);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--surface);
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+    transition: transform 0.2s;
+}
+
+.fab:active {
+    transform: scale(0.95);
+}
+
+.fab svg {
+    width: 24px;
+    height: 24px;
+    fill: white;
 }

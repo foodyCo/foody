@@ -1,215 +1,215 @@
-.card {
-    display: block;
-    background: var(--background);
-    border-radius: 0;
+.dishCard {
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    margin-bottom: 0;
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    margin-bottom: 16px;
-    text-decoration: none;
-    color: inherit;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
-.header {
+.postHeader {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     padding: 12px 16px;
 }
 
-.author {
+.postAuthor {
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-.authorLink {
+    gap: 10px;
     text-decoration: none;
-    color: inherit;
-    flex: 1;
-    display: flex;
-    align-items: center;
 }
 
-.avatar {
+.authorAvatar {
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
+    overflow: hidden;
+    background: #eee;
+    border: 2px solid rgba(46, 204, 113, 0.1);
+    position: relative;
+}
+
+.authorAvatar img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
+}
+
+.authorInfo {
+    display: flex;
+    flex-direction: column;
 }
 
 .authorName {
-    font-weight: 600;
     font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
 }
 
-.matchScore {
+.authorUsername {
     font-size: 12px;
-    font-weight: 700;
-    color: var(--primary);
-    background: rgba(46, 204, 113, 0.1);
-    padding: 4px 8px;
-    border-radius: 12px;
+    color: var(--text-secondary);
 }
 
-.imageContainer {
-    position: relative;
+.moreBtn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.moreBtn svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text-secondary);
+}
+
+.cardMedia {
+    display: block;
     width: 100%;
-    aspect-ratio: 4/5;
-    background: var(--surface);
+    aspect-ratio: 4 / 5;
+    position: relative;
+    background: #eee;
 }
 
-.image {
+.cardMedia img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
 }
 
-.imageCounter {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-    z-index: 5;
+.cardContent {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.content {
-    padding: 12px 16px;
-}
-
-.titleRow {
+.cardHeader {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 8px;
+    gap: var(--spacing-md);
+    text-decoration: none;
+    color: inherit;
 }
 
-.title {
+.dishInfo {
+    flex: 1;
+}
+
+.dishName {
     font-size: 18px;
     font-weight: 700;
-    margin-right: 16px;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    color: var(--text-main);
+}
+
+.restaurantMeta {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.restaurantMeta svg {
+    width: 14px;
+    height: 14px;
+    fill: var(--text-secondary);
+}
+
+.dishPrice {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--brand-green);
+}
+
+.postDescription {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-main);
     margin: 0;
 }
 
-.subscribeBtn {
-    background: var(--primary);
-    border: none;
-    color: white;
+.postDescription a {
     font-weight: 600;
-    font-size: 12px;
+    text-decoration: none;
+    color: var(--text-main);
+}
+
+.postActionsBottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+}
+
+.engagementStats {
+    display: flex;
+    gap: 16px;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
     cursor: pointer;
-    margin-left: 12px;
-    padding: 6px 16px;
-    border-radius: 20px;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);
-}
-
-.subscribeBtn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
-}
-
-.subscribeBtn:active {
-    transform: translateY(0);
-}
-
-.subscribeBtn.subscribed {
-    background: var(--surface);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    box-shadow: none;
-}
-
-.likeBtn {
+    text-decoration: none;
     background: none;
     border: none;
-    cursor: pointer;
-    color: var(--text-primary);
-    padding: 4px;
-    transition: transform 0.2s ease;
+    padding: 0;
+}
+
+.stat svg {
+    width: 24px;
+    height: 24px;
+    fill: transparent;
+    stroke: var(--text-main);
+    stroke-width: 1.8;
+}
+
+.statLiked {
+    color: #e74c3c;
+}
+
+.statLiked svg {
+    fill: #e74c3c;
+    stroke: #e74c3c;
+}
+
+.favoriteBtn {
+    background: none;
+    border: none;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.likeBtn:active {
-    transform: scale(1.2);
+.favoriteBtn svg {
+    width: 24px;
+    height: 24px;
+    fill: transparent;
+    stroke: var(--text-main);
+    stroke-width: 1.8;
+    cursor: pointer;
 }
 
-.likeBtn.liked {
-    color: #e74c3c;
-}
-
-.description {
-    font-size: 14px;
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    line-height: 1.5;
-}
-
-.metaRow {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-    gap: 12px;
-}
-
-.rating {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(255, 159, 67, 0.1);
-    padding: 4px 8px;
-    border-radius: 8px;
-}
-
-.ratingLabel {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.ratingValue {
-    font-size: 14px;
-    font-weight: 700;
-    color: #e67e22;
-}
-
-.restaurant {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--text-secondary);
-    font-size: 14px;
-    margin-bottom: 8px;
-}
-
-.stats {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-tertiary);
-    font-size: 13px;
-}
-
-.dot {
-    font-size: 8px;
-}
-
-.tagRow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-    margin-bottom: 8px;
-}
-
-.tagChip {
-    background: rgba(var(--primary-rgb), 0.1);
-    color: var(--primary);
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
+.favoriteBtnActive svg {
+    fill: var(--text-main);
+    stroke: var(--text-main);
 }

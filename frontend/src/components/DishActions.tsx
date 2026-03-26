@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toggleLike } from "@/app/actions/social";
 import { deletePost } from "@/app/actions/post";
-import styles from "../app/dish/[id]/page.module.css";
+import styles from "./DishActions.module.css";
 import { Trash2 } from "lucide-react";
 
 interface DishActionsProps {

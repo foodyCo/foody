@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies 
+# Copying only package.json first allows Docker to cache the npm install step better
+COPY package.json package-lock.json* ./
+
+# Using a faster network config for npm inside Docker/WSL, and installing
+# We reduce maxsockets to prevent WSL2 networking from choking/dropping packets, which causes the exact hang you see
+RUN npm config set maxsockets 3 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm install --no-audit --no-fund --legacy-peer-deps --loglevel verbose
+
+# Provide the rest of the application
+COPY . .
+
+# Start the Next.js development server
+CMD ["npm", "run", "dev"]

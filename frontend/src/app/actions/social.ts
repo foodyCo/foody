@@ -1,65 +1,106 @@
 "use server";
 
-import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { apiRequest } from "@/lib/api";
-import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 
-export async function toggleLike(postId: string) {
-    const session = await auth() as any;
-    if (!session?.user?.accessToken) {
-        redirect("/login");
+export async function toggleLike(dishId: string) {
+    const session = await auth();
+    if (!session?.user?.accessToken) return { error: "Not authenticated" };
+
+    try {
+        const res = await fetch(`http://backend:8000/api/posts/${dishId}/like/`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${(session.user as any).accessToken}`,
+            },
+        });
+        if (!res.ok) throw new Error("Failed to like");
+        revalidatePath(`/dish/${dishId}`);
+        revalidatePath('/');
+        return { success: true };
+    } catch (e: any) {
+        return { error: e.message };
+    }
+}
+
+export async function toggleSave(dishId: string) {
+    const session = await auth();
+    if (!session?.user?.accessToken) return { error: "Not authenticated" };
+
+    try {
+        const res = await fetch(`http://backend:8000/api/posts/${dishId}/favorite/`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${(session.user as any).accessToken}`,
+            },
+        });
+        if (!res.ok) throw new Error("Failed to save");
+        revalidatePath(`/dish/${dishId}`);
+        revalidatePath('/favorites');
+        return { success: true };
+    } catch (e: any) {
+        return { error: e.message };
+    }
+}
+
+export async function getDishComments(dishId: string) {
+    const session = await auth();
+    
+    // Attempt with or without auth depending on backend rules
+    const headers: HeadersInit = {};
+    if (session?.user?.accessToken) {
+        headers["Authorization"] = `Bearer ${(session.user as any).accessToken}`;
     }
 
     try {
-        await apiRequest(`/posts/${postId}/like/`, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${session.user.accessToken}`
-            }
+        const res = await fetch(`http://backend:8000/api/posts/${dishId}/comments/`, {
+            headers,
+            cache: 'no-store'
         });
-
-        revalidatePath("/");
-        revalidatePath(`/dish/${postId}`);
-        revalidatePath("/profile");
-        return { success: true };
-    } catch (error: any) {
-        console.error("Toggle like error:", error);
-        return { error: error.message || "Failed to toggle like" };
+        if (!res.ok) throw new Error("Failed to fetch comments");
+        return await res.json();
+    } catch (e: any) {
+        console.error(e);
+        return [];
     }
 }
 
-export async function toggleSave(postId: string) {
-    const session = await auth() as any;
-    if (!session?.user?.accessToken) {
-        redirect("/login");
-    }
+export async function createComment(dishId: string, text: string) {
+    const session = await auth();
+    if (!session?.user?.accessToken) return { error: "Not authenticated" };
 
     try {
-        await apiRequest(`/posts/${postId}/save_post/`, {
+        const res = await fetch(`http://backend:8000/api/posts/${dishId}/comments/`, {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${session.user.accessToken}`
-            }
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${(session.user as any).accessToken}`,
+            },
+            body: JSON.stringify({ text }),
         });
-
-        revalidatePath("/");
-        revalidatePath(`/dish/${postId}`);
-        revalidatePath("/profile");
-        revalidatePath("/favorites");
+        if (!res.ok) throw new Error("Failed to create comment");
+        revalidatePath(`/dish/${dishId}`);
         return { success: true };
-    } catch (error: any) {
-        console.error("Toggle save error:", error);
-        return { error: error.message || "Failed to toggle save" };
+    } catch (e: any) {
+        return { error: e.message };
     }
 }
 
-export async function toggleFollow(targetUserId: string) {
-    // Подписки пока не реализованы на бэкенде
-    return { error: "Подписки временно недоступны" };
-}
+export async function getCurrentUserAvatar() {
+    const session = await auth();
+    if (!session?.user?.accessToken) return null;
 
-export async function getFriendsPosts(accessToken?: string) {
-    // Получение постов друзей требует системы подписок
-    return [];
+    try {
+        const res = await fetch(`http://backend:8000/api/users/me/`, {
+            headers: {
+                Authorization: `Bearer ${(session.user as any).accessToken}`,
+            },
+            cache: 'no-store'
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.avatar || null;
+    } catch (e: any) {
+        return null;
+    }
 }

@@ -1,0 +1,351 @@
+/* background page layout when modal is open */
+.container {
+    composes: h-screen w-full bg-black relative from global;
+    position: relative;
+    height: 100vh;
+    width: 100vw;
+    background: #000;
+}
+
+.backgroundMain {
+    composes: h-full w-full from global;
+    height: 100%;
+    width: 100%;
+}
+
+.bgWrapper {
+    composes: relative h-full from global;
+    position: relative;
+    height: 100%;
+}
+
+.bgImage {
+    composes: object-cover from global;
+    object-fit: cover;
+}
+
+.bgGradient {
+    composes: absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black from global;
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.5), black);
+}
+
+.bgContent {
+    composes: absolute inset-x-0 bottom-24 p-6 from global;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 6rem;
+    padding: 1.5rem;
+}
+
+.bgCard {
+    composes: flex flex-col gap-3 from global;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.cuisineTag {
+    composes: bg-white/20 backdrop-blur-md rounded-full px-4 py-1.5 text-sm font-medium text-white self-start from global;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(12px);
+    border-radius: 9999px;
+    padding: 0.375rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+    align-self: flex-start;
+}
+
+.dishTitle {
+    composes: text-3xl font-bold text-white from global;
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+}
+
+.statsRow {
+    composes: flex items-center gap-4 text-white/80 from global;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.ratingBadge {
+    composes: flex items-center gap-1 font-semibold text-white from global;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 600;
+    color: white;
+}
+
+.dot {}
+
+.authorBadge {
+    composes: font-medium from global;
+    font-weight: 500;
+}
+
+/* overlay background to dim the post behind comments */
+.overlay {
+    composes: absolute inset-0 bg-black/40 z-40 transition-opacity from global;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 40;
+    transition: opacity 0.3s;
+}
+
+/* bottom sheet style */
+.bottomSheet {
+    composes: fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl flex flex-col transition-transform duration-300 from global;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    background: white;
+    border-top-left-radius: 1.5rem;
+    border-top-right-radius: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    height: 75vh;
+    transform: translateY(100%); /* start out of screen */
+}
+
+/* drag handle */
+.handleBar {
+    composes: flex justify-center pt-3 pb-1 from global;
+    display: flex;
+    justify-content: center;
+    padding-top: 0.75rem;
+    padding-bottom: 0.25rem;
+}
+
+.handleLine {
+    composes: w-12 h-1.5 bg-gray-300 rounded-full from global;
+    width: 3rem;
+    height: 0.375rem;
+    background: #d1d5db;
+    border-radius: 9999px;
+}
+
+/* Modal Header */
+.header {
+    composes: px-6 py-4 flex items-center gap-2 border-b border-gray-100 from global;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.title {
+    composes: font-bold text-lg from global;
+    font-weight: 700;
+    font-size: 1.125rem;
+    margin: 0;
+}
+
+.count {
+    composes: text-gray-500 font-medium text-sm from global;
+    color: #6b7280;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.closeBtn {
+    composes: ml-auto w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 from global;
+    margin-left: auto;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: none;
+    cursor: pointer;
+}
+
+/* Comments List */
+.commentList {
+    composes: flex-1 overflow-y-auto p-6 space-y-6 from global;
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.commentList > * + * {
+    margin-top: 1.5rem;
+}
+
+.commentItem {
+    composes: flex gap-3 from global;
+    display: flex;
+    gap: 0.75rem;
+}
+
+.avatarWrap {
+    composes: relative w-10 h-10 rounded-full overflow-hidden shrink-0 from global;
+    position: relative;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.avatarImg {
+    composes: object-cover from global;
+    object-fit: cover;
+}
+
+.commentBody {
+    composes: flex-1 from global;
+    flex: 1;
+}
+
+.commentHeader {
+    composes: flex items-center gap-2 mb-1 from global;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.username {
+    composes: font-bold text-sm from global;
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+.time {
+    composes: text-xs text-gray-500 from global;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.commentText {
+    composes: text-gray-700 text-sm mb-2 leading-relaxed from global;
+    color: #374151;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.625;
+}
+
+.replyBtn {
+    composes: text-xs font-bold text-gray-500 from global;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6b7280;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.likes {
+    composes: flex flex-col items-center gap-1 shrink-0 from global;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.likeIcon {
+    composes: text-gray-400 from global;
+    color: #9ca3af;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.likedIcon {
+    composes: text-[#ff8000] from global;
+    color: #ff8000;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.likes span {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* INPUT AREA */
+.inputArea {
+    composes: p-4 border-t border-gray-100 flex items-center gap-3 bg-white from global;
+    padding: 1rem;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: white;
+}
+
+.inputMe {
+    composes: relative w-10 h-10 rounded-full overflow-hidden shrink-0 from global;
+    position: relative;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.inputWrap {
+    composes: flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center gap-2 from global;
+    flex: 1;
+    background: #f3f4f6;
+    border-radius: 9999px;
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.input {
+    composes: bg-transparent flex-1 text-sm outline-none placeholder-gray-500 from global;
+    background: transparent;
+    flex: 1;
+    font-size: 0.875rem;
+    outline: none;
+    border: none;
+    color: #111827;
+}
+
+.input:disabled {
+    cursor: not-allowed;
+}
+
+.sendBtn {
+    composes: w-8 h-8 rounded-full bg-[#ff8000] text-white flex items-center justify-center shrink-0 from global;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background: #ff8000;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: none;
+    cursor: pointer;
+}
+
+.sendBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

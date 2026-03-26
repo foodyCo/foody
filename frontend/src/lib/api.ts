@@ -24,6 +24,12 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     });
 
     if (!response.ok) {
+        if (response.status === 401) {
+            // Если токен невалиден или просрочен (401 Unauthorized), 
+            // можем выбросить специальную ошибку или вернуть null/перенаправить:
+            throw new Error("UNAUTHORIZED");
+        }
+        
         let errorMessage = "Произошла ошибка при запросе";
         try {
             const errorData = await response.json();
@@ -42,6 +48,14 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     return response.json();
 }
 
+export function fixMediaUrl(url: string | null | undefined): string {
+    if (!url) return "";
+    if (url.startsWith("http://backend:8000")) {
+        return url.replace("http://backend:8000", "http://localhost:8000");
+    }
+    return url;
+}
+
 export function mapDjangoPostToDish(post: any): Dish {
     const stats = post.statistics || {};
     // Считаем средний рейтинг из трех если они есть, иначе 0
@@ -55,14 +69,15 @@ export function mapDjangoPostToDish(post: any): Dish {
         type: "user_post",
         title: post.dish_name || "Без названия",
         description: post.description || "",
-        imageUrl: post.images?.[0]?.image || "/placeholder.png",
-        images: post.images?.map((img: any) => img.image) || [],
+        imageUrl: fixMediaUrl(post.images?.[0]?.image) || "/placeholder.png",
+        images: post.images?.map((img: any) => fixMediaUrl(img.image)).filter(Boolean) || [],
         userRating: parseFloat(userRating.toFixed(1)),
         matchScore: 0,
         author: {
             id: post.user?.id?.toString() || "unknown",
             name: post.user?.full_name || post.user?.username || "Аноним",
-            avatar: post.user?.avatar || "https://i.pravatar.cc/150",
+            username: post.user?.username || "user",
+            avatar: fixMediaUrl(post.user?.avatar) || "",
             bio: post.user?.bio,
         },
         restaurant: {
@@ -73,6 +88,7 @@ export function mapDjangoPostToDish(post: any): Dish {
         },
         stats: {
             likes: stats.likes_count || 0,
+            comments: stats.comments_count || 0,
             calories: 0,
             protein: 0,
             fat: 0,
@@ -80,5 +96,7 @@ export function mapDjangoPostToDish(post: any): Dish {
         },
         tags: post.tags?.map((t: any) => t.name) || [],
         createdAt: post.created_at,
+        isLiked: post.is_liked || false,
+        isSaved: post.is_saved || false,
     };
 }

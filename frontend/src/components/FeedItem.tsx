@@ -5,26 +5,23 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, MapPin } from "lucide-react";
 import { Dish } from "@/lib/data";
-import { toggleLike, toggleFollow } from "@/app/actions/social";
+import ImageCarousel from "./ImageCarousel";
+import { toggleLike, toggleSave } from "@/app/actions/social";
 import styles from "./FeedItem.module.css";
 
 interface FeedItemProps {
     dish: Dish;
     initialIsLiked?: boolean;
     initialIsSubscribed?: boolean;
+    initialIsSaved?: boolean;
     communityRating?: number;
 }
 
-const FeedItem = ({ dish, initialIsLiked = false, initialIsSubscribed = false, communityRating }: FeedItemProps) => {
-    const [isLiked, setIsLiked] = useState(initialIsLiked);
-    // ...
-    const [isSubscribed, setIsSubscribed] = useState(initialIsSubscribed);
-    const [likesCount, setLikesCount] = useState(dish.stats.likes);
-    const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    const [touchStart, setTouchStart] = useState<number | null>(null);
-    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+const FeedItem = ({ dish, initialIsLiked = false, initialIsSaved = false, initialIsSubscribed = false, communityRating }: FeedItemProps) => {
+    const [isLiked, setIsLiked] = useState(initialIsLiked || dish.isLiked);
+    const [isSaved, setIsSaved] = useState(initialIsSaved || dish.isSaved);
+    const [likesCount, setLikesCount] = useState(dish.stats?.likes || 0);
 
     const { data: session } = useSession();
     const router = useRouter();
@@ -40,20 +37,20 @@ const FeedItem = ({ dish, initialIsLiked = false, initialIsSubscribed = false, c
             return;
         }
 
-        // Optimistic update
         const newIsLiked = !isLiked;
+        // Optimistic update
         setIsLiked(newIsLiked);
         setLikesCount(prev => newIsLiked ? prev + 1 : prev - 1);
 
         const res = await toggleLike(dish.id);
         if (res?.error) {
-            // Revert on error
+            // Revert
             setIsLiked(!newIsLiked);
             setLikesCount(prev => !newIsLiked ? prev + 1 : prev - 1);
         }
     };
 
-    const handleSubscribe = async (e: React.MouseEvent) => {
+    const handleSave = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -62,157 +59,79 @@ const FeedItem = ({ dish, initialIsLiked = false, initialIsSubscribed = false, c
             return;
         }
 
+        const newIsSaved = !isSaved;
         // Optimistic update
-        const newIsSubscribed = !isSubscribed;
-        setIsSubscribed(newIsSubscribed);
+        setIsSaved(newIsSaved);
 
-        const res = await toggleFollow(dish.author.id);
+        const res = await toggleSave(dish.id);
         if (res?.error) {
-            setIsSubscribed(!newIsSubscribed);
+            // Revert
+            setIsSaved(!newIsSaved);
         }
-    };
-
-    const nextImage = (e?: React.MouseEvent) => {
-        e?.preventDefault();
-        e?.stopPropagation();
-        if (currentImageIndex < images.length - 1) {
-            setCurrentImageIndex(prev => prev + 1);
-        }
-    };
-
-    const prevImage = (e?: React.MouseEvent) => {
-        e?.preventDefault();
-        e?.stopPropagation();
-        if (currentImageIndex > 0) {
-            setCurrentImageIndex(prev => prev - 1);
-        }
-    };
-
-    const handleTouchStart = (e: React.TouchEvent) => {
-        setTouchStart(e.targetTouches[0].clientX);
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        setTouchEnd(e.targetTouches[0].clientX);
-    };
-
-    const handleTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        const distance = touchStart - touchEnd;
-        const isLeftSwipe = distance > 50;
-        const isRightSwipe = distance < -50;
-
-        if (isLeftSwipe && currentImageIndex < images.length - 1) {
-            nextImage();
-        }
-        if (isRightSwipe && currentImageIndex > 0) {
-            prevImage();
-        }
-
-        setTouchStart(null);
-        setTouchEnd(null);
     };
 
     return (
-        <div className={styles.card}>
-            <div className={styles.header}>
-                <Link href={dish.author.id === session?.user?.id ? "/profile" : `/users/${dish.author.id}`} className={styles.authorLink}>
-                    <div className={styles.author}>
+        <article className={styles.dishCard}>
+            <div className={styles.postHeader}>
+                <Link href={dish.author?.id === session?.user?.id ? "/profile" : `/users/${dish.author?.id}`} className={styles.postAuthor}>
+                    <div className={styles.authorAvatar}>
                         <Image
-                            src={dish.author.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dish.author.name}`}
-                            alt={dish.author.name}
-                            width={32}
-                            height={32}
+                            src={dish.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dish.author?.name || 'User'}`}
+                            alt={dish.author?.name || "User"}
+                            fill
+                            sizes="36px"
                             className={styles.avatar}
                         />
-                        <span className={styles.authorName}>{dish.author.name}</span>
+                    </div>
+                    <div className={styles.authorInfo}>
+                        <div className={styles.authorName}>{dish.author?.name || "Unknown User"}</div>
+                        <div className={styles.authorUsername}>@{dish.author?.username || dish.author?.name?.toLowerCase().replace(/\s+/g, '') || "user"}</div>
                     </div>
                 </Link>
-                <button
-                    className={`${styles.subscribeBtn} ${isSubscribed ? styles.subscribed : ""}`}
-                    onClick={handleSubscribe}
-                >
-                    {isSubscribed ? "Вы подписаны" : "Подписаться"}
+                <button className={styles.moreBtn}>
+                    <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path></svg>
                 </button>
             </div>
-
-            <div
-                className={styles.imageContainer}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-            >
-                <Link href={`/dish/${dish.id}`} style={{ display: 'block', width: '100%', height: '100%' }}>
-                    <Image
-                        src={images[currentImageIndex]}
-                        alt={dish.title}
-                        fill
-                        className={styles.image}
-                        sizes="(max-width: 768px) 100vw, 600px"
-                        priority
-                    />
-                </Link>
-
-                {images.length > 1 && (
-                    <div className={styles.imageCounter}>
-                        {currentImageIndex + 1}/{images.length}
+            
+            <Link href={`/dish/${dish.id}`} className={styles.cardMedia}>
+                <ImageCarousel images={images} alt={dish.title} />
+            </Link>
+            
+            <div className={styles.cardContent}>
+                <div className={styles.postActionsBottom}>
+                    <div className={styles.engagementStats}>
+                        <button className={`${styles.stat} ${isLiked ? styles.statLiked : ''}`} onClick={handleLike}>
+                            <svg viewBox="0 0 24 24" strokeLinejoin="round" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                            {likesCount}
+                        </button>
+                        <Link href={`/dish/${dish.id}#comments`} className={styles.stat}>
+                            <svg viewBox="0 0 24 24" strokeLinejoin="round" strokeLinecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                            {dish.stats?.comments || 0}
+                        </Link>
                     </div>
-                )}
-
-                {/* Optional: Add click areas for desktop navigation if needed, 
-                    but swipe is requested. We can add arrows later if needed. */}
-            </div>
-
-            <div className={styles.content}>
-                <div className={styles.titleRow}>
-                    <Link href={`/dish/${dish.id}`} style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}>
-                        <h3 className={styles.title}>{dish.title}</h3>
-                    </Link>
-                    <button
-                        className={`${styles.likeBtn} ${isLiked ? styles.liked : ""}`}
-                        onClick={handleLike}
-                    >
-                        <Heart size={24} fill={isLiked ? "#e74c3c" : "none"} stroke={isLiked ? "#e74c3c" : "currentColor"} />
+                    <button className={`${styles.favoriteBtn} ${isSaved ? styles.favoriteBtnActive : ''}`} onClick={handleSave}>
+                        <svg viewBox="0 0 24 24" strokeLinejoin="round" strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
                     </button>
                 </div>
 
-                {dish.description && (
-                    <p className={styles.description}>{dish.description}</p>
-                )}
-
-                <div className={styles.metaRow}>
-                    <div className={styles.rating}>
-                        <span className={styles.ratingLabel}>От автора:</span>
-                        <span className={styles.ratingValue}>{dish.userRating}/10</span>
-                    </div>
-                    {communityRating !== undefined && (
-                        <div className={styles.rating}>
-                            <span className={styles.ratingLabel}>Общая:</span>
-                            <span className={styles.ratingValue}>{communityRating.toFixed(1)}</span>
+                <Link href={`/dish/${dish.id}`} className={styles.cardHeader} style={{ marginTop: '12px' }}>
+                    <div className={styles.dishInfo}>
+                        <h2 className={styles.dishName}>{dish.title}</h2>
+                        <div className={styles.restaurantMeta}>
+                            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
+                            {dish.restaurant?.name || "Неизвестно"} {dish.restaurant?.address ? `· ${dish.restaurant.address}` : ""}
                         </div>
-                    )}
-                </div>
-
-                {dish.tags && dish.tags.length > 0 && (
-                    <div className={styles.tagRow}>
-                        {dish.tags.slice(0, 3).map(tag => (
-                            <span key={tag} className={styles.tagChip}>{tag}</span>
-                        ))}
                     </div>
-                )}
-
-                <div className={styles.restaurant}>
-                    <MapPin size={16} />
-                    <span>{dish.restaurant.name}</span>
-                </div>
-
-                <div className={styles.stats}>
-                    <span>{likesCount} лайков</span>
-                    <span className={styles.dot}>•</span>
-                    <span>{dish.stats.calories} ккал</span>
-                </div>
+                    <div className={styles.dishPrice}>{dish.price ? `$${dish.price}` : "Free"}</div>
+                </Link>
+                
+                <p className={styles.postDescription}>
+                    <Link href={dish.author?.id === session?.user?.id ? "/profile" : `/users/${dish.author?.id}`}>
+                        {dish.author?.username || dish.author?.name?.toLowerCase().replace(/\s+/g, '') || "user"}
+                    </Link> {dish.description || ""}
+                </p>
             </div>
-        </div>
+        </article>
     );
 };
 

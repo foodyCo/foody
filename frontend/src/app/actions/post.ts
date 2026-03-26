@@ -3,49 +3,9 @@
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, mapDjangoPostToDish } from "@/lib/api";
 import { Dish, User } from "@/lib/data";
 
-function mapDjangoPostToDish(post: any): Dish {
-    const stats = post.statistics || {};
-    // Считаем средний рейтинг из трех если они есть, иначе 0
-    const taste = stats.rating_taste || 0;
-    const appearance = stats.rating_appearance || 0;
-    const satiety = stats.rating_satiety || 0;
-    const userRating = (taste + appearance + satiety) / 3 || 0;
-
-    return {
-        id: post.id.toString(),
-        type: "user_post",
-        title: post.dish_name || "Без названия",
-        description: post.description || "",
-        imageUrl: post.images?.[0]?.image || "/placeholder.png",
-        images: post.images?.map((img: any) => img.image) || [],
-        userRating: parseFloat(userRating.toFixed(1)),
-        matchScore: 0, // Пока не реализовано на бэкенде
-        author: {
-            id: post.user?.id?.toString() || "unknown",
-            name: post.user?.full_name || post.user?.username || "Аноним",
-            avatar: post.user?.avatar || "https://i.pravatar.cc/150",
-            bio: post.user?.bio,
-        },
-        restaurant: {
-            id: post.restaurant?.toString() || "unknown",
-            name: post.restaurant_name || "Неизвестно",
-            location: { lat: 0, lng: 0 },
-            address: post.restaurant_address || "",
-        },
-        stats: {
-            likes: stats.likes_count || 0,
-            calories: 0, // Не отдается в PostListSerializer бэкенда пока
-            protein: 0,
-            fat: 0,
-            carbs: 0,
-        },
-        tags: post.tags?.map((t: any) => t.name) || [],
-        createdAt: post.created_at,
-    };
-}
 
 export async function createPost(formData: FormData) {
     const session = await auth() as any;
@@ -54,7 +14,8 @@ export async function createPost(formData: FormData) {
     }
 
     const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
+    const rawDescription = formData.get("description") as string;
+    const description = rawDescription?.trim() ? rawDescription : "Без описания";
     const taste = formData.get("userRating") as string; // Используем как базу для вкуса
     
     // В Django нам нужно 3 оценки. Фронтенд пока дает одну.
@@ -67,8 +28,14 @@ export async function createPost(formData: FormData) {
     newFormData.append("taste", ratingValue.toString());
     newFormData.append("appearance", ratingValue.toString());
     newFormData.append("satiety", ratingValue.toString());
-    newFormData.append("restaurant_name", (formData.get("restaurantName") as string) || "Неизвестно");
-    newFormData.append("restaurant_address", (formData.get("restaurantAddress") as string) || "");
+    
+    const restName = (formData.get("restaurantName") as string)?.trim() || "Неизвестно";
+    newFormData.append("restaurant_name", restName);
+    
+    const restAddress = (formData.get("restaurantAddress") as string)?.trim();
+    if (restAddress) {
+        newFormData.append("restaurant_address", restAddress);
+    }
     
     const category = formData.get("category") as string;
     if (category) {
@@ -87,6 +54,8 @@ export async function createPost(formData: FormData) {
         }
     });
 
+    console.log("Token used for create post:", session?.user?.accessToken ? "Exists" : "Missing");
+
     try {
         await apiRequest("/posts/", {
             method: "POST",
@@ -98,12 +67,11 @@ export async function createPost(formData: FormData) {
 
         revalidatePath("/");
         revalidatePath("/profile");
+        return { success: true };
     } catch (error: any) {
         console.error("Create post error:", error);
         return { error: error.message || "Ошибка при создании поста" };
     }
-
-    redirect("/profile");
 }
 
 export async function deletePost(postId: string) {
@@ -126,6 +94,31 @@ export async function deletePost(postId: string) {
     } catch (error: any) {
         console.error("Delete post error:", error);
         return { error: error.message || "Failed to delete post" };
+    }
+}
+
+export async function createComment(postId: string, text: string) {
+    const session = await auth() as any;
+    if (!session?.user?.accessToken) {
+        return { error: "Unauthorized" };
+    }
+
+    try {
+        const response = await apiRequest(`/posts/${postId}/comments/`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${session.user.accessToken}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ text })
+        });
+
+        revalidatePath(`/dish/${postId}`);
+        revalidatePath(`/dish/${postId}/comments`);
+        return { success: true, data: response };
+    } catch (error: any) {
+        console.error("Create comment error:", error);
+        return { error: error.message || "Failed to add comment" };
     }
 }
 
@@ -152,13 +145,16 @@ export async function getSearchPosts(query?: string, category?: string, accessTo
 
         const data = await apiRequest(endpoint, options);
         
-        const results = data.results || data;
+        const results = data?.results || data;
         
         if (!Array.isArray(results)) return [];
 
         return results.map(mapDjangoPostToDish);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Search error:", error);
+        if (error.message === "UNAUTHORIZED") {
+            throw error; // Перебрасываем 401 наверх, чтобы страницы могли редиректить
+        }
         return [];
     }
 }

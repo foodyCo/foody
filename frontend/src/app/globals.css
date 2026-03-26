@@ -1,36 +1,42 @@
 :root {
   /* Palette */
   --primary: #2ECC71;
-  /* Emerald Green */
   --primary-glow: rgba(46, 204, 113, 0.4);
   --secondary: #3498DB;
-  /* Blue for accents if needed */
 
-  --background: #FFFFFF;
-  /* Pure White */
-  --surface: #F5F5F5;
-  /* Light Gray for cards */
+  --brand-green: #2ecc71; 
+  --brand-green-dark: #27ae60;
+  
+  --bg-base: #F5F6F8;
+  --background: #F5F6F8;
+  --surface: #FFFFFF;
   --surface-highlight: #E0E0E0;
-  /* Pressed/Hover state */
 
-  --text-primary: #1A1A1A;
-  /* Almost Black */
-  --text-secondary: #666666;
-  /* Dark Gray */
-  --text-tertiary: #999999;
-  /* Light Gray */
+  --text-main: #000000;
+  --text-primary: #000000;
+  --text-secondary: #7A7D85;
+  --text-tertiary: #A0A3AB;
 
   --border: #E5E5E5;
+  --shadow-header: 0 8px 24px rgba(0, 0, 0, 0.03);
 
   /* Dimensions */
-  --nav-height: 64px;
+  --nav-height: 80px;
   --header-height: 56px;
+  --safe-bottom: env(safe-area-inset-bottom, 16px);
 
   /* Radius */
+  --radius-pill: 40px;
   --radius-xl: 24px;
   --radius-lg: 16px;
   --radius-md: 12px;
-  --radius-sm: 8px;
+  --radius-sm: 12px;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
 
   /* Animation */
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -40,6 +46,7 @@
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
@@ -47,11 +54,25 @@ html {
 }
 
 body {
-  background-color: var(--background);
-  color: var(--text-primary);
-  font-family: var(--font-outfit), sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow-x: hidden;
   overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ambient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-color: var(--bg-base);
+}
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 a {

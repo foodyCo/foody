@@ -1,6 +1,7 @@
 export interface User {
     id: string;
     name: string;
+    username?: string;
     avatar: string;
     bio?: string;
     stats?: {
@@ -13,6 +14,7 @@ export interface User {
 export interface Restaurant {
     id: string;
     name: string;
+    username?: string;
     location: { lat: number; lng: number };
     address: string;
 }
@@ -30,6 +32,7 @@ export interface Dish {
     restaurant: Restaurant;
     stats: {
         likes: number;
+        comments?: number; // Optional: number of comments on the dish
         calories: number;
         protein: number;
         fat: number;
@@ -70,7 +73,7 @@ export const MOCK_DISHES: Dish[] = [
         matchScore: 98,
         author: MOCK_USERS[0],
         restaurant: MOCK_RESTAURANTS[0],
-        stats: { likes: 120, calories: 850, protein: 45, fat: 50, carbs: 60 },
+        stats: { likes: 120, comments: 10, calories: 850, protein: 45, fat: 50, carbs: 60 },
         tags: ["burger", "meat", "fastfood"],
         createdAt: "2023-10-25T12:00:00Z",
     },
@@ -88,7 +91,7 @@ export const MOCK_DISHES: Dish[] = [
         matchScore: 85,
         author: MOCK_USERS[1],
         restaurant: MOCK_RESTAURANTS[1],
-        stats: { likes: 85, calories: 320, protein: 12, fat: 8, carbs: 45 },
+        stats: { likes: 85, comments: 5, calories: 320, protein: 12, fat: 8, carbs: 45 },
         tags: ["sushi", "japanese", "seafood"],
         createdAt: "2023-10-24T18:30:00Z",
     },
@@ -106,7 +109,7 @@ export const MOCK_DISHES: Dish[] = [
         matchScore: 92,
         author: MOCK_USERS[2],
         restaurant: MOCK_RESTAURANTS[2],
-        stats: { likes: 210, calories: 1200, protein: 50, fat: 60, carbs: 110 },
+        stats: { likes: 210, comments: 20, calories: 1200, protein: 50, fat: 60, carbs: 110 },
         tags: ["pizza", "italian", "cheese"],
         createdAt: "2023-10-26T14:15:00Z",
     },
@@ -123,7 +126,7 @@ export const MOCK_DISHES: Dish[] = [
         matchScore: 78,
         author: MOCK_USERS[0],
         restaurant: MOCK_RESTAURANTS[0],
-        stats: { likes: 150, calories: 950, protein: 60, fat: 55, carbs: 30 },
+        stats: { likes: 150, comments: 15, calories: 950, protein: 60, fat: 55, carbs: 30 },
         tags: ["bbq", "meat", "dinner"],
         createdAt: "2023-10-23T19:00:00Z",
     },
@@ -140,7 +143,7 @@ export const MOCK_DISHES: Dish[] = [
         matchScore: 65,
         author: MOCK_USERS[1],
         restaurant: MOCK_RESTAURANTS[1],
-        stats: { likes: 45, calories: 350, protein: 10, fat: 15, carbs: 40 },
+        stats: { likes: 45, comments: 8, calories: 350, protein: 10, fat: 15, carbs: 40 },
         tags: ["healthy", "vegan", "salad"],
         createdAt: "2023-10-27T10:00:00Z",
     },
