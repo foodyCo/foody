@@ -18,34 +18,30 @@ def update_post_ratings():
     # (Django ORM легко вычисляет среднее значение через агрегацию Group By: Object)
     
     post_averages = PostReview.objects.values('post').annotate(
-        avg_taste=Avg('taste'),
-        avg_appearance=Avg('appearance'),
-        avg_satiety=Avg('satiety')
+        avg_rating=Avg('rating')
     )
-    
+
     # Оптимизированное обновление через bulk_update, чтобы не делать 1 запрос на каждый пост
     stats_to_update = []
-    
+
     with transaction.atomic():
         # Загружаем существующие статистики для обновляемых постов
         post_ids = [item['post'] for item in post_averages]
         existing_stats = {
             stat.post_id: stat for stat in PostStatistics.objects.filter(post_id__in=post_ids)
         }
-        
+
         for item in post_averages:
             post_id = item['post']
             stat_obj = existing_stats.get(post_id)
             if stat_obj:
-                stat_obj.rating_taste = item['avg_taste'] or 0.0
-                stat_obj.rating_appearance = item['avg_appearance'] or 0.0
-                stat_obj.rating_satiety = item['avg_satiety'] or 0.0
+                stat_obj.rating = item['avg_rating'] or 0.0
                 stats_to_update.append(stat_obj)
-        
+
         if stats_to_update:
             PostStatistics.objects.bulk_update(
-                stats_to_update, 
-                ['rating_taste', 'rating_appearance', 'rating_satiety']
+                stats_to_update,
+                ['rating']
             )
 
     return f"Updated {len(stats_to_update)} post rating statistics."

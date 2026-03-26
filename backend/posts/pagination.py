@@ -1,4 +1,4 @@
-from rest_framework.pagination import CursorPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination
 from django.conf import settings
 
 class StandardResultsCursorPagination(CursorPagination):
@@ -11,3 +11,12 @@ class StandardResultsCursorPagination(CursorPagination):
     page_size = settings.REST_FRAMEWORK.get('PAGE_SIZE', 10)
     ordering = '-created_at'
     cursor_query_param = 'cursor'
+
+
+class ModerationPagination(PageNumberPagination):
+    """
+    Постраничная пагинация для очереди модерации.
+    Используем PageNumberPagination (не Cursor), т.к. модератор листает страницы вперёд/назад.
+    """
+    page_size = settings.MODERATION_PAGE_SIZE
+    page_size_query_param = 'page_size'

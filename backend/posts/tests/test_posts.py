@@ -1,6 +1,6 @@
 import pytest
 from django.urls import reverse
-from posts.models import Post, PostLike, PostSave, PostStatistics, PostReview, Restaurant, Dish
+from posts.models import Post, PostLike, PostSave, PostStatistics, PostReview, Restaurant, Dish, Comment
 from posts.tasks import update_post_ratings
 from users.models import User
 from rest_framework.test import APIClient
@@ -12,7 +12,7 @@ def api_client():
 @pytest.fixture
 def auth_client(api_client):
     user = User.objects.create_user(username="testuser", email="test@mail.com", password="pwd")
-    response = api_client.post(reverse('token_obtain_pair'), {"username": "testuser", "password": "pwd"})
+    response = api_client.post(reverse('token_obtain_pair'), {"email": "test@mail.com", "password": "pwd"})
     token = response.data['access']
     api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return api_client, user
@@ -30,8 +30,8 @@ class TestPostViews:
         d1 = Dish.objects.create(name="Pizza Margherita", restaurant=res)
         d2 = Dish.objects.create(name="Pasta Carbonara", restaurant=res)
         
-        Post.objects.create(user=user, dish=d1, description="Tidy", price="100.00")
-        Post.objects.create(user=user, dish=d2, description="Creamy", price="150.00")
+        Post.objects.create(user=user, dish=d1, description="Tidy", price="100.00", status=Post.STATUS_APPROVED)
+        Post.objects.create(user=user, dish=d2, description="Creamy", price="150.00", status=Post.STATUS_APPROVED)
         
         # Получение ленты
         url = reverse('post-list')
@@ -58,7 +58,7 @@ class TestPostViews:
         posts = []
         for i in range(25):
             d = Dish.objects.create(name=f"Dish {i}", restaurant=res)
-            posts.append(Post(user=user, dish=d))
+            posts.append(Post(user=user, dish=d, status=Post.STATUS_APPROVED))
             
         Post.objects.bulk_create(posts)
         
@@ -85,9 +85,9 @@ class TestPostViews:
         """
         url = reverse('post-list')
         response = api_client.post(url, {
-            "dish_name": "Test", 
+            "dish_name": "Test",
             "description": "Test",
-            "taste": 5, "appearance": 5, "satiety": 5
+            "rating": 5
         })
         assert response.status_code == 401
         
@@ -104,9 +104,7 @@ class TestPostViews:
             "restaurant_id": res.id,
             "dish_name": "New Awesome Dish",
             "description": "Tasty",
-            "taste": 9.0,
-            "appearance": 8.0,
-            "satiety": 10.0
+            "rating": 9.0,
         }
         
         response = client.post(url, data)
@@ -136,9 +134,7 @@ class TestPostViews:
             "restaurant_id": res.id,
             "dish_name": " Old Dish ", # Специально с пробелами и разным регистром
             "description": "Tasty",
-            "taste": 9.0,
-            "appearance": 8.0,
-            "satiety": 10.0
+            "rating": 9.0,
         }
         
         response = client.post(url, data)
@@ -162,9 +158,7 @@ class TestPostViews:
             "restaurant_address": "New York",
             "dish_name": "Fresh Burger",
             "description": "Tasty",
-            "taste": 9.0,
-            "appearance": 8.0,
-            "satiety": 10.0
+            "rating": 9.0,
         }
         
         response = client.post(url, data)
@@ -190,17 +184,17 @@ class TestPostViews:
         # 1. Нет ни restaurant_id, ни restaurant_name
         data1 = {
             "dish_name": "Burger",
-            "description": "Tasty", "taste": 9.0, "appearance": 8.0, "satiety": 10.0
+            "description": "Tasty", "rating": 9.0
         }
         res1 = client.post(url, data1)
         assert res1.status_code == 400
         assert "restaurant" in str(res1.data)
-        
+
         # 2. Нет dish_name
         res = Restaurant.objects.create(name="Res", address="Addr")
         data2 = {
             "restaurant_id": res.id,
-            "description": "Tasty", "taste": 9.0, "appearance": 8.0, "satiety": 10.0
+            "description": "Tasty", "rating": 9.0
         }
         res2 = client.post(url, data2)
         assert res2.status_code == 400
@@ -214,8 +208,8 @@ class TestPostViews:
         client, user = auth_client
         res = Restaurant.objects.create(name="Test Res", address="Test Addr")
         dish = Dish.objects.create(name="Pizza", restaurant=res)
-        post = Post.objects.create(user=user, dish=dish, description="Tidy")
-        
+        post = Post.objects.create(user=user, dish=dish, description="Tidy", status=Post.STATUS_APPROVED)
+
         url = reverse('post-like', kwargs={'pk': post.id})
         
         # Ставим лайк
@@ -246,23 +240,24 @@ class TestPostViews:
             "dish_name": dish_obj.name,
             "description": "Amazing",
             "price": "1000.00",
-            "taste": 10.0,
-            "appearance": 10.0,
-            "satiety": 8.0,
+            "rating": 9.0,
             "tags_list": ["sushi", "premium", "japan"]
         }
         res_create = client.post(reverse('post-list'), data)
         assert res_create.status_code == 201
         post_id = res_create.data['id']
-        
+
+        # Одобряем пост вручную (обходим модерацию в тесте)
+        Post.objects.filter(id=post_id).update(status=Post.STATUS_APPROVED)
+
         # 2. Ставим лайк и сохраняем в избранное
         client.post(reverse('post-like', kwargs={'pk': post_id}))
         client.post(reverse('post-save-post', kwargs={'pk': post_id}))
-        
+
         # 3. Запрашиваем ленту
         res_list = client.get(reverse('post-list'))
         assert res_list.status_code == 200
-        
+
         post_in_feed = res_list.data['results'][0]
         
         # 4. Проверяем теги
@@ -282,30 +277,30 @@ class TestPostViews:
         только сохраненные посты, посты конкретного пользователя), и использует CursorPagination.
         """
         client, user1 = auth_client
-        user2 = User.objects.create_user(username="u2", password="pwd")
-        
+        user2 = User.objects.create_user(username="u2", email="u2@mail.com", password="pwd")
+
         res = Restaurant.objects.create(name="Food Park", address="Central")
         d1 = Dish.objects.create(name="P1", restaurant=res)
         d2 = Dish.objects.create(name="P2", restaurant=res)
-        
+
         client2 = client.__class__()
-        auth_res = client2.post(reverse('token_obtain_pair'), {"username": "u2", "password": "pwd"})
+        auth_res = client2.post(reverse('token_obtain_pair'), {"email": "u2@mail.com", "password": "pwd"})
         client2.credentials(HTTP_AUTHORIZATION=f"Bearer {auth_res.data['access']}")
         
-        p1 = Post.objects.create(user=user1, dish=d1)
-        p2 = Post.objects.create(user=user2, dish=d2)
+        p1 = Post.objects.create(user=user1, dish=d1, status=Post.STATUS_APPROVED)
+        p2 = Post.objects.create(user=user2, dish=d2, status=Post.STATUS_APPROVED)
         
         # user1 saves p2
         client.post(reverse('post-save-post', kwargs={'pk': p2.id}))
         
         # 1. /my/
-        res_my = client.get(reverse('post-my-posts'))
+        res_my = client.get(reverse('post-my'))
         assert res_my.status_code == 200
         assert len(res_my.data['results']) == 1  # Теперь с пагинацией
         assert res_my.data['results'][0]['id'] == p1.id
         
         # 2. /saved/
-        res_saved = client.get(reverse('post-saved-posts'))
+        res_saved = client.get(reverse('post-saved'))
         assert res_saved.status_code == 200
         assert len(res_saved.data['results']) == 1 # Теперь с пагинацией
         assert res_saved.data['results'][0]['id'] == p2.id
@@ -331,7 +326,7 @@ class TestPostViews:
         
         # Без авторизации на my_posts
         client.logout()
-        res_my_unauth = client.get(reverse('post-my-posts'))
+        res_my_unauth = client.get(reverse('post-my'))
         assert res_my_unauth.status_code == 401
 
     def test_post_statistics_celery_task(self, auth_client):
@@ -347,25 +342,19 @@ class TestPostViews:
         
         res = Restaurant.objects.create(name="Steak House", address="Main St")
         dish = Dish.objects.create(name="Steak", restaurant=res)
-        post = Post.objects.create(user=user1, dish=dish, description="Juicy")
+        post = Post.objects.create(user=user1, dish=dish, description="Juicy", status=Post.STATUS_APPROVED)
         # Initialize stats, this usually happens on post creation implicitly if we use the API, but here we bypassed it.
         # So we manually create the reviews to mimic API behavior:
-        PostReview.objects.create(post=post, user=user1, taste=10, appearance=8, satiety=9)   # sum: 27 / 1 = 27
-        PostReview.objects.create(post=post, user=user2, taste=6, appearance=10, satiety=5)    # sum: 21
-        PostReview.objects.create(post=post, user=user3, taste=8, appearance=6, satiety=10)    # sum: 24
-        
-        
+        PostReview.objects.create(post=post, user=user1, rating=10)
+        PostReview.objects.create(post=post, user=user2, rating=6)
+        PostReview.objects.create(post=post, user=user3, rating=8)
+
         # Вызываем Celery задачу напрямую
         update_post_ratings()
-        
+
         stats = PostStatistics.objects.get(post=post)
-        # taste: (10+6+8)/3 = 8.0
-        # appearance: (8+10+6)/3 = 8.0
-        # satiety: (9+5+10)/3 = 8.0
-        
-        assert stats.rating_taste == 8.0
-        assert stats.rating_appearance == 8.0
-        assert stats.rating_satiety == 8.0
+        # (10 + 6 + 8) / 3 = 8.0
+        assert stats.rating == pytest.approx(8.0)
 
     def test_post_comments_endpoint(self, auth_client):
         """
@@ -376,7 +365,7 @@ class TestPostViews:
         client, user = auth_client
         res = Restaurant.objects.create(name="Bakery", address="Corner")
         dish = Dish.objects.create(name="Cake", restaurant=res)
-        post = Post.objects.create(user=user, dish=dish)
+        post = Post.objects.create(user=user, dish=dish, status=Post.STATUS_APPROVED)
         
         url = reverse('post-comments', kwargs={'pk': post.id})
         
@@ -395,3 +384,68 @@ class TestPostViews:
         res_get_after = client.get(url)
         assert len(res_get_after.data['results']) == 1
         assert res_get_after.data['results'][0]['text'] == "Very tasty!"
+
+
+@pytest.mark.django_db
+class TestDeleteComment:
+
+    @pytest.fixture
+    def setup(self, auth_client):
+        client, user = auth_client
+        res = Restaurant.objects.create(name="R", address="A")
+        dish = Dish.objects.create(name="D", restaurant=res)
+        post = Post.objects.create(user=user, dish=dish, status=Post.STATUS_APPROVED)
+        PostStatistics.objects.get_or_create(post=post)
+        comment = Comment.objects.create(post=post, user=user, text="My comment")
+        return client, user, post, comment
+
+    def test_author_can_delete_own_comment(self, setup):
+        client, user, post, comment = setup
+        url = reverse('post-delete-comment', kwargs={'pk': post.pk, 'comment_pk': comment.pk})
+        response = client.delete(url)
+        assert response.status_code == 204
+        assert not Comment.objects.filter(pk=comment.pk).exists()
+
+    def test_other_user_cannot_delete_comment(self, setup):
+        client, user, post, comment = setup
+        other = User.objects.create_user(username="other", email="other@mail.com", password="pwd")
+        other_client = APIClient()
+        token = other_client.post(reverse('token_obtain_pair'), {"email": "other@mail.com", "password": "pwd"}).data['access']
+        other_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        url = reverse('post-delete-comment', kwargs={'pk': post.pk, 'comment_pk': comment.pk})
+        response = other_client.delete(url)
+        assert response.status_code == 403
+        assert Comment.objects.filter(pk=comment.pk).exists()
+
+    def test_staff_can_delete_any_comment(self, setup):
+        client, user, post, comment = setup
+        staff = User.objects.create_user(username="staff2", email="staff2@mail.com", password="pwd", is_staff=True)
+        staff_client = APIClient()
+        token = staff_client.post(reverse('token_obtain_pair'), {"email": "staff2@mail.com", "password": "pwd"}).data['access']
+        staff_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        url = reverse('post-delete-comment', kwargs={'pk': post.pk, 'comment_pk': comment.pk})
+        response = staff_client.delete(url)
+        assert response.status_code == 204
+        assert not Comment.objects.filter(pk=comment.pk).exists()
+
+    def test_delete_nonexistent_comment_returns_404(self, setup):
+        client, user, post, comment = setup
+        url = reverse('post-delete-comment', kwargs={'pk': post.pk, 'comment_pk': 99999})
+        response = client.delete(url)
+        assert response.status_code == 404
+
+    def test_unauthenticated_cannot_delete_comment(self, setup):
+        _, user, post, comment = setup
+        anon = APIClient()
+        url = reverse('post-delete-comment', kwargs={'pk': post.pk, 'comment_pk': comment.pk})
+        response = anon.delete(url)
+        assert response.status_code == 401
+
+    def test_comments_count_decremented_after_delete(self, setup):
+        """После удаления комментария сигнал уменьшает comments_count."""
+        client, user, post, comment = setup
+        PostStatistics.objects.filter(post=post).update(comments_count=1)
+        url = reverse('post-delete-comment', kwargs={'pk': post.pk, 'comment_pk': comment.pk})
+        client.delete(url)
+        post.statistics.refresh_from_db()
+        assert post.statistics.comments_count == 0

@@ -41,10 +41,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third party
     'rest_framework',
     'corsheaders',
+    'drf_spectacular',
 
     # Local apps
     'users.apps.UsersConfig',
@@ -53,6 +54,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -157,6 +159,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
 
+# Custom Authentication Backends
+AUTHENTICATION_BACKENDS = [
+    'users.auth_backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 # Media Settings (for Avatars & Posts)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -180,10 +188,26 @@ REST_FRAMEWORK = {
     # Обязательная пагинация по размеру страницы (PAGE_SIZE) из ENV
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': get_env_int('PAGE_SIZE', 20),
-    
+
     # Дефолтный поиск по всем вьюхам, где указан filter_backends
     'DEFAULT_FILTER_BACKENDS': ['rest_framework.filters.SearchFilter'],
+
+    # OpenAPI схема через drf-spectacular
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Foody API',
+    'DESCRIPTION': 'Социальная сеть для гастрономических постов',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
+# Максимальная оценка для отзывов (PostReview). Можно изменить через ENV и перезапустить Django.
+MAX_REVIEW_RATING = get_env_int('MAX_REVIEW_RATING', 10)
+
+# Размер страницы для очереди модерации. Можно изменить через ENV и перезапустить Django.
+MODERATION_PAGE_SIZE = get_env_int('MODERATION_PAGE_SIZE', 10)
 
 # JWT Settings
 from datetime import timedelta
@@ -198,12 +222,9 @@ CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
 # Celery Beat tasks scheduling
-
-# Celery Beat tasks scheduling
 CELERY_BEAT_SCHEDULE = {
     'update-post-ratings': {
         'task': 'posts.tasks.update_post_ratings',
         'schedule': float(get_env_time_interval('UPDATE_STATS_INTERVAL', '5m')),
     },
 }
-

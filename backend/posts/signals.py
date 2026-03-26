@@ -49,7 +49,7 @@ def atomic_update_tag_usage(tag_id, increment=True):
     if increment:
         Tag.objects.filter(id=tag_id).update(usage_count=F('usage_count') + 1)
     else:
-        Tag.objects.filter(id=tag_id).update(usage_count=F('usage_count') - 1)
+        Tag.objects.filter(id=tag_id, usage_count__gt=0).update(usage_count=F('usage_count') - 1)
 
 @receiver(post_save, sender=PostTag)
 @receiver(post_save, sender=RestaurantTag)

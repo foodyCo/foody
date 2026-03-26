@@ -1,6 +1,7 @@
 from django.db import transaction
+from django.conf import settings
 from rest_framework import serializers
-from .models import Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, Restaurant, Dish
+from .models import Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, Restaurant, Dish, Category
 from users.serializers import UserSerializer, FeedPostAuthorSerializer
 
 class PostImageSerializer(serializers.ModelSerializer):
@@ -11,22 +12,31 @@ class PostImageSerializer(serializers.ModelSerializer):
 class PostStatisticsSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostStatistics
-        fields = ['likes_count', 'saves_count', 'comments_count', 'rating_taste', 'rating_appearance', 'rating_satiety']
+        fields = ['likes_count', 'saves_count', 'comments_count', 'rating']
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ['id', 'name']
 
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name']
+
 class RestaurantSerializer(serializers.ModelSerializer):
+    categories = CategorySerializer(many=True, read_only=True)
+
     class Meta:
         model = Restaurant
-        fields = ['id', 'name', 'address']
+        fields = ['id', 'name', 'address', 'categories']
 
 class DishSerializer(serializers.ModelSerializer):
+    categories = CategorySerializer(many=True, read_only=True)
+
     class Meta:
         model = Dish
-        fields = ['id', 'name', 'restaurant']
+        fields = ['id', 'name', 'restaurant', 'categories']
 
 class CommentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
@@ -49,13 +59,14 @@ class PostListSerializer(serializers.ModelSerializer):
     dish_name = serializers.CharField(source='dish.name', read_only=True)
     is_liked = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
-    
+    status = serializers.CharField(read_only=True)
+
     class Meta:
         model = Post
         fields = [
-            'id', 'user', 'restaurant', 'restaurant_name', 'dish', 'dish_name', 
-            'description', 'price', 'created_at', 'images', 'statistics', 
-            'tags', 'is_liked', 'is_saved'
+            'id', 'user', 'restaurant', 'restaurant_name', 'dish', 'dish_name',
+            'description', 'price', 'created_at', 'images', 'statistics',
+            'tags', 'is_liked', 'is_saved', 'status'
         ]
 
     def get_is_liked(self, obj):
@@ -90,9 +101,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    taste = serializers.FloatField(write_only=True, min_value=0.0, max_value=10.0, required=True)
-    appearance = serializers.FloatField(write_only=True, min_value=0.0, max_value=10.0, required=True)
-    satiety = serializers.FloatField(write_only=True, min_value=0.0, max_value=10.0, required=True)
+    rating = serializers.FloatField(write_only=True, min_value=0.0, max_value=settings.MAX_REVIEW_RATING, required=True)
     
     # Новые поля для динамического создания ресторанов и блюд
     dish_name = serializers.CharField(write_only=True, max_length=50)
@@ -103,8 +112,8 @@ class PostCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'dish_name', 'description', 'price', 'uploaded_images', 
-            'tags_list', 'taste', 'appearance', 'satiety', 
+            'id', 'dish_name', 'description', 'price', 'uploaded_images',
+            'tags_list', 'rating',
             'restaurant_id', 'restaurant_name', 'restaurant_address'
         ]
         
@@ -117,9 +126,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
         tags_list = validated_data.pop('tags_list', [])
-        taste = validated_data.pop('taste')
-        appearance = validated_data.pop('appearance')
-        satiety = validated_data.pop('satiety')
+        rating = validated_data.pop('rating')
         
         # Данные ресторана и блюда
         restaurant_id = validated_data.pop('restaurant_id', None)
@@ -137,9 +144,10 @@ class PostCreateSerializer(serializers.ModelSerializer):
             except Restaurant.DoesNotExist:
                 raise serializers.ValidationError({"restaurant_id": "Ресторан с таким ID не существует."})
         elif restaurant_name:
-            # Создаем или получаем ресторан по имени (и адресу, если передан)
+            # Нормализуем имя (strip) перед поиском/созданием, чтобы избежать дублей из-за пробелов
+            clean_restaurant_name = restaurant_name.strip()
             restaurant, _ = Restaurant.objects.get_or_create(
-                name=restaurant_name,
+                name=clean_restaurant_name,
                 defaults={'address': restaurant_address}
             )
         else:
@@ -171,9 +179,40 @@ class PostCreateSerializer(serializers.ModelSerializer):
         PostReview.objects.create(
             post=post,
             user=user,
-            taste=taste,
-            appearance=appearance,
-            satiety=satiety
+            rating=rating
         )
-            
+
         return post
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+        Редактирование pending/rejected поста. Статус сбрасывается в pending автоматически в вьюхе.
+        Разрешено менять description, price, tags. Ресторан, блюдо и рейтинг не меняются.
+        """
+        validated_data.pop('uploaded_images', None)
+        validated_data.pop('rating', None)
+        validated_data.pop('restaurant_id', None)
+        validated_data.pop('restaurant_name', None)
+        validated_data.pop('restaurant_address', None)
+        validated_data.pop('dish_name', None)
+
+        tags_list = validated_data.pop('tags_list', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.status = Post.STATUS_PENDING
+        instance.moderated_by = None
+        instance.moderated_at = None
+        instance.save()
+
+        if tags_list is not None:
+            # Заменяем теги: удаляем старые, создаём новые
+            instance.tags.through.objects.filter(post=instance).delete()
+            for tag_name in tags_list:
+                tag_name = tag_name.strip().lower()
+                if tag_name:
+                    tag, _ = Tag.objects.get_or_create(name=tag_name)
+                    PostTag.objects.create(post=instance, tag=tag)
+
+        return instance

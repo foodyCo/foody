@@ -1,11 +1,12 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter
 from django.db.models import Prefetch
 
 from ..models import Post, PostLike, PostSave
-from ..serializers import PostListSerializer, PostCreateSerializer, CommentSerializer
+from ..serializers import PostListSerializer, PostCreateSerializer
 from ..pagination import StandardResultsCursorPagination
 
 class BasePostViewSet(viewsets.ModelViewSet):
@@ -24,15 +25,21 @@ class BasePostViewSet(viewsets.ModelViewSet):
         """
         Возвращает базовый QuerySet для постов с оптимизацией N+1 запросов.
         Если пользователь авторизован, подгружает его лайки и сохранения.
+        my_posts: показывает все посты автора (включая pending/rejected).
+        Остальные экшены: только одобренные посты.
         """
         user = self.request.user
-        posts_queryset = Post.objects.select_related('user', 'statistics').prefetch_related('images', 'tags')
+        posts_queryset = Post.objects.select_related('user', 'statistics', 'restaurant', 'dish').prefetch_related('images', 'tags')
         if user.is_authenticated:
             posts_queryset = posts_queryset.prefetch_related(
                 Prefetch('likes', queryset=PostLike.objects.filter(user=user), to_attr='prefetched_likes'),
                 Prefetch('saves', queryset=PostSave.objects.filter(user=user), to_attr='prefetched_saves')
             )
-        return posts_queryset.order_by('-created_at')
+        # my_posts: пользователь видит свои посты любого статуса
+        if hasattr(self, 'action') and self.action == 'my_posts':
+            return posts_queryset.order_by('-created_at')
+        # все остальные экшены: только одобренные посты
+        return posts_queryset.filter(status=Post.STATUS_APPROVED).order_by('-created_at')
 
     def get_serializer_class(self):
         """
@@ -45,11 +52,33 @@ class BasePostViewSet(viewsets.ModelViewSet):
         # Для POST, PUT, PATCH используем чисто валидационный сериализатор
         return PostCreateSerializer
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='my')
+    def destroy(self, request, *args, **kwargs):
+        """
+        Удаление постов (может только автор или стаф)
+        """
+        post = get_object_or_404(Post, pk=kwargs['pk'])
+        if not request.user.is_staff and post.user != request.user:
+            return Response({'error': 'Нельзя удалить чужой пост'}, status=status.HTTP_403_FORBIDDEN)
+
+        post.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Автор может редактировать свой pending/rejected пост.
+        После редактирования статус сбрасывается обратно в pending (пост уходит на повторную модерацию).
+        """
+        post = get_object_or_404(Post, pk=kwargs['pk'], user=request.user)
+        serializer = PostCreateSerializer(post, data=request.data, partial=True, context=self.get_serializer_context())
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(PostListSerializer(post, context=self.get_serializer_context()).data)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='my', url_name='my')
     def my_posts(self, request):
         """
         Возвращает список постов, созданных текущим авторизованным пользователем.
-        Урл остается /api/posts/my/ для совместимости с фронтендом.
+        Включает посты любого статуса (pending, rejected, approved).
         """
         user_posts_queryset = self.filter_queryset(self.get_queryset().filter(user=request.user))
         
@@ -63,11 +92,11 @@ class BasePostViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(user_posts_queryset, many=True)
         return Response(serializer.data)
         
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='saved')
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='saved', url_name='saved')
     def saved_posts(self, request):
         """
         Возвращает список постов, которые текущий пользователь добавил в сохраненное.
-        Урл остается /api/posts/saved/ для совместимости.
+        Только одобренные посты (pending/rejected в сохраненные попасть не могут).
         """
         saved_posts_queryset = self.filter_queryset(self.get_queryset().filter(saves__user=request.user))
         
@@ -79,7 +108,7 @@ class BasePostViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(saved_posts_queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_name='user-posts')
     def user_posts(self, request):
         """
         Возвращает список постов (ленту) конкретного пользователя по параметру user_id.

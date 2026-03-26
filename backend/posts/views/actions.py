@@ -1,7 +1,7 @@
 from rest_framework import status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from ..models import PostLike, PostSave
+from ..models import PostLike, PostSave, Comment
 from ..serializers import CommentSerializer
 
 class PostActionsMixin:
@@ -33,6 +33,25 @@ class PostActionsMixin:
         serializer.is_valid(raise_exception=True)
         serializer.save(user=request.user, post=post)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path='comments/(?P<comment_pk>[^/.]+)',
+            permission_classes=[permissions.IsAuthenticated])
+    def delete_comment(self, request, pk=None, comment_pk=None):
+        """
+        Удаляет комментарий. Автор может удалить свой, стаф — любой.
+        Сигнал on_comment_deleted атомарно уменьшит comments_count.
+        """
+        post = self.get_object()
+        try:
+            comment = Comment.objects.get(pk=comment_pk, post=post)
+        except Comment.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if comment.user != request.user and not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):

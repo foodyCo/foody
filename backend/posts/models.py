@@ -11,10 +11,22 @@ class Tag(models.Model):
     def __str__(self):
         return self.name
 
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True, db_index=True, verbose_name='Название категории')
+
+    class Meta:
+        verbose_name = 'Категория'
+        verbose_name_plural = 'Категории'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
 class Restaurant(models.Model):
     name = models.CharField(max_length=255, db_index=True, verbose_name='Название ресторана')
     address = models.CharField(max_length=100, verbose_name='Адрес')
     tags = models.ManyToManyField(Tag, through='RestaurantTag', related_name='restaurants', verbose_name='Теги ресторана')
+    categories = models.ManyToManyField('Category', through='RestaurantCategory', related_name='restaurants', blank=True, verbose_name='Категории ресторана')
 
     class Meta:
         verbose_name = 'Ресторан'
@@ -23,6 +35,13 @@ class Restaurant(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.address})"
+
+class RestaurantCategory(models.Model):
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('restaurant', 'category')
 
 class RestaurantTag(models.Model):
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
@@ -39,6 +58,7 @@ class Dish(models.Model):
     name = models.CharField(max_length=50, db_index=True, verbose_name='Название блюда')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='dishes', verbose_name='Ресторан')
     tags = models.ManyToManyField(Tag, through='DishTag', related_name='dishes', verbose_name='Теги блюда')
+    categories = models.ManyToManyField('Category', through='DishCategory', related_name='dishes', blank=True, verbose_name='Категории блюда')
 
     class Meta:
         verbose_name = 'Блюдо'
@@ -47,6 +67,13 @@ class Dish(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.restaurant.name})"
+
+class DishCategory(models.Model):
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('dish', 'category')
 
 class DishTag(models.Model):
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE)
@@ -60,15 +87,36 @@ class DishTag(models.Model):
         ]
 
 class Post(models.Model):
+    STATUS_PENDING = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'На модерации'),
+        (STATUS_APPROVED, 'Одобрен'),
+        (STATUS_REJECTED, 'Отклонён'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='posts')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts', verbose_name='Ресторан')
     dish = models.ForeignKey(Dish, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts', verbose_name='Блюдо')
-    
+
     description = models.TextField(verbose_name='Текст поста')
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Цена', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     tags = models.ManyToManyField(Tag, through='PostTag', related_name='posts', verbose_name='Теги')
-    
+
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING,
+        db_index=True, verbose_name='Статус модерации'
+    )
+    moderated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='moderated_posts', verbose_name='Модератор'
+    )
+    moderated_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата модерации')
+    # Хранится для отправки в уведомлении через Celery (см. план на будущее)
+    rejection_reason = models.TextField(null=True, blank=True, verbose_name='Причина отказа')
+
     class Meta:
         indexes = [
             models.Index(fields=['-created_at']),
@@ -97,9 +145,7 @@ class PostImage(models.Model):
 class PostStatistics(models.Model):
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='statistics')
     
-    rating_taste = models.FloatField(default=0.0, verbose_name='Оценка за вкус')
-    rating_appearance = models.FloatField(default=0.0, verbose_name='Оценка за внешний вид')
-    rating_satiety = models.FloatField(default=0.0, verbose_name='Оценка за сытность')
+    rating = models.FloatField(default=0.0, verbose_name='Средняя оценка')
     
     likes_count = models.PositiveIntegerField(default=0, verbose_name='Количество лайков')
     saves_count = models.PositiveIntegerField(default=0, verbose_name='Количество сохранений')
@@ -133,9 +179,11 @@ class PostReview(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reviews')
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='post_reviews')
     
-    taste = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(10.0)], verbose_name='Вкус')
-    appearance = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(10.0)], verbose_name='Внешний вид')
-    satiety = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(10.0)], verbose_name='Сытность')
+    rating = models.FloatField(
+        validators=[MinValueValidator(0.0), MaxValueValidator(settings.MAX_REVIEW_RATING)],
+        verbose_name='Оценка',
+        default=0.0
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
 

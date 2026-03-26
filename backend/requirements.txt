@@ -25,8 +25,12 @@ factory-boy==3.3.3
 # API & SPA
 djangorestframework==3.15.2
 djangorestframework-simplejwt==5.3.1
+drf-spectacular==0.28.0
 django-cors-headers==4.6.0
 Pillow==11.1.0
 
 # Tasks
 celery==5.4.0
+
+# API Documentation
+drf-spectacular==0.28.0
