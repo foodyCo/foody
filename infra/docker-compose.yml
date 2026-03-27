@@ -42,13 +42,11 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
-    volumes:
-      - frontend_next:/app/.next
     depends_on:
       - backend
 
@@ -95,4 +93,3 @@ volumes:
   postgres_data:
   django_static:
   django_media:
-  frontend_next:
