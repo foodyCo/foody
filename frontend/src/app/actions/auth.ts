@@ -7,22 +7,23 @@ import { redirect } from "next/navigation";
 
 export async function registerUser(formData: FormData) {
     const name = formData.get("name") as string;
+    const username = formData.get("username") as string;
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
+    const city = formData.get("city") as string;
 
-    if (!name || !email || !password) {
+    if (!name || !username || !email || !password) {
         return { error: "Все поля обязательны" };
     }
 
     try {
-        // Подготавливаем данные для Django API
-        // Используем email как username, так как Django его требует, а в форме отдельного поля нет
         const registrationData = {
-            username: email.split('@')[0] + "_" + Math.floor(Math.random() * 1000), // Временное решение для уникальности
+            username,
             email,
             password,
             password_confirm: password,
-            full_name: name
+            full_name: name,
+            city: city || "",
         };
 
         await apiRequest("/users/register/", {

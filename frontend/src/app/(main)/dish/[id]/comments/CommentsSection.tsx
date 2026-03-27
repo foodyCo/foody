@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import { createComment } from '@/app/actions/post';
@@ -135,7 +136,7 @@ export default function CommentsSection({
                         </div>
                         <div className={styles.commentBody}>
                             <div className={styles.commentHeader}>
-                                <span className={styles.username}>{c.user.username}</span>
+                                <Link href={`/users/${c.user.id}`} className={styles.username} style={{ textDecoration: 'none', color: 'inherit' }}>{c.user.username}</Link>
                                 <span className={styles.time}>{c.created_at}</span>
                             </div>
                             <p className={styles.commentText}>{c.text}</p>

@@ -6,8 +6,6 @@ services:
       - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -17,8 +15,6 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -30,8 +26,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    ports:
-      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
     volumes:
       - ../backend:/app
       - django_static:/app/static
@@ -45,29 +41,26 @@ services:
   frontend:
     build:
       context: ../frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "80:3000"
+    env_file:
+      - .env
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
     volumes:
       - ../frontend:/app
-      - /app/node_modules
-      - /app/.next
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-      - INTERNAL_API_URL=http://backend:8000/api/v1
-      - AUTH_SECRET=your_nextauth_secret_key_change_me
-      - AUTH_TRUST_HOST=true
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
     depends_on:
       - backend
 
   celery_worker:
     build: ../backend
     command: celery -A config worker -l info
-    volumes:
-      - ../backend:/app
     env_file:
       - .env
+    volumes:
+      - ../backend:/app
     depends_on:
       - db
       - redis
@@ -75,15 +68,34 @@ services:
   celery_beat:
     build: ../backend
     command: celery -A config beat -l info
-    volumes:
-      - ../backend:/app
     env_file:
       - .env
+    volumes:
+      - ../backend:/app
     depends_on:
       - db
       - redis
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template
+      - django_static:/var/www/static
+      - django_media:/var/www/media
+    environment:
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
+      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+    depends_on:
+      - frontend
+      - backend
 
 volumes:
   postgres_data:
   django_static:
   django_media:
+  frontend_node_modules:
+  frontend_next:

@@ -40,11 +40,13 @@ export default function Search() {
     const [searchQuery, setSearchQuery] = useState("");
     const [isFocused, setIsFocused] = useState(false);
     const [showAllCategories, setShowAllCategories] = useState(false);
-    
+    const [selectedCategory, setSelectedCategory] = useState<{id: number, name: string} | null>(null);
+    const [userCity, setUserCity] = useState<string>("");
+
     const [categories, setCategories] = useState<any[]>([]);
     const [tags, setTags] = useState<any[]>([]);
     const [recentSearches, setRecentSearches] = useState<{text: string, type: string}[]>([]);
-    
+
     const [loading, setLoading] = useState(false);
     const [dishes, setDishes] = useState<Dish[]>([]);
 
@@ -57,27 +59,42 @@ export default function Search() {
 
     useEffect(() => {
         if (!session?.user?.accessToken) return;
-        
+
         getCategories(session.user.accessToken).then(res => {
             if (Array.isArray(res)) setCategories(res);
         });
-        
+
         getTags(session.user.accessToken).then(res => {
             if (Array.isArray(res)) setTags(res);
         });
+
+        // Загружаем город пользователя для фильтрации
+        fetch(`/api/v1/users/me/`, {
+            headers: { "Authorization": `Bearer ${session.user.accessToken}` }
+        })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data?.city) setUserCity(data.city); })
+            .catch(() => {});
     }, [session?.user?.accessToken]);
 
     useEffect(() => {
         const fetchResults = async () => {
-            if (!searchQuery.trim()) {
+            if (!searchQuery.trim() && !selectedCategory) {
                 setDishes([]);
                 return;
             }
-            
+
             setLoading(true);
             try {
-                const results = await getGroupedSearchDishes(searchQuery);
-                setDishes(results || []);
+                if (selectedCategory) {
+                    // Точный фильтр по категории + городу
+                    const results = await getGroupedSearchDishes(undefined, selectedCategory.id, userCity || undefined);
+                    setDishes(results || []);
+                } else {
+                    // Текстовый поиск
+                    const results = await getGroupedSearchDishes(searchQuery);
+                    setDishes(results || []);
+                }
             } catch (error) {
                 console.error("Fetch results error:", error);
             } finally {
@@ -87,7 +104,18 @@ export default function Search() {
 
         const timer = setTimeout(fetchResults, 400);
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, selectedCategory, userCity]);
+
+    const handleCategoryClick = (cat: {id: number, name: string}) => {
+        setSelectedCategory(cat);
+        setSearchQuery("");
+        setIsFocused(false);
+    };
+
+    const handleClearCategory = () => {
+        setSelectedCategory(null);
+        setDishes([]);
+    };
 
     const handleClearRecent = () => {
         setRecentSearches([]);
@@ -142,12 +170,12 @@ export default function Search() {
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                             </svg>
                             
-                            <input 
-                                type="text" 
-                                className={styles.omniboxInput} 
+                            <input
+                                type="text"
+                                className={styles.omniboxInput}
                                 placeholder="Найти блюдо, место или человека..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => { setSearchQuery(e.target.value); setSelectedCategory(null); }}
                                 onFocus={() => setIsFocused(true)}
                                 onBlur={() => {
                                     setTimeout(() => setIsFocused(false), 200);
@@ -212,8 +240,48 @@ export default function Search() {
             )}
 
             <main className={styles.mainContent}>
-                
-                {searchQuery.trim() ? (
+
+                {selectedCategory ? (
+                    <>
+                        <div className={styles.resultsMeta}>
+                            <button onClick={handleClearCategory} style={{background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px',color:'var(--text-secondary)',padding:0,fontSize:'14px'}}>
+                                <svg viewBox="0 0 24 24" style={{width:16,height:16,stroke:'currentColor',fill:'none'}}><path d="M19 12H5m7 7l-7-7 7-7"/></svg>
+                                Все категории
+                            </button>
+                            <h2 className={styles.resultsTitle}>{getEmoji(selectedCategory.name)} {selectedCategory.name}{userCity ? ` · ${userCity}` : ''}</h2>
+                            <span className={styles.resultsCount}>{dishes.length} результатов</span>
+                        </div>
+                        {loading ? (
+                            <div style={{ textAlign: "center", padding: "20px" }}>Загрузка...</div>
+                        ) : dishes.length > 0 ? (
+                            <div className={styles.resultsGrid}>
+                                {dishes.map((dish) => (
+                                    <div key={dish.id} className={styles.resultCard} onClick={() => router.push(`/dish/${dish.id}`)}>
+                                        <div className={styles.cardMedia}>
+                                            <img src={dish.imageUrl || "https://images.unsplash.com/photo-1555126634-323283e090fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80"} alt={dish.title} />
+                                            <div className={styles.ratingBadge}>
+                                                <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path></svg>
+                                                <span>{dish.userRating || 0}</span>
+                                            </div>
+                                        </div>
+                                        <div className={styles.cardInfo}>
+                                            <h3 className={styles.dishName}>{dish.title}</h3>
+                                            <div className={styles.dishPrice}>{dish.price ? `${dish.price} ₽` : "--- ₽"}</div>
+                                            <div className={styles.placeMeta}>
+                                                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
+                                                {dish.restaurant?.name || "Неизвестно"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: "center", color: "var(--text-secondary)", marginTop: "40px" }}>
+                                Нет постов в этой категории{userCity ? ` в городе ${userCity}` : ''}
+                            </div>
+                        )}
+                    </>
+                ) : searchQuery.trim() ? (
                     <>
                         <div className={styles.resultsMeta}>
                             <h2 className={styles.resultsTitle}>Посты</h2>
@@ -285,10 +353,7 @@ export default function Search() {
                                 </div>
                                 <div className={styles.categoriesGrid}>
                                     {visibleCategories.map(cat => (
-                                        <div key={cat.id} className={styles.categoryChip} onClick={() => {
-                                            setSearchQuery(cat.name);
-                                            setIsFocused(true);
-                                        }}>
+                                        <div key={cat.id} className={styles.categoryChip} onClick={() => handleCategoryClick(cat)}>
                                             <span className={styles.categoryEmoji}>{getEmoji(cat.name)}</span>
                                             <span className={styles.categoryText}>{cat.name}</span>
                                         </div>

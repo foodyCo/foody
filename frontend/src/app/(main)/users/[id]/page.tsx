@@ -41,7 +41,7 @@ export default async function UserProfile({ params }: {
             name: userProfile?.full_name || userProfile?.username || "Пользователь",
             handle: userProfile?.username?.toLowerCase() || `user_${id}`,
             avatar: fixMediaUrl(userProfile?.avatar) || "/default-avatar.svg",
-            bio: userProfile?.bio_text || "Заядлый кулинар. Обожаю исследовать новые места!",
+            bio: userProfile?.bio_text || "",
             location: "Неизвестно",
             stats: {
                 posts: userProfile?.posts_count || posts.length,
@@ -99,18 +99,11 @@ export default async function UserProfile({ params }: {
 
                 <h1 className={styles.fullName}>{userData.name}</h1>
                 
-                <div className={styles.metaInfo}>
-                    <span className={styles.topReviewer}>Топ обозреватель</span>
-                    <span className={styles.dot}>•</span>
-                    <span className={styles.location}>
-                        <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
-                        {userData.location}
-                    </span>
-                </div>
+                <div className={styles.metaInfo}></div>
 
-                <p className={styles.bio}>
-                    {userData.bio}
-                </p>
+                {userData.bio && (
+                    <p className={styles.bio}>{userData.bio}</p>
+                )}
 
                 <SubscribeButton userId={id} initialIsFollowing={userData.is_following} session={session} />
 

@@ -3,6 +3,7 @@
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 import { deleteAccount } from "@/app/actions/settings";
 import styles from "./page.module.css";
 
@@ -84,7 +85,7 @@ export default function SettingsForm({ user }: { user: any }) {
                             <span className={styles.itemTitle}>Мой город</span>
                         </div>
                         <div className={styles.itemAction}>
-                            <span className={styles.itemValueNeutral}>Ростов-на-Дону</span>
+                            {user?.city && <span className={styles.itemValueNeutral}>{user.city}</span>}
                             <span className={styles.chevron}><svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"></path></svg></span>
                         </div>
                     </div>
@@ -97,7 +98,6 @@ export default function SettingsForm({ user }: { user: any }) {
                             <span className={styles.itemTitle}>Настройка вкусов</span>
                         </div>
                         <div className={styles.itemAction}>
-                            <span className={styles.itemValue}>Острое, Азия</span>
                             <span className={styles.chevron}><svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"></path></svg></span>
                         </div>
                     </div>
@@ -114,6 +114,26 @@ export default function SettingsForm({ user }: { user: any }) {
                         </div>
                     </div>
                 </div>
+
+                {user?.is_staff && (
+                    <>
+                        <span className={styles.sectionLabel}>Администрирование</span>
+                        <div className={styles.settingsGroup}>
+                            <Link href="/staff" className={styles.settingsItem} style={{ textDecoration: 'none' }}>
+                                <div className={styles.itemIcon}>
+                                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l5 2.18V11c0 3.5-2.33 6.79-5 7.93-2.67-1.14-5-4.43-5-7.93V7.18L12 5z"></path></svg>
+                                </div>
+                                <div className={styles.itemContent}>
+                                    <span className={styles.itemTitle}>Панель модератора</span>
+                                    <span className={styles.itemSubtitle}>Модерация постов, категории</span>
+                                </div>
+                                <div className={`${styles.itemAction} ${styles.chevron}`}>
+                                    <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"></path></svg>
+                                </div>
+                            </Link>
+                        </div>
+                    </>
+                )}
 
                 <span className={styles.sectionLabelDanger}>Опасная зона</span>
                 <div className={styles.dangerGroup}>

@@ -59,8 +59,6 @@ export async function createPost(formData: FormData) {
         }
     });
 
-    console.log("Token used for create post:", session?.user?.accessToken ? "Exists" : "Missing");
-
     try {
         await apiRequest("/posts/", {
             method: "POST",
@@ -127,19 +125,15 @@ export async function createComment(postId: string, text: string) {
     }
 }
 
-export async function getSearchPosts(query?: string, category?: string, accessToken?: string) {
+export async function getSearchPosts(query?: string, categoryId?: string | number, city?: string, accessToken?: string) {
     try {
-        let endpoint = "/posts/";
         const params = new URLSearchParams();
-        
-        if (query) {
-            params.append("search", query);
-        }
-        
+        if (query) params.append("search", query);
+        if (categoryId) params.append("category_id", String(categoryId));
+        if (city) params.append("city", city);
+
         const queryString = params.toString();
-        if (queryString) {
-            endpoint += `?${queryString}`;
-        }
+        const endpoint = queryString ? `/posts/?${queryString}` : "/posts/";
 
         const options: any = {};
         if (accessToken) {
@@ -149,23 +143,21 @@ export async function getSearchPosts(query?: string, category?: string, accessTo
         }
 
         const data = await apiRequest(endpoint, options);
-        
         const results = data?.results || data;
-        
         if (!Array.isArray(results)) return [];
 
         return results.map(mapDjangoPostToDish);
     } catch (error: any) {
         console.error("Search error:", error);
         if (error.message === "UNAUTHORIZED") {
-            throw error; // Перебрасываем 401 наверх, чтобы страницы могли редиректить
+            throw error;
         }
         return [];
     }
 }
-export async function getGroupedSearchDishes(query?: string, category?: string) {
+export async function getGroupedSearchDishes(query?: string, categoryId?: string | number, city?: string) {
     try {
-        const posts = await getSearchPosts(query, category);
+        const posts = await getSearchPosts(query, categoryId, city);
 
         // Упрощенная группировка: просто возвращаем посты смапленные в нужный формат
         // В будущем здесь можно добавить логику группировки по dish_name если нужно
@@ -278,37 +270,25 @@ export async function getCategories(accessToken?: string) {
 }
 
 export async function getRestaurant(restaurantId: string | number, accessToken?: string) {
-    const url = `http://backend:8000/api/v1/restaurants/${restaurantId}/`;
-    const headers: Record<string, string> = {};
-    if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    const res = await fetch(url, { headers, cache: 'no-store' });
-    if (!res.ok) {
-        // Fallback to fetch without token if 401/error
-        const resNoToken = await fetch(url, { cache: 'no-store' });
-        if (resNoToken.ok) {
-            return resNoToken.json();
+    try {
+        const options: any = { cache: 'no-store' };
+        if (accessToken) {
+            options.headers = { 'Authorization': `Bearer ${accessToken}` };
         }
+        return await apiRequest(`/restaurants/${restaurantId}/`, options);
+    } catch {
         return null;
     }
-    return res.json();
 }
 
 export async function getRestaurantPosts(restaurantId: string | number, accessToken?: string) {
-    const url = `http://backend:8000/api/v1/posts/?restaurant_id=${restaurantId}`;
-    const headers: Record<string, string> = {};
-    if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    const res = await fetch(url, { headers, cache: 'no-store' });
-    if (!res.ok) {
-        // Fallback to fetch without token if basic user request fails
-        const resNoToken = await fetch(url, { cache: 'no-store' });
-        if (resNoToken.ok) {
-            return resNoToken.json();
+    try {
+        const options: any = { cache: 'no-store' };
+        if (accessToken) {
+            options.headers = { 'Authorization': `Bearer ${accessToken}` };
         }
+        return await apiRequest(`/posts/?restaurant_id=${restaurantId}`, options);
+    } catch {
         return { results: [] };
     }
-    return res.json();
 }

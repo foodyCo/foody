@@ -2,8 +2,8 @@ from rest_framework import viewsets, mixins
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
-from ..models import Restaurant, Dish, Category
-from ..serializers import RestaurantSerializer, DishSerializer, CategorySerializer
+from ..models import Restaurant, Dish, Category, Tag
+from ..serializers import RestaurantSerializer, DishSerializer, CategorySerializer, TagSerializer
 
 class RestaurantViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """

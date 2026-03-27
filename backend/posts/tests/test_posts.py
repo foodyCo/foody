@@ -378,7 +378,7 @@ class TestPostViews:
         res_post = client.post(url, {"text": "Very tasty!"})
         assert res_post.status_code == 201
         assert res_post.data['text'] == "Very tasty!"
-        assert res_post.data['username'] == user.username
+        assert res_post.data['user_detail']['username'] == user.username
         
         # Чтение (1 комментарий)
         res_get_after = client.get(url)

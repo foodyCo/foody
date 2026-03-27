@@ -1,12 +1,39 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import User
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .models import User, Follow
+
+
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """JWT-сериализатор с логином по email вместо username."""
+    username_field = User.EMAIL_FIELD
+
+    def validate(self, attrs):
+        # simplejwt ожидает username_field, передаём email
+        attrs[self.username_field] = attrs.get(self.username_field, '').lower()
+        return super().validate(attrs)
 
 class UserSerializer(serializers.ModelSerializer):
+    posts_count = serializers.SerializerMethodField()
+    is_following = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'full_name', 'bio_text', 'avatar', 'birth_date', 'date_joined')
-        read_only_fields = ('id', 'date_joined')
+        fields = (
+            'id', 'username', 'email', 'full_name', 'bio_text', 'avatar',
+            'birth_date', 'city', 'date_joined', 'is_staff',
+            'posts_count', 'followers_count', 'following_count', 'is_following',
+        )
+        read_only_fields = ('id', 'email', 'date_joined', 'is_staff', 'followers_count', 'following_count')
+
+    def get_posts_count(self, obj):
+        return obj.posts.filter(status='approved').count()
+
+    def get_is_following(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and request.user != obj:
+            return Follow.objects.filter(follower=request.user, following=obj).exists()
+        return False
 
 class FeedPostAuthorSerializer(serializers.ModelSerializer):
     """
@@ -15,15 +42,15 @@ class FeedPostAuthorSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = User
-        fields = ('id', 'username', 'avatar')
+        fields = ('id', 'username', 'full_name', 'avatar')
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True, required=True)
-    
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password', 'password_confirm', 'full_name')
+        fields = ('id', 'username', 'email', 'password', 'password_confirm', 'full_name', 'city')
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
@@ -36,6 +63,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
-            full_name=validated_data.get('full_name', '')
+            full_name=validated_data.get('full_name', ''),
+            city=validated_data.get('city', '')
         )
         return user

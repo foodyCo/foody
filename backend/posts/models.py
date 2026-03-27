@@ -2,8 +2,6 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 
-User = settings.AUTH_USER_MODEL
-
 class Tag(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name='Название тега')
     usage_count = models.PositiveIntegerField(default=0, db_index=True, verbose_name='Количество использований')
@@ -96,7 +94,7 @@ class Post(models.Model):
         (STATUS_REJECTED, 'Отклонён'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='posts')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='posts')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts', verbose_name='Ресторан')
     dish = models.ForeignKey(Dish, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts', verbose_name='Блюдо')
 
@@ -110,7 +108,7 @@ class Post(models.Model):
         db_index=True, verbose_name='Статус модерации'
     )
     moderated_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='moderated_posts', verbose_name='Модератор'
     )
     moderated_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата модерации')
@@ -153,7 +151,7 @@ class PostStatistics(models.Model):
 
 class PostLike(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='likes')
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='liked_posts')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='liked_posts')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -166,7 +164,7 @@ class PostLike(models.Model):
 
 class PostSave(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='saves')
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='saved_posts')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='saved_posts')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -177,7 +175,7 @@ class PostSave(models.Model):
 
 class PostReview(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reviews')
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='post_reviews')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='post_reviews')
     
     rating = models.FloatField(
         validators=[MinValueValidator(0.0), MaxValueValidator(settings.MAX_REVIEW_RATING)],
@@ -195,12 +193,12 @@ class PostReview(models.Model):
 
 class Comment(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments', verbose_name='Пост')
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='comments', verbose_name='Автор')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='comments', verbose_name='Автор')
     text = models.TextField(verbose_name='Текст комментария')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Время публикации')
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['created_at']
         indexes = [
             models.Index(fields=['-created_at']),
         ]

@@ -28,8 +28,9 @@ export default async function EditProfilePage() {
         name: userProfile?.full_name || userProfile?.username || session.user.name || "Пользователь",
         username: userProfile?.username || session.user.name?.toLowerCase().replace(/\s+/g, '_') || "user",
         avatar: fixMediaUrl(userProfile?.avatar) || session.user.image || defaultAvatar,
-        bio: userProfile?.bio_text || "Exploring the soul of Rostov through one dish at a time. Ramen enthusiast and coffee lover. Always looking for the next hidden gem in the South of Russia."
+        bio: userProfile?.bio_text || "",
+        city: userProfile?.city || "",
     };
 
-    return <EditProfileForm initialData={initialData} accessToken={session.user.accessToken} />;
+    return <EditProfileForm initialData={initialData} />;
 }

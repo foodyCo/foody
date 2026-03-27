@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import styles from "./page.module.css";
 import { getDishComments, createComment, getCurrentUserAvatar } from "@/app/actions/social";
 import { useSession } from "next-auth/react";
@@ -177,7 +178,9 @@ export default function CommentsModal({ isOpen, onClose, dishId }: CommentsModal
                                 />
                                 <div className={styles.commentBody}>
                                     <div className={styles.commentAuthorRow}>
-                                        <div className={styles.commentAuthor}>{comment.user_detail?.username || `User ${comment.user}`}</div>
+                                        <Link href={`/users/${comment.user_detail?.id || comment.user}`} className={styles.commentAuthor} style={{ textDecoration: 'none', color: 'inherit' }}>
+                                            {comment.user_detail?.username || `User ${comment.user}`}
+                                        </Link>
                                         <div className={styles.commentTime}>
                                             {new Date(comment.created_at).toLocaleDateString('ru-RU')}
                                         </div>

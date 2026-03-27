@@ -1,7 +1,11 @@
+import logging
+
 from celery import shared_task
 from django.db.models import Avg
 from django.db import transaction
 from .models import PostReview, PostStatistics
+
+logger = logging.getLogger(__name__)
 
 @shared_task
 def update_post_ratings():
@@ -44,6 +48,7 @@ def update_post_ratings():
                 ['rating']
             )
 
+    logger.info('update_post_ratings: updated %d post rating statistics', len(stats_to_update))
     return f"Updated {len(stats_to_update)} post rating statistics."
 
 from django.db.models import F

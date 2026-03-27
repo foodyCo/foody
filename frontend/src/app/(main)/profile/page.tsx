@@ -56,8 +56,8 @@ export default async function Profile({ searchParams }: { searchParams: Promise<
         name: userProfile?.full_name || userProfile?.username || session.user.name || "Пользователь",
         handle: userProfile?.username || session.user.name?.toLowerCase().replace(/\s+/g, '_') || "user",
         avatar: fixMediaUrl(userProfile?.avatar) || session.user.image || defaultAvatar,
-        bio: userProfile?.bio_text || "Здесь пока нет описания профиля...",
-        location: userProfile?.city || "Ростов-на-Дону", 
+        bio: userProfile?.bio_text || "",
+        location: userProfile?.city || null,
         stats: {
             posts: userProfile?.posts_count ?? postsCount,
             followers: userProfile?.followers_count ?? 0, 
@@ -96,17 +96,17 @@ export default async function Profile({ searchParams }: { searchParams: Promise<
                 <h1 className={styles.fullName}>{mappedUser.name}</h1>
                 
                 <div className={styles.metaInfo}>
-                    <span className={styles.topReviewer}>Лучший критик</span>
-                    <span className={styles.dot}>•</span>
-                    <span className={styles.location}>
-                        <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
-                        {mappedUser.location}
-                    </span>
+                    {mappedUser.location && (
+                        <span className={styles.location}>
+                            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
+                            {mappedUser.location}
+                        </span>
+                    )}
                 </div>
 
-                <p className={styles.bio}>
-                    {mappedUser.bio}
-                </p>
+                {mappedUser.bio && (
+                    <p className={styles.bio}>{mappedUser.bio}</p>
+                )}
 
                 <Link href="/profile/edit" className={styles.editProfileBtn}>
                     Редактировать профиль

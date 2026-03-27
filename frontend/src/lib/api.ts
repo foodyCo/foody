@@ -52,7 +52,8 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
 export function fixMediaUrl(url: string | null | undefined): string {
     if (!url) return "";
     if (url.startsWith("http://backend:8000")) {
-        return url.replace("http://backend:8000", "http://localhost:8000");
+        const publicBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || "http://localhost:8000";
+        return url.replace("http://backend:8000", publicBase);
     }
     return url;
 }

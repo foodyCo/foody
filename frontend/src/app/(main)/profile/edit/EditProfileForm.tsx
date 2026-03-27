@@ -6,20 +6,34 @@ import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { updateProfile } from "@/app/actions/profile";
 
+const RUSSIAN_CITIES = [
+    "Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань",
+    "Нижний Новгород", "Челябинск", "Самара", "Омск", "Ростов-на-Дону",
+    "Уфа", "Красноярск", "Воронеж", "Пермь", "Волгоград", "Краснодар",
+    "Саратов", "Тюмень", "Тольятти", "Ижевск", "Барнаул", "Ульяновск",
+    "Иркутск", "Хабаровск", "Ярославль", "Владивосток", "Махачкала",
+    "Томск", "Оренбург", "Кемерово", "Новокузнецк", "Рязань", "Астрахань",
+    "Набережные Челны", "Пенза", "Липецк", "Тула", "Киров", "Чебоксары",
+    "Калининград", "Брянск", "Курск", "Иваново", "Магнитогорск", "Тверь",
+    "Ставрополь", "Белгород", "Сочи",
+];
+
 interface UserData {
     name: string;
     username: string;
     avatar: string;
     bio: string;
+    city: string;
 }
 
-export default function EditProfileForm({ initialData, accessToken }: { initialData: UserData, accessToken: string }) {
+export default function EditProfileForm({ initialData }: { initialData: UserData }) {
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
+
     const [name, setName] = useState(initialData.name);
     const [username, setUsername] = useState(initialData.username);
     const [bio, setBio] = useState(initialData.bio);
+    const [city, setCity] = useState(initialData.city);
     const [previewUrl, setPreviewUrl] = useState<string>(initialData.avatar);
     const [file, setFile] = useState<File | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -49,18 +63,19 @@ export default function EditProfileForm({ initialData, accessToken }: { initialD
     const handleSubmit = async () => {
         setIsLoading(true);
         setError(null);
-        
+
         try {
             const formData = new FormData();
             formData.append("full_name", name);
             formData.append("username", username);
             formData.append("bio_text", bio);
-            
+            formData.append("city", city);
+
             if (file) {
                 formData.append("avatar", file);
             }
-            
-            const res = await updateProfile(formData, accessToken);
+
+            const res = await updateProfile(formData);
             if (res?.error) {
                 setError(res.error);
             } else {
@@ -74,9 +89,10 @@ export default function EditProfileForm({ initialData, accessToken }: { initialD
         }
     };
 
-    const isChanged = name !== initialData.name || 
-                      username !== initialData.username || 
-                      bio !== initialData.bio || 
+    const isChanged = name !== initialData.name ||
+                      username !== initialData.username ||
+                      bio !== initialData.bio ||
+                      city !== initialData.city ||
                       file !== null;
 
     return (
@@ -88,9 +104,9 @@ export default function EditProfileForm({ initialData, accessToken }: { initialD
                     Отмена
                 </button>
                 <h1 className={styles.headerTitle}>Редактировать</h1>
-                <button 
-                    type="button" 
-                    onClick={handleSubmit} 
+                <button
+                    type="button"
+                    onClick={handleSubmit}
                     className={`${styles.headerBtn} ${styles.btnSave}`}
                     disabled={!isChanged || isLoading}
                 >
@@ -99,7 +115,7 @@ export default function EditProfileForm({ initialData, accessToken }: { initialD
             </header>
 
             <main className={styles.mainContent}>
-                
+
                 {error && (
                     <div style={{ color: 'var(--error-red)', textAlign: 'center', marginBottom: '16px', background: 'var(--error-bg)', padding: '12px', borderRadius: '12px' }}>
                         {error}
@@ -108,9 +124,9 @@ export default function EditProfileForm({ initialData, accessToken }: { initialD
 
                 <section className={styles.photoSection}>
                     <div className={styles.avatarWrapper} onClick={triggerFileInput} style={{ cursor: 'pointer' }}>
-                        <Image 
-                            src={previewUrl} 
-                            alt={name || "Profile"} 
+                        <Image
+                            src={previewUrl}
+                            alt={name || "Profile"}
                             className={styles.avatarImg}
                             fill
                             sizes="112px"
@@ -133,14 +149,14 @@ export default function EditProfileForm({ initialData, accessToken }: { initialD
                 </section>
 
                 <div className={styles.formContainer}>
-                    
+
                     <div className={styles.formGroup}>
                         <div className={styles.formLabelRow}>
                             <label className={styles.formLabel}>Имя</label>
                         </div>
-                        <input 
-                            type="text" 
-                            className={styles.formInput} 
+                        <input
+                            type="text"
+                            className={styles.formInput}
                             value={name}
                             onChange={e => setName(e.target.value)}
                             placeholder="Alex Curator"
@@ -151,9 +167,9 @@ export default function EditProfileForm({ initialData, accessToken }: { initialD
                         <div className={styles.formLabelRow}>
                             <label className={styles.formLabel}>Никнейм</label>
                         </div>
-                        <input 
-                            type="text" 
-                            className={styles.formInput} 
+                        <input
+                            type="text"
+                            className={styles.formInput}
                             value={username}
                             onChange={e => setUsername(e.target.value)}
                             placeholder="@foody_user"
@@ -162,10 +178,26 @@ export default function EditProfileForm({ initialData, accessToken }: { initialD
 
                     <div className={styles.formGroup}>
                         <div className={styles.formLabelRow}>
+                            <label className={styles.formLabel}>Город</label>
+                        </div>
+                        <select
+                            className={styles.formInput}
+                            value={city}
+                            onChange={e => setCity(e.target.value)}
+                        >
+                            <option value="">Не указан</option>
+                            {RUSSIAN_CITIES.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <div className={styles.formLabelRow}>
                             <label className={styles.formLabel}>О себе</label>
                             <span className={styles.charCount}>{bio.length} / 250 символов</span>
                         </div>
-                        <textarea 
+                        <textarea
                             className={styles.formTextarea}
                             value={bio}
                             onChange={e => setBio(e.target.value.substring(0, 250))}

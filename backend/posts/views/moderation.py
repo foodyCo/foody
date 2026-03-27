@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import mixins, viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -6,6 +8,8 @@ from django.utils import timezone
 from ..models import Post
 from ..serializers import PostListSerializer
 from ..pagination import ModerationPagination
+
+logger = logging.getLogger(__name__)
 
 
 class ModerationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -30,6 +34,7 @@ class ModerationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         post.moderated_by = request.user
         post.moderated_at = timezone.now()
         post.save(update_fields=['status', 'moderated_by', 'moderated_at'])
+        logger.info('Post %s approved by moderator %s', post.id, request.user.id)
         return Response({'status': 'approved'})
 
     @action(detail=True, methods=['post'])
@@ -41,4 +46,5 @@ class ModerationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         post.moderated_at = timezone.now()
         post.rejection_reason = request.data.get('rejection_reason', '')
         post.save(update_fields=['status', 'moderated_by', 'moderated_at', 'rejection_reason'])
+        logger.info('Post %s rejected by moderator %s. Reason: %s', post.id, request.user.id, post.rejection_reason)
         return Response({'status': 'rejected'})

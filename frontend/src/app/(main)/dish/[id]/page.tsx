@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { notFound } from "next/navigation";
 import { getGroupedDishDetails } from "@/app/actions/post";
 import Image from "next/image";
 import Link from "next/link";
@@ -56,6 +57,8 @@ export default async function DishPage({ params }: { params: Promise<{ id: strin
                 dish.isSaved = rawPost.is_saved;
                 dish.createdAt = rawPost.created_at;
                 dish.commentsCount = rawPost.statistics?.comments_count || 0;
+            } else {
+                notFound();
             }
         }
 
@@ -64,10 +67,10 @@ export default async function DishPage({ params }: { params: Promise<{ id: strin
         }
 
         const isOwner = !isGrouped && dish.author && (session?.user?.id?.toString() === dish.author.id?.toString());
-        const coverImage = dish.images && dish.images.length > 0 ? dish.images[0] : (dish.imageUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuC9rHiZZ7tsfvGFV-jW-p8oo7TfjBnvVw7HiUJ2hqMhq0mgcumNWea_rQ4WRtgnISo5K4kTdV2i-16bZ3oAWJRYvUJP4WQZTy-hklnZABjCerT48SIwlItJJX3p8zxN70mbgYXxyasXxrMES8-InS-JwbTFNQSi7uMg0fkwgqmdVi2TBYPao-UTL-3LitJICV8pj0kNCs-geDjwePSmttIzUNA6Y7Op7k6e892Fq_zPPn4Alm_4z2Sf8194dizWklMCCDmqYNJVZI5L");
+        const coverImage = dish.images && dish.images.length > 0 ? dish.images[0] : (dish.imageUrl || "/placeholder.png");
 
         let authorName = dish.author?.name || "Пользователь";
-        let authorAvatar = dish.author?.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuAl6WeY6gSU4Ki2VjPZrCbf-HeVJHZBukV5ZzUPAAEmRnbPpazswUp9FOFDwuhDlQzLuudpPn2eEuU5a370vZlOql-a4JGu85Ng_UaVcScMEDCbOQycHg9iZ0-j_buiAWyk2AomwQTB_0HvFySAsaPlvwBAdFB-PC9qA1HSqw8922183zckYM9VBS6q_BMPBrf4xUrc30Mxat3awfVqWJZ2BH0s8RtEhq3upQdfNiAH1KbSQTooOE1qNDC_BJhnPP7bi8DywmjF-r2j";
+        let authorAvatar = dish.author?.avatar || "/default-avatar.svg";
         
         let dateString = "Недавно";
         if (dish.createdAt) {
@@ -80,7 +83,7 @@ export default async function DishPage({ params }: { params: Promise<{ id: strin
         // We use first 3 tags max to avoid clutter
         const displayTags = dish.tags && dish.tags.length > 0 ? dish.tags.slice(0, 3) : ["блюдо"];
         const ratingScore = Number(dish.userRating || 0).toFixed(1);
-        const images = dish.images && dish.images.length > 0 ? dish.images.map((img: any) => typeof img === 'string' ? img : (img.image || img.url)) : (dish.imageUrl ? [dish.imageUrl] : ["https://lh3.googleusercontent.com/aida-public/AB6AXuC9rHiZZ7tsfvGFV-jW-p8oo7TfjBnvVw7HiUJ2hqMhq0mgcumNWea_rQ4WRtgnISo5K4kTdV2i-16bZ3oAWJRYvUJP4WQZTy-hklnZABjCerT48SIwlItJJX3p8zxN70mbgYXxyasXxrMES8-InS-JwbTFNQSi7uMg0fkwgqmdVi2TBYPao-UTL-3LitJICV8pj0kNCs-geDjwePSmttIzUNA6Y7Op7k6e892Fq_zPPn4Alm_4z2Sf8194dizWklMCCDmqYNJVZI5L"]);
+        const images = dish.images && dish.images.length > 0 ? dish.images.map((img: any) => typeof img === 'string' ? img : (img.image || img.url)) : (dish.imageUrl ? [dish.imageUrl] : ["/placeholder.png"]);
 
         return (
             <>
@@ -102,8 +105,9 @@ export default async function DishPage({ params }: { params: Promise<{ id: strin
                         )}
                         <div className={styles.headerRow}>
                             <h1 className={styles.dishTitle}>{dish.title}</h1>
-                            {/* Dummy price conceptually kept, but maybe should just be hidden if unavailable. For now matching design. */}
-                            <div className={styles.priceTag}>~ 550 ₽</div>
+                            {dish.price && (
+                                <div className={styles.priceTag}>{parseFloat(dish.price).toFixed(0)} ₽</div>
+                            )}
                         </div>
 
                         <div className={styles.overallRating}>
@@ -152,7 +156,6 @@ export default async function DishPage({ params }: { params: Promise<{ id: strin
                                 </div>
                                 <div className={styles.userInfo}>
                                     <div className={styles.userName}>{authorName}</div>
-                                    <div className={styles.userStatus}>Гурман</div>
                                 </div>
                                 <div className={styles.postDate}>{dateString}</div>
                             </div>
@@ -169,8 +172,11 @@ export default async function DishPage({ params }: { params: Promise<{ id: strin
                 </div>
             </>
         );
-    } catch (error) {
-        console.error("Dish page load error:", error);
-        return <div className={styles.detailView} style={{ padding: "40px", textAlign: "center" }}>Ошибка при загрузке данных блюда</div>;
+    } catch (error: any) {
+        if (error?.message === "UNAUTHORIZED") {
+            const { redirect } = await import("next/navigation");
+            redirect("/login");
+        }
+        notFound();
     }
 }

@@ -3,39 +3,20 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { createPost } from "@/app/actions/post";
+import { useSession } from "next-auth/react";
+import { createPost, getCategories } from "@/app/actions/post";
 import styles from "./page.module.css";
-
-const CATEGORIES = [
-  "🌯 Шаурма и гирос",
-  "🍔 Бургеры и фастфуд",
-  "🍕 Пицца",
-  "🍲 Ланчи и столовые",
-  "🍜 Азия",
-  "🍣 Суши и роллы",
-  "🍜 Рамен",
-  "🥡 Вок и Паназия",
-  "🥙 Поке и боулы",
-  "💻 Кофе",
-  "☕ Кофейни",
-  "🍳 Завтраки весь день",
-  "🥐 Пекарни и десерты",
-  "🥩 Вечер и Компании",
-  "🔥 Мясо и гриль",
-  "🥟 Кавказ и Грузия",
-  "🍻 Бары и пабы",
-  "🥗 Альтернатива",
-  "🌿 ЗОЖ и Вег"
-];
 
 export default function CreatePostPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [restaurantName, setRestaurantName] = useState("");
   const [dishName, setDishName] = useState("");
   const [price, setPrice] = useState("");
-  const [category, setCategory] = useState("Все");
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
   const [rating, setRating] = useState(0);
   const [description, setDescription] = useState("");
   
@@ -52,6 +33,13 @@ export default function CreatePostPage() {
       previews.forEach((preview) => URL.revokeObjectURL(preview));
     };
   }, [previews]);
+
+  useEffect(() => {
+    const token = (session as any)?.user?.accessToken;
+    getCategories(token).then((data: any[]) => {
+      if (Array.isArray(data) && data.length > 0) setCategories(data);
+    });
+  }, [session]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -390,16 +378,20 @@ export default function CreatePostPage() {
             </button>
           </div>
           <div className={styles.categoryList}>
-            {CATEGORIES.map(cat => (
-              <div 
-                key={cat} 
-                className={`${styles.categoryListItem} ${category === cat ? styles.selected : ''}`}
+            {categories.length === 0 ? (
+              <div style={{ padding: '16px', color: 'var(--text-tertiary)', textAlign: 'center', fontSize: '14px' }}>
+                Категории не добавлены. Попросите модератора добавить их.
+              </div>
+            ) : categories.map(cat => (
+              <div
+                key={cat.id}
+                className={`${styles.categoryListItem} ${category === cat.name ? styles.selected : ''}`}
                 onClick={() => {
-                  setCategory(cat);
+                  setCategory(cat.name);
                   setIsCategoryModalOpen(false);
                 }}
               >
-                {cat}
+                {cat.name}
               </div>
             ))}
           </div>

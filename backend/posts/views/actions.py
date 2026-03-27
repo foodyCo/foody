@@ -1,8 +1,12 @@
+import logging
+
 from rest_framework import status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from ..models import PostLike, PostSave, Comment
 from ..serializers import CommentSerializer
+
+logger = logging.getLogger(__name__)
 
 class PostActionsMixin:
     """
@@ -48,8 +52,10 @@ class PostActionsMixin:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         if comment.user != request.user and not request.user.is_staff:
+            logger.warning('User %s tried to delete comment %s owned by %s', request.user.id, comment_pk, comment.user.id)
             return Response(status=status.HTTP_403_FORBIDDEN)
 
+        logger.info('Comment %s on post %s deleted by user %s', comment_pk, pk, request.user.id)
         comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

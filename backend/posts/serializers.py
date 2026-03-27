@@ -39,11 +39,11 @@ class DishSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'restaurant', 'categories']
 
 class CommentSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
+    user_detail = FeedPostAuthorSerializer(source='user', read_only=True)
 
     class Meta:
         model = Comment
-        fields = ['id', 'user', 'username', 'text', 'created_at']
+        fields = ['id', 'user', 'user_detail', 'text', 'created_at']
         read_only_fields = ['user', 'created_at']
 
 class PostListSerializer(serializers.ModelSerializer):
@@ -84,6 +84,42 @@ class PostListSerializer(serializers.ModelSerializer):
                 return any(save.user_id == user.id for save in obj.prefetched_saves) 
             return obj.saves.filter(user=user).exists()
         return False
+
+
+class PostUpdateSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для редактирования поста. Позволяет менять только description, price и теги.
+    """
+    tags_list = serializers.ListField(
+        child=serializers.CharField(max_length=50),
+        write_only=True,
+        required=False
+    )
+
+    class Meta:
+        model = Post
+        fields = ['description', 'price', 'tags_list']
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        tags_list = validated_data.pop('tags_list', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.status = Post.STATUS_PENDING
+        instance.moderated_by = None
+        instance.moderated_at = None
+        instance.save()
+
+        if tags_list is not None:
+            instance.tags.through.objects.filter(post=instance).delete()
+            for tag_name in tags_list:
+                tag_name = tag_name.strip().lower()
+                if tag_name:
+                    tag, _ = Tag.objects.get_or_create(name=tag_name)
+                    PostTag.objects.create(post=instance, tag=tag)
+
+        return instance
 
 
 class PostCreateSerializer(serializers.ModelSerializer):
@@ -184,35 +220,3 @@ class PostCreateSerializer(serializers.ModelSerializer):
 
         return post
 
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        """
-        Редактирование pending/rejected поста. Статус сбрасывается в pending автоматически в вьюхе.
-        Разрешено менять description, price, tags. Ресторан, блюдо и рейтинг не меняются.
-        """
-        validated_data.pop('uploaded_images', None)
-        validated_data.pop('rating', None)
-        validated_data.pop('restaurant_id', None)
-        validated_data.pop('restaurant_name', None)
-        validated_data.pop('restaurant_address', None)
-        validated_data.pop('dish_name', None)
-
-        tags_list = validated_data.pop('tags_list', None)
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.status = Post.STATUS_PENDING
-        instance.moderated_by = None
-        instance.moderated_at = None
-        instance.save()
-
-        if tags_list is not None:
-            # Заменяем теги: удаляем старые, создаём новые
-            instance.tags.through.objects.filter(post=instance).delete()
-            for tag_name in tags_list:
-                tag_name = tag_name.strip().lower()
-                if tag_name:
-                    tag, _ = Tag.objects.get_or_create(name=tag_name)
-                    PostTag.objects.create(post=instance, tag=tag)
-
-        return instance

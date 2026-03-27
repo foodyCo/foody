@@ -34,3 +34,4 @@ celery==5.4.0
 
 # API Documentation
 drf-spectacular==0.28.0
+whitenoise==6.8.2
