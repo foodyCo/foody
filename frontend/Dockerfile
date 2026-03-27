@@ -5,8 +5,12 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund --legacy-peer-deps
 
+COPY . .
+RUN npm run build
+
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV NODE_ENV=production
 
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]
