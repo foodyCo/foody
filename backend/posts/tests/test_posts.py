@@ -449,3 +449,55 @@ class TestDeleteComment:
         client.delete(url)
         post.statistics.refresh_from_db()
         assert post.statistics.comments_count == 0
+
+
+@pytest.mark.django_db
+class TestPriceFilter:
+
+    @pytest.fixture
+    def posts_with_prices(self, auth_client):
+        _, user = auth_client
+        res = Restaurant.objects.create(name="Price Res", address="Addr")
+        prices = [100, 300, 500, 700, None]
+        for i, price in enumerate(prices):
+            dish = Dish.objects.create(name=f"Dish {i}", restaurant=res)
+            Post.objects.create(user=user, dish=dish, description="d", price=price, status=Post.STATUS_APPROVED)
+        return auth_client
+
+    def test_price_min(self, api_client, posts_with_prices):
+        url = reverse('post-list')
+        response = api_client.get(f"{url}?price_min=400")
+        assert response.status_code == 200
+        prices = [p['price'] for p in response.data['results']]
+        assert all(float(p) >= 400 for p in prices)
+        assert len(prices) == 2  # 500, 700
+
+    def test_price_max(self, api_client, posts_with_prices):
+        url = reverse('post-list')
+        response = api_client.get(f"{url}?price_max=400")
+        assert response.status_code == 200
+        prices = [p['price'] for p in response.data['results']]
+        assert all(float(p) <= 400 for p in prices)
+        assert len(prices) == 2  # 100, 300
+
+    def test_price_range(self, api_client, posts_with_prices):
+        url = reverse('post-list')
+        response = api_client.get(f"{url}?price_min=200&price_max=600")
+        assert response.status_code == 200
+        prices = [p['price'] for p in response.data['results']]
+        assert all(200 <= float(p) <= 600 for p in prices)
+        assert len(prices) == 2  # 300, 500
+
+    def test_price_min_zero(self, api_client, posts_with_prices):
+        """price_min=0 не должен фильтровать — 0 это валидное значение."""
+        url = reverse('post-list')
+        response = api_client.get(f"{url}?price_min=0")
+        assert response.status_code == 200
+        prices = [p['price'] for p in response.data['results'] if p['price'] is not None]
+        assert all(float(p) >= 0 for p in prices)
+
+    def test_no_price_filter_returns_all(self, api_client, posts_with_prices):
+        url = reverse('post-list')
+        response = api_client.get(url)
+        assert response.status_code == 200
+        assert len(response.data['results']) == 5

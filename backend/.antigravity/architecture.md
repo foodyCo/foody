@@ -5,7 +5,8 @@
 ## Содержание
 1. [Разделение ViewSet'ов (Миксины)](#mixins)
 2. [Атомарные операции и Счетчики](#counters)
-3. [Планы по оптимизации потока данных](#future-optimizations)
+3. [Фильтрация постов](#filters)
+4. [Планы по оптимизации потока данных](#future-optimizations)
 
 ---
 
@@ -27,8 +28,62 @@
    `PostStatistics.objects.filter(id=...).update(likes_count=F('likes_count') + 1)`.
    Выражение `F()` заставляет базу данных (PostgreSQL) сделать атомарный инкремент (`SET likes_count = likes_count + 1`), что защищает от гонки данных.
 
+<a name="filters"></a>
+## 3. Фильтрация постов
+
+Все фильтры применяются в методе `get_queryset()` класса `BasePostViewSet` (`posts/views/posts.py`).
+Фильтры работают только для одобренных постов (`status=approved`); `my_posts` их не использует.
+
+### Доступные query-параметры
+
+| Параметр | Тип | Описание | Пример |
+|---|---|---|---|
+| `search` | string | Полнотекстовый поиск по блюду, ресторану, категории | `?search=суши` |
+| `category_id` | int | Фильтр по категории (блюда или ресторана) | `?category_id=3` |
+| `city` | string | Поиск по городу в адресе ресторана (icontains) | `?city=Москва` |
+| `price_min` | number | Минимальная цена блюда (включительно) | `?price_min=300` |
+| `price_max` | number | Максимальная цена блюда (включительно) | `?price_max=1000` |
+
+### Фильтр по цене — детали
+
+Параметры `price_min` и `price_max` можно использовать по отдельности или вместе.
+Посты без цены (`price=null`) при фильтрации по цене **не попадают** в результат.
+
+**Примеры запросов для фронта:**
+
+```typescript
+// Только от 300 руб.
+GET /api/v1/posts/?price_min=300
+
+// Только до 1000 руб.
+GET /api/v1/posts/?price_max=1000
+
+// Диапазон 300–1000 руб.
+GET /api/v1/posts/?price_min=300&price_max=1000
+
+// Комбинация с другими фильтрами
+GET /api/v1/posts/?price_min=300&price_max=1000&city=Москва&search=суши
+```
+
+**Как передать из Server Action (Next.js):**
+
+```typescript
+const params = new URLSearchParams();
+if (priceMin) params.append('price_min', priceMin.toString());
+if (priceMax) params.append('price_max', priceMax.toString());
+
+const response = await fetch(`${API_URL}/posts/?${params.toString()}`, {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+```
+
+**Важно:** `price_min=0` — валидный запрос (вернёт посты с ценой ≥ 0).
+Передавать `null` или пустую строку не нужно — просто не включай параметр в запрос.
+
+---
+
 <a name="future-optimizations"></a>
-## 3. Планы по оптимизации потока данных (На будущее)
+## 4. Планы по оптимизации потока данных (На будущее)
 Текущий асинхронный флоу обновления счетчиков хорош, но при 10,000 лайках в секунду база данных все равно будет перегружена множеством мелких UPDATE запросов.
 
 **Что будем делать**:

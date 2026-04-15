@@ -15,7 +15,7 @@ export default async function Home(props: { searchParams: Promise<{ [key: string
       if (isFollowingTab && accessToken) {
           posts = await getFollowingPosts(accessToken);
       } else {
-          posts = await getSearchPosts(undefined, undefined, accessToken);
+          posts = await getSearchPosts(undefined, undefined, undefined, accessToken);
       }
   } catch (e: any) {
       if (e.message === "UNAUTHORIZED") {

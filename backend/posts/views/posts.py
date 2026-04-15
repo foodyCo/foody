@@ -58,6 +58,14 @@ class BasePostViewSet(viewsets.ModelViewSet):
         if city:
             posts_queryset = posts_queryset.filter(restaurant__address__icontains=city)
 
+        # Фильтр по цене (от - до)
+        price_min = self.request.query_params.get('price_min')
+        price_max = self.request.query_params.get('price_max')
+        posts_queryset = posts_queryset.filter(**{
+            **({'price__gte': price_min} if price_min is not None else {}),
+            **({'price__lte': price_max} if price_max is not None else {}),
+        })
+
         return posts_queryset.order_by('-created_at')
 
     def get_serializer_class(self):
