@@ -65,6 +65,7 @@ class Dish(models.Model):
 
     class Meta:
         verbose_name = 'Блюдо'
+        unique_together = ('restaurant', 'name')
         verbose_name_plural = 'Блюда'
         ordering = ['name']
 

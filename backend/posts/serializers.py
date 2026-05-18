@@ -1,5 +1,5 @@
 import bleach
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.conf import settings
 from rest_framework import serializers
 from .models import Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, CommentLike, Restaurant, Dish, Category
@@ -8,6 +8,25 @@ from users.serializers import UserSerializer, FeedPostAuthorSerializer
 # Разрешённые HTML-теги для комментариев: никаких (только plain text)
 _COMMENT_ALLOWED_TAGS: list = []
 _COMMENT_ALLOWED_ATTRS: dict = {}
+
+# Лимит размера фото при загрузке (применяется к каждому файлу в uploaded_images)
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+def _sanitize_post_description(value):
+    """Очищает HTML-теги из description поста, оставляет plain text. Защита от XSS."""
+    if not value:
+        return ''
+    return bleach.clean(value, tags=[], attributes={}, strip=True)
+
+
+def _validate_uploaded_image_size(image):
+    """Поднимает ValidationError если файл больше MAX_IMAGE_SIZE."""
+    if image.size > MAX_IMAGE_SIZE:
+        raise serializers.ValidationError(
+            f"Файл больше 10 MB. Ваш: {image.size / 1024 / 1024:.1f} MB"
+        )
+    return image
 
 
 class PostImageSerializer(serializers.ModelSerializer):
@@ -137,6 +156,9 @@ class PostUpdateSerializer(serializers.ModelSerializer):
     Сериализатор для редактирования поста. Позволяет менять description, price, теги
     и добавлять новые фотографии (append, не replace).
     """
+    description = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, trim_whitespace=True
+    )
     tags_list = serializers.ListField(
         child=serializers.CharField(max_length=50),
         write_only=True,
@@ -151,6 +173,14 @@ class PostUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = ['description', 'price', 'tags_list', 'uploaded_images']
+
+    def validate_description(self, value):
+        return _sanitize_post_description(value)
+
+    def validate_uploaded_images(self, value):
+        for image in value:
+            _validate_uploaded_image_size(image)
+        return value
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -183,6 +213,9 @@ class PostCreateSerializer(serializers.ModelSerializer):
     """
     Сериализатор только для валидации данных при СОЗДАНИИ поста.
     """
+    description = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, trim_whitespace=True
+    )
     # Картинки передаются списком файлов (в form-data)
     uploaded_images = serializers.ListField(
         child=serializers.ImageField(allow_empty_file=False, use_url=False),
@@ -195,7 +228,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
         required=False
     )
     rating = serializers.FloatField(write_only=True, min_value=0.0, max_value=settings.MAX_REVIEW_RATING, required=True)
-    
+
     # Новые поля для динамического создания ресторанов и блюд
     dish_name = serializers.CharField(write_only=True, max_length=50)
     restaurant_id = serializers.IntegerField(write_only=True, required=False)
@@ -209,27 +242,34 @@ class PostCreateSerializer(serializers.ModelSerializer):
             'tags_list', 'rating',
             'restaurant_id', 'restaurant_name', 'restaurant_address'
         ]
-        
+
     def validate_price(self, value):
         if value is not None and value < 0:
             raise serializers.ValidationError("Цена не может быть отрицательной.")
         return value
+
+    def validate_description(self, value):
+        return _sanitize_post_description(value)
+
+    def validate_uploaded_images(self, value):
+        for image in value:
+            _validate_uploaded_image_size(image)
+        return value
         
-    @transaction.atomic
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
         tags_list = validated_data.pop('tags_list', [])
         rating = validated_data.pop('rating')
-        
+
         # Данные ресторана и блюда
         restaurant_id = validated_data.pop('restaurant_id', None)
         restaurant_name = validated_data.pop('restaurant_name', None)
         restaurant_address = validated_data.pop('restaurant_address', '')
         dish_name = validated_data.pop('dish_name', None)
-        
+
         if not dish_name:
             raise serializers.ValidationError({"dish_name": "Необходимо указать название блюда."})
-            
+
         restaurant = None
         if restaurant_id:
             try:
@@ -239,43 +279,66 @@ class PostCreateSerializer(serializers.ModelSerializer):
         elif restaurant_name:
             # Нормализуем имя (strip) перед поиском/созданием, чтобы избежать дублей из-за пробелов
             clean_restaurant_name = restaurant_name.strip()
-            restaurant, _ = Restaurant.objects.get_or_create(
-                name=clean_restaurant_name,
-                defaults={'address': restaurant_address}
-            )
+            # Идемпотентное создание: при конкурентных запросах с одинаковым именем
+            # ловим IntegrityError из unique-constraint и делаем fetch повторно.
+            try:
+                with transaction.atomic():
+                    restaurant, _ = Restaurant.objects.get_or_create(
+                        name=clean_restaurant_name,
+                        defaults={'address': restaurant_address}
+                    )
+            except IntegrityError:
+                restaurant = Restaurant.objects.get(name=clean_restaurant_name)
         else:
             raise serializers.ValidationError({"restaurant": "Необходимо передать restaurant_id или restaurant_name."})
-            
-        # Ищем блюдо без учёта регистра (iexact), сохраняем оригинальный регистр при создании
+
+        # Ищем блюдо без учёта регистра (iexact), сохраняем оригинальный регистр при создании.
+        # При гонке двух параллельных POST с одинаковым (restaurant, name) ловим IntegrityError
+        # из unique_together и делаем повторный fetch.
         clean_dish_name = dish_name.strip()
         dish = Dish.objects.filter(restaurant=restaurant, name__iexact=clean_dish_name).first()
         if not dish:
-            dish = Dish.objects.create(name=clean_dish_name, restaurant=restaurant)
-        
+            try:
+                with transaction.atomic():
+                    dish = Dish.objects.create(name=clean_dish_name, restaurant=restaurant)
+            except IntegrityError:
+                dish = Dish.objects.filter(
+                    restaurant=restaurant, name__iexact=clean_dish_name
+                ).first()
+                if dish is None:
+                    raise
+
         user = self.context['request'].user
-        
-        # Создаем пост
-        post = Post.objects.create(
-            user=user, 
-            restaurant=restaurant, 
-            dish=dish, 
-            **validated_data
-        )
-        
-        for image in uploaded_images:
-            PostImage.objects.create(post=post, image=image)
 
-        for tag_name in tags_list:
-            tag_name = tag_name.strip().lower()
-            if tag_name:
-                tag, _ = Tag.objects.get_or_create(name=tag_name)
-                PostTag.objects.create(post=post, tag=tag)
+        # Пост + изображения + теги + ревью создаём в одной транзакции:
+        # если что-то упадёт в середине, не остаётся «половины» поста.
+        with transaction.atomic():
+            post = Post.objects.create(
+                user=user,
+                restaurant=restaurant,
+                dish=dish,
+                **validated_data
+            )
 
-        PostReview.objects.create(
-            post=post,
-            user=user,
-            rating=rating
-        )
+            for image in uploaded_images:
+                PostImage.objects.create(post=post, image=image)
+
+            for tag_name in tags_list:
+                tag_name = tag_name.strip().lower()
+                if tag_name:
+                    # Защита от гонок при создании тегов: то же самое — savepoint + fetch.
+                    try:
+                        with transaction.atomic():
+                            tag, _ = Tag.objects.get_or_create(name=tag_name)
+                    except IntegrityError:
+                        tag = Tag.objects.get(name=tag_name)
+                    PostTag.objects.create(post=post, tag=tag)
+
+            PostReview.objects.create(
+                post=post,
+                user=user,
+                rating=rating
+            )
 
         return post
 

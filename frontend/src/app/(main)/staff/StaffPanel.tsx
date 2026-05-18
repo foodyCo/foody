@@ -171,7 +171,7 @@ export default function StaffPanel({
                                     </div>
 
                                     {post.description && (
-                                        <p className="line-clamp-3 whitespace-pre-wrap text-xs text-[#3A4A40]">
+                                        <p className="line-clamp-3 whitespace-pre-wrap break-words text-xs text-[#3A4A40]">
                                             {post.description}
                                         </p>
                                     )}
