@@ -118,9 +118,12 @@ export type ApiCategory = {
  * Загрузить категории с бэка (/api/v1/categories/) и обогатить их emoji/mode
  * из локальной карты. Если бэк недоступен — возвращает пустой массив.
  */
-export async function fetchCategories(): Promise<ApiCategory[]> {
+export async function fetchCategories(accessToken?: string): Promise<ApiCategory[]> {
   try {
-    const data = await apiRequest("/categories/");
+    const options: RequestInit = accessToken
+      ? { headers: { Authorization: `Bearer ${accessToken}` } }
+      : {};
+    const data = await apiRequest("/categories/", options);
     const rawList: { id: number; name: string }[] = Array.isArray(data)
       ? data
       : (data?.results ?? []);
@@ -136,6 +139,29 @@ export async function fetchCategories(): Promise<ApiCategory[]> {
     });
   } catch {
     // Если бэк не отдал категории — возвращаем пустой массив, UI покажет заглушку
+    return [];
+  }
+}
+
+/**
+ * Загрузить топ-N популярных тегов с бэка (/api/v1/tags/ уже отсортирован по -usage_count).
+ * Используется на странице поиска для блока "Популярные теги".
+ */
+export async function fetchPopularTags(accessToken?: string, limit = 12): Promise<string[]> {
+  try {
+    const options: RequestInit = accessToken
+      ? { headers: { Authorization: `Bearer ${accessToken}` } }
+      : {};
+    const data = await apiRequest(`/tags/?ordering=-usage_count`, options);
+    const rawList: { id: number; name: string; usage_count?: number }[] = Array.isArray(data)
+      ? data
+      : (data?.results ?? []);
+
+    return rawList
+      .filter((t) => t.name)
+      .slice(0, limit)
+      .map((t) => t.name);
+  } catch {
     return [];
   }
 }

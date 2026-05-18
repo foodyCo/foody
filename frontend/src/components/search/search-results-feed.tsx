@@ -219,9 +219,13 @@ export function SearchResultsFeed({
       ))}
 
       {!hasMore && posts.length > 0 && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          — конец результатов —
-        </p>
+        // NEW-6: контейнер должен быть собственным snap-target и достаточно высоким,
+        // иначе в snap-mandatory ленте поиска пользователь его просто не увидит.
+        <div className="snap-start snap-always flex min-h-[40vh] items-center justify-center px-4 py-10">
+          <div className="rounded-full border border-white/65 bg-white/65 px-5 py-2.5 text-center text-[13px] font-bold text-[#5C6B62] shadow-[0_8px_20px_rgba(20,40,28,0.08),inset_1px_1px_0_rgba(255,255,255,0.72)] backdrop-blur-[16px]">
+            — конец результатов —
+          </div>
+        </div>
       )}
 
       {notice && (

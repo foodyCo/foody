@@ -106,9 +106,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return refreshAccessToken(token)
         },
         async session({ session, token }) {
+            // If the refresh failed, drop session so middleware/pages
+            // consistently redirect to /login instead of silently using
+            // a stale (now-401) accessToken in API calls.
+            if (token.error) {
+                return null as any;
+            }
             if (session.user) {
                 (session.user as any).accessToken = token.accessToken;
-                (session.user as any).error = token.error;
                 // Pass through the real Django user ID stored at login
                 if (token.sub) {
                     session.user.id = token.sub;

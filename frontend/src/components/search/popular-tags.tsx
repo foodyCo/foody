@@ -23,6 +23,11 @@ export function PopularTags({ tags, brand, onSubmitQuery }: PopularTagsProps) {
     router.push(getTagSearchHref(tag));
   }
 
+  // Пустой массив тегов — секцию не показываем, чтобы не оставлять висячий заголовок «Популярное».
+  if (!tags || tags.length === 0) {
+    return null;
+  }
+
   return (
     <div className="px-[18px] pb-7">
       <SectionHeader

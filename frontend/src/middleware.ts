@@ -16,9 +16,12 @@ export default auth((req) => {
 export const config = {
   matcher: [
     "/profile/:path*",
+    "/me/:path*",
+    "/saved",
     "/create",
     "/settings/:path*",
     "/favorites",
     "/friends",
+    "/staff/:path*",
   ],
 };

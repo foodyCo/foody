@@ -74,7 +74,7 @@ export default function EditProfileForm({
       if (res?.error) {
         setError(res.error);
       } else {
-        router.push("/me?profileSaved=1");
+        router.replace("/me?profileSaved=1");
         router.refresh();
       }
     } catch (e: any) {
