@@ -1,9 +1,10 @@
 import logging
 
+from django.db import transaction
 from rest_framework import status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from ..models import PostLike, PostSave, Comment
+from ..models import Post, PostLike, PostSave, Comment
 from ..serializers import CommentSerializer
 
 logger = logging.getLogger(__name__)
@@ -62,31 +63,47 @@ class PostActionsMixin:
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):
         """
-        Создает лайк для поста (если его нет) или удаляет его (если он уже есть).
-        Атомарное добавление/удаление счетчиков происходит через сигналы.
+        Toggle лайка на пост. Сначала get_object() (через queryset с фильтрами
+        approved-or-own) — для не-автора чужой pending/rejected даст 404.
+        Затем берём строку под select_for_update — параллельные POST'ы от
+        одного юзера сериализуются и финальное состояние совпадает с
+        чётностью количества кликов.
+
+        Запрет: автор НЕ может лайкать собственный pending/rejected пост
+        (накрутка скрытого контента до модерации).
         """
-        post = self.get_object()
+        post = self.get_object()  # 404 если не виден юзеру
         user = request.user
-        like_obj, created = PostLike.objects.get_or_create(post=post, user=user)
-        
-        if not created:
-            like_obj.delete()
-            return Response({"liked": False}, status=status.HTTP_200_OK)
-            
-        return Response({"liked": True}, status=status.HTTP_200_OK)
+
+        if post.status != Post.STATUS_APPROVED and post.user_id == user.id:
+            return Response(
+                {"detail": "Нельзя лайкать собственный пост до одобрения модератором."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        with transaction.atomic():
+            # повторный SELECT под блокировкой по этому посту, чтобы
+            # параллельный like от того же юзера дождался коммита.
+            Post.objects.select_for_update().filter(pk=post.pk).first()
+            like_obj, created = PostLike.objects.get_or_create(post=post, user=user)
+            if not created:
+                like_obj.delete()
+                return Response({"liked": False}, status=status.HTTP_200_OK)
+            return Response({"liked": True}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def save_post(self, request, pk=None):
         """
-        Добавляет пост в закладки пользователя (если его нет) или удаляет из закладок.
-        Атомарное добавление/удаление счетчиков происходит через сигналы.
+        Toggle закладки. Атомарно (см. like()). Сохранять можно любой
+        видимый юзеру пост — даже свой pending (это персональный bookmark,
+        не социальный сигнал, поэтому накрутки тут нет).
         """
         post = self.get_object()
         user = request.user
-        save_obj, created = PostSave.objects.get_or_create(post=post, user=user)
-        
-        if not created:
-            save_obj.delete()
-            return Response({"saved": False}, status=status.HTTP_200_OK)
-            
-        return Response({"saved": True}, status=status.HTTP_200_OK)
+        with transaction.atomic():
+            Post.objects.select_for_update().filter(pk=post.pk).first()
+            save_obj, created = PostSave.objects.get_or_create(post=post, user=user)
+            if not created:
+                save_obj.delete()
+                return Response({"saved": False}, status=status.HTTP_200_OK)
+            return Response({"saved": True}, status=status.HTTP_200_OK)
