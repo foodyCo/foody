@@ -1,6 +1,9 @@
+from django.db.models import Count
 from rest_framework import viewsets, mixins
+from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
 
 from ..models import Restaurant, Dish, Category, Tag
 from ..serializers import RestaurantSerializer, DishSerializer, CategorySerializer, TagSerializer
@@ -43,9 +46,30 @@ class CategoryViewSet(viewsets.ModelViewSet):
     search_fields = ['name']
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'popular']:
             return [IsAuthenticated()]
         return [IsAdminUser()]
+
+    @action(detail=False, methods=['get'], url_path='popular')
+    def popular(self, request):
+        """
+        GET /api/v1/categories/popular/?limit=8
+        Возвращает категории, отсортированные по количеству связанных постов
+        (через привязки блюд и ресторанов). Категории без активности уходят в конец.
+        """
+        try:
+            limit = int(request.query_params.get('limit', 8))
+        except (TypeError, ValueError):
+            limit = 8
+        limit = max(1, min(limit, 50))
+        qs = (
+            Category.objects.annotate(
+                usage=Count('dishes', distinct=True) + Count('restaurants', distinct=True)
+            )
+            .order_by('-usage', 'name')[:limit]
+        )
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
 
 
 class DishViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):

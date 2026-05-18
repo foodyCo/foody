@@ -13,6 +13,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { useSession } from "next-auth/react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -260,6 +261,8 @@ export function CommentsSheet({
   postId,
 }: CommentsSheetProps) {
   const CURRENT_USER = makeCurrentUser(currentUsername);
+  const { data: session } = useSession();
+  const accessToken: string | null = (session?.user as any)?.accessToken ?? null;
   const [draft, setDraft] = useState("");
   const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
   const [commentLikesLoaded, setCommentLikesLoaded] = useState(false);
@@ -317,7 +320,7 @@ export function CommentsSheet({
 
     let isActive = true;
 
-    void requestCommentLikes(commentIds)
+    void requestCommentLikes(commentIds, accessToken)
       .then((response) => {
         if (!isActive) {
           return;
@@ -457,7 +460,7 @@ export function CommentsSheet({
     });
 
     try {
-      const result = await requestCommentLikeMutation(comment.id, nextLiked);
+      const result = await requestCommentLikeMutation(comment.id, nextLiked, accessToken);
 
       setLikedCommentIds(result.likedCommentIds);
     } catch {

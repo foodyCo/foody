@@ -56,6 +56,12 @@ export function mapApiPostToFeedPost(api: ApiPost): Post {
   const photoUrls = (api.images || [])
     .map((img) => fixMediaUrl(img.image))
     .filter(Boolean) as string[];
+  const restaurantId =
+    typeof api.restaurant === "object" && api.restaurant !== null
+      ? api.restaurant.id
+      : typeof api.restaurant === "number"
+        ? api.restaurant
+        : undefined;
 
   return {
     id: api.id,
@@ -75,6 +81,7 @@ export function mapApiPostToFeedPost(api: ApiPost): Post {
     photoUrls,
     avatarUrl: fixMediaUrl(api.user.avatar) || undefined,
     userId: api.user.id,
+    restaurantId,
   };
 }
 

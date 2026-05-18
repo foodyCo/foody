@@ -1,4 +1,5 @@
 import { MapPin, Star } from "lucide-react";
+import Link from "next/link";
 
 import type { Post } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -21,12 +22,24 @@ export function PostDetails({ post, brand, expanded = false }: PostDetailsProps)
       </div>
 
       <div className="px-4 pt-1 pb-2.5 max-[390px]:pb-2 [@media(max-width:430px)_and_(max-height:860px)]:px-3.5 [@media(max-width:430px)_and_(max-height:860px)]:pb-1.5">
-        <div className="inline-flex max-w-full items-center gap-1.5 rounded-[9px] bg-[rgba(20,40,28,0.05)] px-2.5 py-[5px] text-[12.5px] font-semibold text-[#13251a]">
-          <MapPin className="size-[11px] shrink-0" strokeWidth={2.2} />
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-            {post.place}
-          </span>
-        </div>
+        {post.restaurantId !== undefined ? (
+          <Link
+            href={`/restaurant/${post.restaurantId}`}
+            className="inline-flex max-w-full items-center gap-1.5 rounded-[9px] bg-[rgba(20,40,28,0.05)] px-2.5 py-[5px] text-[12.5px] font-semibold text-[#13251a]"
+          >
+            <MapPin className="size-[11px] shrink-0" strokeWidth={2.2} />
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+              {post.place}
+            </span>
+          </Link>
+        ) : (
+          <div className="inline-flex max-w-full items-center gap-1.5 rounded-[9px] bg-[rgba(20,40,28,0.05)] px-2.5 py-[5px] text-[12.5px] font-semibold text-[#13251a]">
+            <MapPin className="size-[11px] shrink-0" strokeWidth={2.2} />
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+              {post.place}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-3 px-4 pt-1 pb-2.5 max-[390px]:pb-2 [@media(max-width:430px)_and_(max-height:860px)]:px-3.5 [@media(max-width:430px)_and_(max-height:860px)]:pb-1.5">

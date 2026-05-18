@@ -33,6 +33,20 @@ class MeView(APIView):
         logger.error('Profile update failed for user %s: %s', request.user.id, serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def delete(self, request):
+        """
+        DELETE /api/v1/users/me/ — самоудаление аккаунта.
+
+        Все связанные посты/комменты/лайки/подписки удалятся каскадно благодаря
+        on_delete=CASCADE / SET_NULL в моделях. JWT остаётся валидным до своего
+        expiry — фронт обязан очистить cookie сессии сразу после 204.
+        """
+        user = request.user
+        user_id = user.id
+        user.delete()
+        logger.info('User %s deleted their account', user_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class UserDetailView(generics.RetrieveAPIView):
     queryset = User.objects.all()

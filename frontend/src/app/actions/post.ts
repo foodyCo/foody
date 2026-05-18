@@ -117,7 +117,6 @@ export async function createComment(postId: string, text: string) {
         });
 
         revalidatePath(`/dish/${postId}`);
-        revalidatePath(`/dish/${postId}/comments`);
         return { success: true, data: response };
     } catch (error: any) {
         console.error("Create comment error:", error);
@@ -138,7 +137,6 @@ export async function deleteComment(postId: string, commentId: number | string) 
             },
         });
         revalidatePath(`/dish/${postId}`);
-        revalidatePath(`/dish/${postId}/comments`);
         return { success: true };
     } catch (error: any) {
         console.error("Delete comment error:", error);

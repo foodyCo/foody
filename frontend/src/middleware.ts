@@ -20,8 +20,6 @@ export const config = {
     "/saved",
     "/create",
     "/settings/:path*",
-    "/favorites",
-    "/friends",
     "/staff/:path*",
   ],
 };

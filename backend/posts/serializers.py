@@ -2,7 +2,7 @@ import bleach
 from django.db import transaction
 from django.conf import settings
 from rest_framework import serializers
-from .models import Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, Restaurant, Dish, Category
+from .models import Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, CommentLike, Restaurant, Dish, Category
 from users.serializers import UserSerializer, FeedPostAuthorSerializer
 
 # Разрешённые HTML-теги для комментариев: никаких (только plain text)
@@ -55,11 +55,29 @@ class DishSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     user_detail = FeedPostAuthorSerializer(source='user', read_only=True)
     text = serializers.CharField(max_length=2000, trim_whitespace=True)
+    likes_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
-        fields = ['id', 'user', 'user_detail', 'text', 'created_at']
-        read_only_fields = ['user', 'created_at']
+        fields = ['id', 'user', 'user_detail', 'text', 'created_at', 'likes_count', 'is_liked']
+        read_only_fields = ['user', 'created_at', 'likes_count', 'is_liked']
+
+    def get_likes_count(self, obj):
+        # Если viewset аннотировал — берём из аннотации, иначе fallback на count().
+        annotated = getattr(obj, '_likes_count', None)
+        if annotated is not None:
+            return annotated
+        return obj.likes.count()
+
+    def get_is_liked(self, obj):
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        annotated = getattr(obj, '_is_liked', None)
+        if annotated is not None:
+            return bool(annotated)
+        return CommentLike.objects.filter(comment=obj, user=request.user).exists()
 
     def validate_text(self, value):
         """Очищаем HTML-теги, оставляем plain text. Защита от XSS."""

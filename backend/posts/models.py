@@ -246,3 +246,20 @@ class Comment(models.Model):
     def __str__(self):
         username = self.user.username if self.user else 'Unknown'
         return f"Comment by {username} on {self.post}"
+
+
+class CommentLike(models.Model):
+    """Лайк на коммент. Зеркало PostLike."""
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='liked_comments')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('comment', 'user')
+        indexes = [
+            models.Index(fields=['-created_at']),
+        ]
+
+    def __str__(self):
+        username = self.user.username if self.user else 'Unknown'
+        return f"CommentLike by {username} on comment {self.comment_id}"

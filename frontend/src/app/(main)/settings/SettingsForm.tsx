@@ -1,19 +1,28 @@
 "use client";
 
+import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Bell,
   ChevronRight,
   Globe,
   LogOut,
-  Shield,
   Trash2,
   User as UserIcon,
 } from "lucide-react";
 import { deleteAccount } from "@/app/actions/settings";
 import { GlassSurface } from "@/components/feed/glass-surface";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -92,16 +101,11 @@ function Row({
 
 export default function SettingsForm({ user }: SettingsFormProps) {
   const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   async function handleDeleteAccount() {
-    if (
-      confirm(
-        "Вы уверены? Это действие нельзя отменить. Все ваши данные будут удалены.",
-      )
-    ) {
-      await deleteAccount();
-      signOut({ callbackUrl: "/login" });
-    }
+    await deleteAccount();
+    signOut({ callbackUrl: "/login" });
   }
 
   return (
@@ -130,16 +134,6 @@ export default function SettingsForm({ user }: SettingsFormProps) {
                 subtitle="Имя, email"
                 onClick={() => router.push("/me/edit")}
               />
-              <Row
-                icon={<Shield className="size-5 text-[#15291C]" strokeWidth={2} />}
-                title="Безопасность"
-                subtitle="Пароль и привязанные сервисы"
-              />
-              <Row
-                icon={<Bell className="size-5 text-[#15291C]" strokeWidth={2} />}
-                title="Уведомления"
-                subtitle="Лайки, отзывы, новые места"
-              />
             </Section>
 
             <Section label="Приложение">
@@ -162,12 +156,36 @@ export default function SettingsForm({ user }: SettingsFormProps) {
                 icon={<Trash2 className="size-5 text-red-600" strokeWidth={2} />}
                 title="Удалить аккаунт"
                 danger
-                onClick={handleDeleteAccount}
+                onClick={() => setDeleteOpen(true)}
               />
             </Section>
           </div>
         </div>
       </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить аккаунт?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие необратимо. Все ваши посты, лайки и подписки будут
+              удалены.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteAccount();
+              }}
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

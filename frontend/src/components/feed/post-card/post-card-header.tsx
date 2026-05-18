@@ -1,11 +1,11 @@
 import {
   ArrowLeft,
-  Flag,
   MoreVertical,
   Share2,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "motion/react";
+import Link from "next/link";
 import { type ReactNode } from "react";
 
 import { GlassSurface } from "@/components/feed/glass-surface";
@@ -17,7 +17,6 @@ import { UserAvatar } from "@/components/feed/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Post } from "@/lib/mock-data";
@@ -168,7 +167,11 @@ export function PostCardHeader({
               FULLSCREEN_AUTHOR_TEXT.usernameProCompact
           )}
         >
-          <span>{post.user}</span>
+          {post.userId !== undefined ? (
+            <Link href={`/users/${post.userId}`}>{post.user}</Link>
+          ) : (
+            <span>{post.user}</span>
+          )}
         </div>
         <div
           className={cn(
@@ -245,17 +248,6 @@ export function PostCardHeader({
             "data-open:animate-none data-closed:animate-none data-open:zoom-in-100 data-closed:zoom-out-100"
           )}
         >
-          <DropdownMenuItem
-            className={cn(
-              "h-10 cursor-pointer rounded-[12px] px-2.5 text-[13px] font-extrabold tracking-[0px] text-[#B63B34] outline-none",
-              "focus:bg-[#15291C]/8 focus:text-[#9F2E28]",
-              "data-[highlighted]:bg-[#15291C]/8 data-[highlighted]:text-[#9F2E28]",
-              "active:bg-[#15291C]/10"
-            )}
-          >
-            <Flag className="size-4 text-[#E5443B]" strokeWidth={2.2} />
-            <span>Пожаловаться</span>
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </>
