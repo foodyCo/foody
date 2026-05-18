@@ -25,12 +25,12 @@ export default async function EditProfilePage() {
     const defaultAvatar = "/default-avatar.svg";
 
     const initialData = {
-        name: userProfile?.full_name || userProfile?.username || session.user.name || "Пользователь",
-        username: userProfile?.username || session.user.name?.toLowerCase().replace(/\s+/g, '_') || "user",
+        name: userProfile?.full_name || userProfile?.username || session.user.name || "",
+        username: userProfile?.username || "",
         avatar: fixMediaUrl(userProfile?.avatar) || session.user.image || defaultAvatar,
         bio: userProfile?.bio_text || "",
         city: userProfile?.city || "",
     };
 
-    return <EditProfileForm initialData={initialData} />;
+    return <EditProfileForm initialData={initialData} accessToken={session.user.accessToken} />;
 }

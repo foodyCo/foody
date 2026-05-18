@@ -47,6 +47,7 @@ class FeedPostAuthorSerializer(serializers.ModelSerializer):
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True, required=True)
+    city = serializers.CharField(required=True, allow_blank=False, max_length=100)
 
     class Meta:
         model = User

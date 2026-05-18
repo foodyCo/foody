@@ -33,3 +33,9 @@ Thumbs.db
 htmlcov/
 .coverage
 .coverage.*
+
+# Build artifacts
+*.bak
+backend/.pytest_cache/
+backend/static/
+frontend-foody-front.bak/

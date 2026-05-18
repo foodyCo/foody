@@ -26,8 +26,7 @@ export default async function SettingsPage() {
         name: userProfile?.full_name || userProfile?.username || session.user.name || "",
         email: userProfile?.email || session.user.email,
         image: fixMediaUrl(userProfile?.avatar) || session.user.image || "/default-avatar.svg",
-        city: userProfile?.city || null,
-        is_staff: userProfile?.is_staff || false,
+        city: userProfile?.city || "",
     };
 
     return <SettingsForm user={user as any} />;

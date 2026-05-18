@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
@@ -32,6 +33,41 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+=======
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env
+.env*.local
+>>>>>>> 81195f6 (Сделана регистрация пользователей, подрублена база данных)
 
 # vercel
 .vercel
@@ -39,3 +75,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+<<<<<<< HEAD
+=======
+
+# prisma
+/src/generated/prisma
+>>>>>>> 81195f6 (Сделана регистрация пользователей, подрублена база данных)

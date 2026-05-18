@@ -7,23 +7,22 @@ import { redirect } from "next/navigation";
 
 export async function registerUser(formData: FormData) {
     const name = formData.get("name") as string;
-    const username = formData.get("username") as string;
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const city = formData.get("city") as string;
+    const city = (formData.get("city") as string)?.trim() ?? "";
 
-    if (!name || !username || !email || !password) {
+    if (!name || !email || !password || !city) {
         return { error: "Все поля обязательны" };
     }
 
     try {
         const registrationData = {
-            username,
+            username: email.split('@')[0] + "_" + Math.floor(Math.random() * 1000),
             email,
             password,
             password_confirm: password,
             full_name: name,
-            city: city || "",
+            city,
         };
 
         await apiRequest("/users/register/", {
@@ -56,6 +55,7 @@ export async function registerUser(formData: FormData) {
                     password: "Пароль",
                     password_confirm: "Подтверждение пароля",
                     full_name: "Имя",
+                    city: "Город",
                     non_field_errors: "Ошибка"
                 };
 

@@ -91,17 +91,9 @@ export async function createComment(dishId: string, text: string) {
 }
 
 export async function getCurrentUserAvatar() {
-    const session = await auth() as any;
-    if (!session?.user?.accessToken) return null;
-    try {
-        const me = await apiRequest(`/users/me/`, {
-            headers: { Authorization: `Bearer ${session.user.accessToken}` },
-            cache: 'no-store',
-        });
-        return me?.avatar || null;
-    } catch {
-        return null;
-    }
+    // В текущем бекенде нет эндпоинта /users/me/
+    // Возвращаем null, пока он не появится.
+    return null;
 }
 
 export async function toggleFollow(userId: string | number, isFollowing: boolean) {

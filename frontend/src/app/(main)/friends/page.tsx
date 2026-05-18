@@ -1,44 +1,69 @@
-import FeedItem from "@/components/FeedItem";
-import { getFollowingPosts as getFriendsPosts } from "@/app/actions/post";
 import { auth } from "@/auth";
-import { mapDjangoPostToDish } from "@/lib/api";
+import { redirect } from "next/navigation";
+import { apiRequest } from "@/lib/api";
+import { FeedClient } from "@/components/feed/feed-client";
+import { mapApiPostToFeedPost, type ApiPost } from "@/lib/feed-adapter";
+import { GlassSurface } from "@/components/feed/glass-surface";
 
 export default async function Friends() {
-    const session = await auth() as any;
-    const posts = await getFriendsPosts(session?.user?.accessToken);
+  const session = (await auth()) as any;
+  if (!session?.user?.accessToken) {
+    redirect("/login");
+  }
 
-    const dishes = posts.map((post: any) => ({
-        dish: mapDjangoPostToDish(post),
-        isLiked: post.is_liked,
-        isSubscribed: false // Бэкенд пока не отдает подписки
-    }));
+  const token = session.user.accessToken;
+  let apiPosts: ApiPost[] = [];
+  try {
+    const data = await apiRequest("/posts/following/", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const results = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+    apiPosts = results as ApiPost[];
+  } catch (e: any) {
+    if (e?.message === "UNAUTHORIZED") redirect("/login");
+  }
 
+  const posts = apiPosts.map(mapApiPostToFeedPost);
+  const likedIds = apiPosts.filter((p) => p.is_liked).map((p) => p.id);
+  const savedIds = apiPosts.filter((p) => p.is_saved).map((p) => p.id);
+
+  let myHandle: string | null = null;
+  try {
+    const me = await apiRequest("/users/me/", { headers: { Authorization: `Bearer ${token}` } });
+    myHandle = me?.username ? `@${me.username}` : null;
+  } catch {
+    /* ignore */
+  }
+
+  if (posts.length === 0) {
     return (
-        <div className="feed-container" style={{ paddingBottom: "80px" }}>
-            <div style={{ padding: "16px" }}>
-                <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "4px" }}>Друзья</h1>
-                <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "24px" }}>
-                    Посмотрите, что едят ваши друзья (взаимные подписки)
-                </p>
+      <main className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 flex flex-col px-4 pt-14 pb-25">
+          <h1 className="text-[24px] font-extrabold tracking-[-0.3px] text-[#15291C]">Друзья</h1>
+          <p className="mt-1 mb-4 text-[14px] font-medium text-[#5C6B62]">
+            Посты людей, на которых вы подписаны
+          </p>
+          <GlassSurface className="flex flex-1 items-center justify-center rounded-[26px] border border-white/65 bg-white/45">
+            <div className="max-w-[280px] px-6 text-center">
+              <p className="text-[18px] font-extrabold text-[#15291C]">Подписок пока нет</p>
+              <p className="mt-2 text-[14px] font-medium text-[#5C6B62]">
+                Подпишитесь на авторов из ленты — их посты появятся здесь.
+              </p>
             </div>
-
-            <div>
-                {dishes.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "40px", color: "var(--text-tertiary)" }}>
-                        <p>Здесь появятся посты ваших взаимных друзей.</p>
-                        <p style={{ fontSize: "12px", marginTop: "8px" }}>Подпишитесь друг на друга, чтобы видеть посты здесь!</p>
-                    </div>
-                ) : (
-                    dishes.map(({ dish, isLiked, isSubscribed }: any) => (
-                        <FeedItem
-                            key={dish.id}
-                            dish={dish}
-                            initialIsLiked={isLiked}
-                            initialIsSubscribed={isSubscribed}
-                        />
-                    ))
-                )}
-            </div>
+          </GlassSurface>
         </div>
+      </main>
     );
+  }
+
+  return (
+    <FeedClient
+      initialPosts={posts}
+      likedIds={likedIds}
+      savedIds={savedIds}
+      currentUser={myHandle}
+      accessToken={token}
+      initialTab="subs"
+    />
+  );
 }

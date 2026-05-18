@@ -4,180 +4,150 @@ import React, { useState } from "react";
 import { registerUser } from "@/app/actions/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { User, Mail, Lock, Eye, EyeOff, AtSign } from "lucide-react";
-import styles from "../../auth.module.css";
+import { User, Mail, Lock, MapPin, Eye, EyeOff } from "lucide-react";
+import { GlassSurface } from "@/components/feed/glass-surface";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+
+const FIELD_SURFACE = cn(
+  "relative h-[50px] rounded-[18px] border border-white/65 bg-transparent",
+  "shadow-[0_8px_20px_rgba(20,40,28,0.08),inset_1px_1px_0_rgba(255,255,255,0.72)]",
+  "backdrop-blur-[16px] backdrop-saturate-[170%] transition-shadow duration-150",
+  "focus-within:ring-2 focus-within:ring-[#15291C]/12",
+);
+const FIELD_INPUT =
+  "h-full border-0 bg-transparent pl-11 pr-3.5 py-0 text-[15.5px] leading-[50px] font-semibold text-[#15291C] shadow-none outline-none placeholder:text-[#8A958E] focus-visible:border-transparent focus-visible:ring-0";
 
 export default function RegisterPage() {
-    const [error, setError] = useState<string | null>(null);
-    const [isPending, setIsPending] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-    const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
 
-    const [name, setName] = useState("");
-    const [username, setUsername] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [city, setCity] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [city, setCity] = useState("");
+  const [password, setPassword] = useState("");
 
-    const RUSSIAN_CITIES = [
-        "Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань",
-        "Нижний Новгород", "Челябинск", "Самара", "Омск", "Ростов-на-Дону",
-        "Уфа", "Красноярск", "Воронеж", "Пермь", "Волгоград", "Краснодар",
-        "Саратов", "Тюмень", "Тольятти", "Ижевск", "Барнаул", "Ульяновск",
-        "Иркутск", "Хабаровск", "Ярославль", "Владивосток", "Махачкала",
-        "Томск", "Оренбург", "Кемерово", "Новокузнецк", "Рязань", "Астрахань",
-        "Набережные Челны", "Пенза", "Липецк", "Тула", "Киров", "Чебоксары",
-        "Калининград", "Брянск", "Курск", "Иваново", "Магнитогорск", "Тверь",
-        "Ставрополь", "Белгород", "Сочи",
-    ];
-
-    async function handleSubmit(formData: FormData) {
-        setIsPending(true);
-        setError(null);
-        const res = await registerUser(formData);
-        setIsPending(false);
-        if (res?.error) {
-            setError(res.error);
-        } else {
-            router.push("/profile");
-            router.refresh();
-        }
+  async function handleSubmit(formData: FormData) {
+    setIsPending(true);
+    setError(null);
+    const res = await registerUser(formData);
+    setIsPending(false);
+    if (res?.error) {
+      setError(res.error);
+    } else {
+      router.push("/profile");
+      router.refresh();
     }
+  }
 
-    return (
-        <>
-            <div className={styles.ambientBg}></div>
-            <div className={styles.noiseOverlay}></div>
+  return (
+    <main className="absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(239,245,240,0.96))]">
+      <div className="absolute inset-0 flex flex-col px-5 pt-14 pb-10">
+        <header className="mb-8 text-center">
+          <h1 className="text-[40px] font-extrabold tracking-[-0.5px] text-[#15291C]">Foody</h1>
+          <p className="mt-2 text-[14.5px] leading-[1.45] font-medium text-[#5C6B62]">
+            Присоединяйтесь, чтобы находить лучшие блюда и заведения
+          </p>
+        </header>
 
-            <div className={styles.authContainer}>
+        <GlassSurface className="flex-1 rounded-[26px] border border-white/65 bg-white/45">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(new FormData(e.currentTarget));
+            }}
+            className="flex h-full flex-col gap-3 px-5 pt-7 pb-5"
+          >
+            <GlassSurface className={FIELD_SURFACE}>
+              <User className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-5 text-[#8A958E] z-10" />
+              <Input
+                name="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ваше имя"
+                required
+                className={FIELD_INPUT}
+              />
+            </GlassSurface>
 
-                <header className={styles.headerContent}>
-                    <h1 className={styles.logoTitle}>Foody</h1>
-                    <p className={styles.subtitle}>
-                        Присоединяйтесь к нам, чтобы находить лучшие блюда и заведения
-                    </p>
-                </header>
+            <GlassSurface className={FIELD_SURFACE}>
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-5 text-[#8A958E] z-10" />
+              <Input
+                type="email"
+                name="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Электронная почта"
+                required
+                autoComplete="email"
+                className={FIELD_INPUT}
+              />
+            </GlassSurface>
 
-                <main className={styles.glassCardBottom}>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            handleSubmit(new FormData(e.currentTarget));
-                        }}
-                        style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
-                    >
-                        <div className={styles.glassInputWrapper}>
-                            <User className={styles.inputIcon} />
-                            <input
-                                id="name"
-                                type="text"
-                                name="name"
-                                className={styles.glassInput}
-                                value={name}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-                                placeholder="Ваше имя"
-                                required
-                            />
-                        </div>
+            <GlassSurface className={FIELD_SURFACE}>
+              <MapPin className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-5 text-[#8A958E] z-10" />
+              <Input
+                name="city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Город"
+                required
+                className={FIELD_INPUT}
+              />
+            </GlassSurface>
 
-                        <div className={styles.glassInputWrapper}>
-                            <AtSign className={styles.inputIcon} />
-                            <input
-                                id="username"
-                                type="text"
-                                name="username"
-                                className={styles.glassInput}
-                                value={username}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-                                placeholder="Никнейм (уникальный)"
-                                required
-                                minLength={3}
-                                pattern="[a-zA-Z0-9_]+"
-                                title="Только буквы, цифры и _"
-                            />
-                        </div>
+            <GlassSurface className={FIELD_SURFACE}>
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-5 text-[#8A958E] z-10" />
+              <Input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                className={cn(FIELD_INPUT, "pr-12")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full text-[#8A958E] hover:bg-white/40 z-10"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </GlassSurface>
 
-                        <div className={styles.glassInputWrapper}>
-                            <Mail className={styles.inputIcon} />
-                            <input
-                                id="email"
-                                type="email"
-                                name="email"
-                                className={styles.glassInput}
-                                value={email}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                                placeholder="Электронная почта"
-                                required
-                            />
-                        </div>
+            {error && (
+              <div className="rounded-2xl border border-red-300 bg-red-50/80 px-4 py-3 text-center text-[13px] font-semibold text-red-700">
+                {error}
+              </div>
+            )}
 
-                        <div className={styles.glassInputWrapper}>
-                            <svg className={styles.inputIcon} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg>
-                            <select
-                                name="city"
-                                className={styles.glassInput}
-                                value={city}
-                                onChange={(e) => setCity(e.target.value)}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <option value="">Ваш город</option>
-                                {RUSSIAN_CITIES.map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
-                            </select>
-                        </div>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="mt-2 h-12 rounded-full bg-[#2ECC71] text-white text-[16px] font-semibold shadow-[0_8px_22px_rgba(46,204,113,0.35)] disabled:opacity-60"
+            >
+              {isPending ? "Регистрация..." : "Зарегистрироваться"}
+            </button>
 
-                        <div className={`${styles.glassInputWrapper} ${styles.glassInputWrapperMb3}`}>
-                            <Lock className={styles.inputIcon} />
-                            <input
-                                id="password"
-                                type={showPassword ? "text" : "password"}
-                                name="password"
-                                className={`${styles.glassInput} ${styles.glassInputPassword}`}
-                                value={password}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                required
-                                minLength={6}
-                            />
-                            <button
-                                type="button"
-                                className={styles.eyeBtn}
-                                onClick={() => setShowPassword(!showPassword)}
-                                tabIndex={-1}
-                            >
-                                {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
-                            </button>
-                        </div>
-
-                        {error && (
-                            <div style={{ color: "var(--error, #e74c3c)", fontSize: 14, textAlign: "center", marginTop: "12px", fontWeight: 500 }}>
-                                {error}
-                            </div>
-                        )}
-
-                        <button
-                            className={styles.glassBtnPrimary}
-                            type="submit"
-                            disabled={isPending}
-                        >
-                            {isPending ? "Регистрация..." : "Зарегистрироваться"}
-                        </button>
-
-                        <div className={styles.flexGrow}></div>
-
-                        <div className={styles.bottomContainer}>
-                            <p className={styles.noAccountText}>
-                                Уже есть аккаунт? <Link href="/login" className={styles.registerLink}>Войти</Link>
-                            </p>
-
-                            <p className={styles.disclaimerText}>
-                                ПРОДОЛЖАЯ, ВЫ СОГЛАШАЕТЕСЬ С<br />ПОЛИТИКОЙ КОНФИДЕНЦИАЛЬНОСТИ<br />FOODY
-                            </p>
-                        </div>
-                    </form>
-                </main>
+            <div className="mt-auto pt-4 text-center text-[13px] font-medium text-[#5C6B62]">
+              Уже есть аккаунт?{" "}
+              <Link href="/login" className="font-semibold text-[#1B7F45]">
+                Войти
+              </Link>
             </div>
-        </>
-    );
+
+            <p className="pt-3 text-center text-[10px] tracking-[0.2em] text-[#A6B0AA] uppercase">
+              Продолжая, вы соглашаетесь с политикой конфиденциальности Foody
+            </p>
+          </form>
+        </GlassSurface>
+      </div>
+    </main>
+  );
 }

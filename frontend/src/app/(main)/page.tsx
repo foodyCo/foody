@@ -1,67 +1,62 @@
 import { auth } from "@/auth";
-import FeedItem from "@/components/FeedItem";
-import { getSearchPosts, getFollowingPosts } from "@/app/actions/post";
 import { redirect } from "next/navigation";
+import { apiRequest } from "@/lib/api";
+import { FeedClient } from "@/components/feed/feed-client";
+import { mapApiPostToFeedPost, type ApiPost } from "@/lib/feed-adapter";
+import type { FeedTab } from "@/components/feed/feed-header";
 
-export default async function Home(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export default async function Home(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const searchParams = await props.searchParams;
-  const isFollowingTab = searchParams.tab === 'following';
+  const isFollowingTab = searchParams.tab === "following";
+  const initialTab: FeedTab = isFollowingTab ? "subs" : "new";
 
-  const session = await auth() as any;
-  const accessToken = session?.user?.accessToken;
+  const session = (await auth()) as any;
+  const accessToken: string | null = session?.user?.accessToken ?? null;
 
-  let posts: any[] = [];
+  const endpoint = isFollowingTab ? "/posts/following/" : "/posts/";
+  let apiPosts: ApiPost[] = [];
   try {
-      if (isFollowingTab && accessToken) {
-          posts = await getFollowingPosts(accessToken);
-      } else {
-          posts = await getSearchPosts(undefined, undefined, undefined, accessToken);
-      }
+    const options: any = { headers: {} };
+    if (accessToken) options.headers.Authorization = `Bearer ${accessToken}`;
+    const data = await apiRequest(endpoint, options);
+    const results = Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data)
+      ? data
+      : [];
+    apiPosts = results as ApiPost[];
   } catch (e: any) {
-      if (e.message === "UNAUTHORIZED") {
-          redirect("/login");
-      }
-      console.error("Failed to load posts", e);
+    if (e?.message === "UNAUTHORIZED") {
+      redirect("/login");
+    }
   }
 
-  // Не меняя бекенд мы можем только имитировать Подписки 
-  // (например, показывая те посты на которые подписаны, но бэкенд не возвращает currently
-  // так как isSubscribed всегда false, мы пока можем просто показывать пустой список
-  // или если вы хотите, можете закомментировать фильтр, чтобы показывались все посты)
-  let dishes = (posts || []).map((dish: any) => {
-    return {
-      dish,
-      isLiked: dish.isLiked, // mapDjangoPostToDish ставит это поле
-      isSubscribed: false, // Бекенд пока не отдает статус подписки, поэтому все false
-      communityRating: dish.userRating
-    }
-  });
+  const posts = apiPosts.map(mapApiPostToFeedPost);
+  const likedIds = apiPosts.filter((p) => p.is_liked).map((p) => p.id);
+  const savedIds = apiPosts.filter((p) => p.is_saved).map((p) => p.id);
 
-  // Для вкладки подписок теперь приходят реальные данные с бэкенда.
-  // Можно считать, что для этих постов isSubscribed = true, т.к. они из ленты подписок.
-  if (isFollowingTab) {
-    dishes = dishes.map((d: any) => ({ ...d, isSubscribed: true }));
+  let myHandle: string | null = null;
+  if (accessToken) {
+    try {
+      const me = await apiRequest("/users/me/", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      myHandle = me?.username ? `@${me.username}` : null;
+    } catch {
+      /* ignore */
+    }
   }
 
   return (
-    <>
-      <div className="feed" style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-base)', maxWidth: '600px', margin: '0 auto', width: '100%', paddingTop: '120px', paddingBottom: '100px' }}>
-        {dishes.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px", color: "#888" }}>
-            <p>{isFollowingTab ? "Здесь появятся посты людей, на которых вы подписаны." : "Пока нет постов. Создайте первый пост!"}</p>
-          </div>
-        ) : (
-          dishes.map(({ dish, isLiked, isSubscribed, communityRating }: any) => (
-            <FeedItem
-              key={dish.id}
-              dish={dish}
-              initialIsLiked={isLiked}
-              initialIsSubscribed={isSubscribed}
-              communityRating={communityRating}
-            />
-          ))
-        )}
-      </div>
-    </>
+    <FeedClient
+      initialPosts={posts}
+      likedIds={likedIds}
+      savedIds={savedIds}
+      currentUser={myHandle}
+      accessToken={accessToken}
+      initialTab={initialTab}
+    />
   );
 }

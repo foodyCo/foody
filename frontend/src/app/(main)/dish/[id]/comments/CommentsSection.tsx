@@ -2,10 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
-import { createComment } from '@/app/actions/post';
+import { createComment, deleteComment } from '@/app/actions/post';
 
 interface CommentType {
     id: number;
@@ -20,18 +19,20 @@ interface CommentType {
     isLiked?: boolean;
 }
 
-export default function CommentsSection({ 
-    postId, 
-    initialComments, 
+export default function CommentsSection({
+    postId,
+    initialComments,
     myAvatar,
     isAuthenticated,
-    accentRedirect
-}: { 
+    accentRedirect,
+    currentUserId,
+}: {
     postId: string;
     initialComments: CommentType[];
     myAvatar: string;
     isAuthenticated: boolean;
     accentRedirect: string;
+    currentUserId?: number | null;
 }) {
     const router = useRouter();
     const [comments, setComments] = useState<CommentType[]>(initialComments);
@@ -59,6 +60,17 @@ export default function CommentsSection({
             await createComment(postId, newText);
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    const handleDelete = async (commentId: number) => {
+        if (!confirm("Удалить комментарий?")) return;
+        const prev = comments;
+        setComments((cs) => cs.filter((c) => c.id !== commentId));
+        const res = await deleteComment(postId, commentId);
+        if (res?.error) {
+            setComments(prev);
+            alert(res.error);
         }
     };
 
@@ -136,11 +148,23 @@ export default function CommentsSection({
                         </div>
                         <div className={styles.commentBody}>
                             <div className={styles.commentHeader}>
-                                <Link href={`/users/${c.user.id}`} className={styles.username} style={{ textDecoration: 'none', color: 'inherit' }}>{c.user.username}</Link>
+                                <span className={styles.username}>{c.user.username}</span>
                                 <span className={styles.time}>{c.created_at}</span>
                             </div>
                             <p className={styles.commentText}>{c.text}</p>
-                            <button className={styles.replyBtn}>Ответить</button>
+                            <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                                <button className={styles.replyBtn}>Ответить</button>
+                                {currentUserId != null && c.user.id === currentUserId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDelete(c.id)}
+                                        className={styles.replyBtn}
+                                        style={{ color: "#c1351d" }}
+                                    >
+                                        Удалить
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div className={styles.likes}>
                             <button className={c.isLiked ? styles.likedIcon : styles.likeIcon}>

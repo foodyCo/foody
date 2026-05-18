@@ -2,27 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { apiRequest } from "@/lib/api";
-import { auth } from "@/auth";
 
-export async function updateProfile(formData: FormData) {
-    const session = await auth() as any;
-    if (!session?.user?.accessToken) {
-        return { error: "UNAUTHORIZED" };
-    }
-
+export async function updateProfile(formData: FormData, accessToken: string) {
     try {
         await apiRequest("/users/me/", {
             method: "PATCH",
             headers: {
-                "Authorization": `Bearer ${session.user.accessToken}`
+                "Authorization": `Bearer ${accessToken}`
             },
             body: formData as any
         });
-
+        
         revalidatePath("/profile");
         revalidatePath("/profile/edit");
         revalidatePath("/");
-
+        
         return { success: true };
     } catch (error: any) {
         console.error("Profile update error:", error);

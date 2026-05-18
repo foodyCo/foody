@@ -53,7 +53,17 @@ export default async function CommentsPage({ params }: { params: Promise<{ id: s
     const rating = Math.round(postData?.user_rating || postData?.statistics?.rating || 0);
     const coverImage = fixMediaUrl(postData?.images?.[0]?.image) || "https://lh3.googleusercontent.com/aida-public/AB6AXuBoOvekwGy6jO-3Q8OJJRQUJhF_A_C5vcRt6gPPfvd9GjbWwNxy7Wawky5QC1pSCU0ZBQYaocwCw4R6zP5mJXG8c7bCQj-56OO1VsnothrVoKBRL4a97h_mGHezTiqa_ZxK3jhyqsIJUZcwEFVF3eo_WU9oL6QcsI1th6pq80q7jeD3Vz2rkv3fx6k7ocVVWHje19CRcjWb0X6j721tCRrxWOZaNASVILxEtGqWqpqGZ4wZ9Z4GZVmw-RZL6eEunk-1b9BLMsCsgM5v";
     const myAvatar = session?.user?.image || "/default-avatar.svg";
-    
+
+    let currentUserId: number | null = null;
+    if (session?.user?.accessToken) {
+        try {
+            const me = await apiRequest("/users/me/", {
+                headers: { Authorization: `Bearer ${session.user.accessToken}` },
+            });
+            currentUserId = me?.id ?? null;
+        } catch { /* ignore */ }
+    }
+
     return (
         <div className={styles.container}>
             {/* BACKGROUND SCREEN (Dish Detail Screen Overlay) */}
@@ -89,12 +99,13 @@ export default async function CommentsPage({ params }: { params: Promise<{ id: s
             <Link href={`/dish/${id}`} className={styles.overlay}></Link>
 
             {/* THE BOTTOM SHEET CONTAINER */}
-            <CommentsSection 
-                postId={id} 
-                initialComments={comments} 
-                myAvatar={myAvatar} 
+            <CommentsSection
+                postId={id}
+                initialComments={comments}
+                myAvatar={myAvatar}
                 isAuthenticated={!!session}
                 accentRedirect={`/dish/${id}`}
+                currentUserId={currentUserId}
             />
         </div>
     );
