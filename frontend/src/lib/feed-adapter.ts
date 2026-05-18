@@ -31,6 +31,7 @@ export type ApiPost = {
   is_liked?: boolean;
   is_saved?: boolean;
   status?: string;
+  rejection_reason?: string | null;
 };
 
 function formatRelative(iso: string): string {

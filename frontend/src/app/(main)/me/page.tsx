@@ -1,16 +1,22 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Settings as SettingsIcon, MapPin, ShieldCheck } from "lucide-react";
+import { Settings as SettingsIcon, MapPin, ShieldCheck, Clock, AlertTriangle } from "lucide-react";
 import { apiRequest, fixMediaUrl, mapDjangoPostToDish } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GlassSurface } from "@/components/feed/glass-surface";
 
 function PostThumb({ post }: { post: any }) {
+  // status приходит из mapDjangoPostToDish (lib/api.ts) — pending / approved / rejected.
+  // Для своих постов на /me показываем бейдж только если НЕ approved, чтобы автор
+  // понимал где какой пост в воронке.
+  const status: string | undefined = post.status;
+  const isPending = status === "pending";
+  const isRejected = status === "rejected";
   return (
     <Link
       href={`/dish/${post.id}`}
-      className="group block aspect-square overflow-hidden rounded-2xl border border-white/65 bg-white/55 shadow-[0_8px_22px_rgba(20,40,28,0.08),inset_1px_1px_0_rgba(255,255,255,0.7)] backdrop-blur-[16px]"
+      className="group relative block aspect-square overflow-hidden rounded-2xl border border-white/65 bg-white/55 shadow-[0_8px_22px_rgba(20,40,28,0.08),inset_1px_1px_0_rgba(255,255,255,0.7)] backdrop-blur-[16px]"
     >
       {post.imageUrl && post.imageUrl !== "/placeholder.png" ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -28,6 +34,32 @@ function PostThumb({ post }: { post: any }) {
             </p>
           </div>
         </div>
+      )}
+      {(isPending || isRejected) && (
+        <>
+          {/* затемнение чтобы бейдж читался поверх любых фото */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/45 to-transparent" />
+          <div
+            className={
+              "pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-bold uppercase tracking-wide shadow-[0_4px_10px_rgba(20,40,28,0.18)] " +
+              (isPending
+                ? "bg-amber-100/95 text-amber-900"
+                : "bg-red-100/95 text-red-900")
+            }
+          >
+            {isPending ? (
+              <>
+                <Clock className="size-3" strokeWidth={2.6} />
+                На модерации
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="size-3" strokeWidth={2.6} />
+                Отклонён
+              </>
+            )}
+          </div>
+        </>
       )}
     </Link>
   );

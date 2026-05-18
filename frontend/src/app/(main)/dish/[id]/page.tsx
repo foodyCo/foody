@@ -3,6 +3,7 @@ import { apiRequest } from "@/lib/api";
 import { mapApiPostToFeedPost, type ApiPost } from "@/lib/feed-adapter";
 import { SinglePostView } from "@/components/feed/single-post-view";
 import { GlassSurface } from "@/components/feed/glass-surface";
+import { Clock, AlertTriangle } from "lucide-react";
 
 export default async function DishPage({
   params,
@@ -12,6 +13,7 @@ export default async function DishPage({
   const { id } = await params;
   const session = (await auth()) as any;
   const accessToken: string | null = session?.user?.accessToken ?? null;
+  const currentUserId: string | null = session?.user?.id ?? null;
 
   let apiPost: ApiPost | null = null;
   try {
@@ -55,13 +57,59 @@ export default async function DishPage({
     }
   }
 
+  // Баннер статуса модерации виден ТОЛЬКО автору поста.
+  // is_staff тоже может видеть pending/rejected (через /moderation/), но в обычном
+  // /dish/{id} мы показываем баннер только своему автору, чтобы он понимал
+  // где его пост в воронке модерации и какова причина если отклонён.
+  const isAuthor =
+    currentUserId != null &&
+    apiPost.user?.id != null &&
+    String(apiPost.user.id) === String(currentUserId);
+  const status = apiPost.status;
+  const showPendingBanner = isAuthor && status === "pending";
+  const showRejectedBanner = isAuthor && status === "rejected";
+
   return (
-    <SinglePostView
-      post={post}
-      initialLiked={initialLiked}
-      initialSaved={initialSaved}
-      currentUser={currentUserHandle}
-      accessToken={accessToken}
-    />
+    <>
+      {(showPendingBanner || showRejectedBanner) && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 px-3 pt-[max(env(safe-area-inset-top),12px)]">
+          {showPendingBanner && (
+            <div className="pointer-events-auto mx-auto flex max-w-[640px] items-start gap-2.5 rounded-2xl border border-amber-200/80 bg-amber-50/95 px-3.5 py-2.5 text-[12.5px] font-semibold text-amber-900 shadow-[0_8px_20px_rgba(160,110,20,0.18)] backdrop-blur-[12px]">
+              <Clock className="mt-px size-4 shrink-0" strokeWidth={2.3} />
+              <div className="leading-snug">
+                <div className="font-bold">Пост на модерации</div>
+                <div className="font-medium text-amber-800/85">
+                  Виден только вам. После одобрения модератором появится в общей ленте.
+                </div>
+              </div>
+            </div>
+          )}
+          {showRejectedBanner && (
+            <div className="pointer-events-auto mx-auto flex max-w-[640px] items-start gap-2.5 rounded-2xl border border-red-200/80 bg-red-50/95 px-3.5 py-2.5 text-[12.5px] font-semibold text-red-900 shadow-[0_8px_20px_rgba(180,40,40,0.18)] backdrop-blur-[12px]">
+              <AlertTriangle className="mt-px size-4 shrink-0" strokeWidth={2.3} />
+              <div className="leading-snug">
+                <div className="font-bold">Пост отклонён модератором</div>
+                {apiPost.rejection_reason ? (
+                  <div className="font-medium text-red-800/85">
+                    Причина: {apiPost.rejection_reason}
+                  </div>
+                ) : (
+                  <div className="font-medium text-red-800/70">
+                    Причина не указана.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <SinglePostView
+        post={post}
+        initialLiked={initialLiked}
+        initialSaved={initialSaved}
+        currentUser={currentUserHandle}
+        accessToken={accessToken}
+      />
+    </>
   );
 }
