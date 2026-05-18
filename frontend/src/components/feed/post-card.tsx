@@ -553,6 +553,8 @@ export function PostCard({
         brand={brand}
         comments={loadedComments}
         commentsCount={post.comments}
+        currentUsername={currentUser?.replace(/^@/, "") ?? null}
+        postId={post.id}
         onClose={() => setIsCommentsOpen(false)}
         onOpen={() => {
           fetchPostComments(post.id).then(setLoadedComments);

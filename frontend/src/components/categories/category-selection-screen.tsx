@@ -26,6 +26,7 @@ import {
   getDishCategories,
   getPopularCuisineCategories,
   getPopularDishCategories,
+  matchCategoryByName,
   type ApiCategory,
   type CategoryMode,
   type FoodCategory,
@@ -290,19 +291,36 @@ export function CategorySelectionScreen({
       setLoadState({ status: "loading", data: null, error: null });
 
       try {
-        const [dishes, cuisines, popularDishes, popularCuisines] =
-          await Promise.all([
-            getDishCategories(),
-            getCuisineCategories(),
-            getPopularDishCategories(),
-            getPopularCuisineCategories(),
-          ]);
+        // NR1: если бэк отдал реальные категории — показываем их (мапим
+        // на FoodCategory через matchCategoryByName, чтобы получить эмодзи).
+        // Иначе fallback на статические DISH_/CUISINE_CATEGORIES.
+        const useApi = apiCategories && apiCategories.length > 0;
+
+        const dishesFromApi: FoodCategory[] = useApi
+          ? apiCategories!.map((c): FoodCategory => {
+              const matched = matchCategoryByName(c.name);
+              return (
+                matched ?? {
+                  id: `api-${c.id}`,
+                  label: c.name,
+                  emoji: c.icon || "🍽️",
+                  mode: "dishes",
+                }
+              );
+            })
+          : await getDishCategories();
+
+        const cuisines = useApi ? [] : await getCuisineCategories();
+        const popularDishes = useApi
+          ? dishesFromApi.slice(0, 4)
+          : await getPopularDishCategories();
+        const popularCuisines = useApi ? [] : await getPopularCuisineCategories();
 
         if (!isActive) return;
 
         setLoadState({
           status: "success",
-          data: { dishes, cuisines, popularDishes, popularCuisines },
+          data: { dishes: dishesFromApi, cuisines, popularDishes, popularCuisines },
           error: null,
         });
       } catch {
@@ -321,7 +339,7 @@ export function CategorySelectionScreen({
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [apiCategories]);
 
   const currentCategories = useMemo(() => {
     if (loadState.status !== "success") return [];

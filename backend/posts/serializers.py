@@ -87,13 +87,14 @@ class PostListSerializer(serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
     status = serializers.CharField(read_only=True)
+    rejection_reason = serializers.CharField(read_only=True, allow_null=True, allow_blank=True)
 
     class Meta:
         model = Post
         fields = [
             'id', 'user', 'restaurant', 'restaurant_name', 'dish', 'dish_name',
             'description', 'price', 'created_at', 'images', 'statistics',
-            'tags', 'is_liked', 'is_saved', 'status'
+            'tags', 'is_liked', 'is_saved', 'status', 'rejection_reason'
         ]
 
     def get_is_liked(self, obj):
