@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  MoreVertical,
   Share2,
   type LucideIcon,
 } from "lucide-react";
@@ -14,11 +13,6 @@ import {
   SubscribeStyleButton,
 } from "@/components/feed/subscribe-style-button";
 import { UserAvatar } from "@/components/feed/user-avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import type { Post } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -210,46 +204,8 @@ export function PostCardHeader({
         title="Поделиться"
         wrapperClassName="size-[17px]"
       />
-      <DropdownMenu
-        onOpenChange={(open) => {
-          if (open) {
-            onMoreClick();
-          }
-        }}
-      >
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            title="Ещё"
-            aria-label="Ещё"
-            className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-[9px] bg-[rgba(20,40,28,0.06)] text-[#15291C] outline-none transition-colors hover:bg-[rgba(20,40,28,0.09)] focus-visible:ring-2 focus-visible:ring-[#15291C]/18"
-          >
-            <motion.span
-              key={`Ещё-${morePulse}`}
-              className="grid size-4 place-items-center"
-              animate={
-                morePulse > 0 && canAnimate(shouldReduceMotion)
-                  ? ICON_PULSE_ANIMATION
-                  : { scale: 1 }
-              }
-              transition={ICON_PULSE_TRANSITION}
-            >
-              <MoreVertical className="size-4" strokeWidth={2} />
-            </motion.span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          sideOffset={7}
-          className={cn(
-            "w-[178px] translate-x-1.5 rounded-[15px] border-0 bg-[#FFF8FC] p-1.5 text-[#15291C] outline-none ring-0",
-            "shadow-[0_12px_28px_rgba(20,40,28,0.16)]",
-            "backdrop-blur-none backdrop-saturate-100",
-            "data-open:animate-none data-closed:animate-none data-open:zoom-in-100 data-closed:zoom-out-100"
-          )}
-        >
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Three-dots/Ещё DropdownMenu удалено вместе с единственным пунктом
+          «Пожаловаться» (бэка для report'ов нет). Шеринг — отдельной кнопкой выше. */}
     </>
   );
 
