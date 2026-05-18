@@ -101,5 +101,5 @@ export async function authenticate(prevState: string | undefined, formData: Form
         return "Неверный email или пароль"; // fallback
     }
 
-    redirect("/profile");
+    redirect("/me");
 }

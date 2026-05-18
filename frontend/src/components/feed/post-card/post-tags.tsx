@@ -25,24 +25,24 @@ export function PostTags({
       />
       <div className="flex flex-wrap items-center gap-1.5">
         {mainTag && (
-          <TagButton
+          <PostTagButton
             isMain
             brand={brand}
             onClick={() => onTagClick(mainTag)}
             shouldReduceMotion={shouldReduceMotion}
           >
             {mainTag}
-          </TagButton>
+          </PostTagButton>
         )}
         {restTags.map((tag) => (
-          <TagButton
+          <PostTagButton
             key={tag}
             brand={brand}
             onClick={() => onTagClick(tag)}
             shouldReduceMotion={shouldReduceMotion}
           >
             {tag}
-          </TagButton>
+          </PostTagButton>
         ))}
       </div>
     </div>
@@ -57,7 +57,9 @@ type TagButtonProps = {
   onClick: () => void;
 };
 
-function TagButton({
+export type PostTagButtonProps = TagButtonProps;
+
+export function PostTagButton({
   children,
   brand,
   isMain = false,

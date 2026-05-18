@@ -35,8 +35,8 @@ const TABS: TabItem[] = [
     primary: true,
     href: "/create",
   },
-  { id: "saved", label: "Избранное", icon: Bookmark, href: "/favorites" },
-  { id: "me", label: "Профиль", icon: User, href: "/profile" },
+  { id: "saved", label: "Сохранённое", icon: Bookmark, href: "/saved" },
+  { id: "me", label: "Профиль", icon: User, href: "/me" },
 ];
 const POST_CARD_EXPANDED_EVENT = "foody:post-card-expanded";
 
@@ -67,11 +67,20 @@ export function BottomTabBar({ brand }: BottomTabBarProps) {
   const isActiveTab = (t: TabItem) => {
     if (t.href === undefined) return false;
     if (t.href === "/") return pathname === "/";
+    // /me tab also matches /profile (redirect alias) and /me/edit
+    if (t.id === "me") {
+      return pathname === "/me" || pathname.startsWith("/me/") || pathname === "/profile" || pathname.startsWith("/profile/");
+    }
 
     return pathname === t.href || pathname.startsWith(`${t.href}/`);
   };
 
-  if (isPostCardExpanded || pathname === "/new-review") {
+  if (
+    isPostCardExpanded ||
+    pathname === "/new-review" ||
+    pathname === "/create" ||
+    pathname === "/categories"
+  ) {
     return null;
   }
 
@@ -155,6 +164,7 @@ export function BottomTabBar({ brand }: BottomTabBarProps) {
             }
 
             const Icon = t.icon;
+            const isFilledBookmark = t.id === "saved" && isActive;
             const inner = (
               <>
                 <motion.span
@@ -165,7 +175,7 @@ export function BottomTabBar({ brand }: BottomTabBarProps) {
                     className="size-[22px] [@media(max-width:430px)_and_(max-height:860px)]:size-5"
                     strokeWidth={isActive ? 2.4 : 1.8}
                     color={isActive ? brand : "#5C6B62"}
-                    fill="none"
+                    fill={isFilledBookmark ? brand : "none"}
                   />
                 </motion.span>
                 <span>{t.label}</span>

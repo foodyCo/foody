@@ -1,6 +1,11 @@
 "use client";
 
-import { type KeyboardEvent, type ReactNode, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  useState,
+} from "react";
 import { motion, useAnimationControls } from "motion/react";
 
 import { cn } from "@/lib/utils";
@@ -42,7 +47,9 @@ type SubscribeStyleButtonProps = {
   children: ReactNode;
   className?: string;
   disabled?: boolean;
+  muted?: boolean;
   shouldReduceMotion: boolean | null;
+  style?: CSSProperties;
   title?: string;
   onClick?: () => Promise<void> | void;
 };
@@ -56,7 +63,9 @@ export function SubscribeStyleButton({
   children,
   className,
   disabled = false,
+  muted = false,
   shouldReduceMotion,
+  style,
   title,
   onClick,
 }: SubscribeStyleButtonProps) {
@@ -144,6 +153,7 @@ export function SubscribeStyleButton({
       className={cn(
         FULLSCREEN_SUBSCRIBE_BUTTON.base,
         "disabled:cursor-not-allowed disabled:opacity-70",
+        muted && "text-[#4F5A54]",
         className
       )}
       animate={scaleControls}
@@ -157,12 +167,13 @@ export function SubscribeStyleButton({
       onPointerUp={releaseButton}
       style={{
         boxShadow: `0 8px 18px ${brand}1F, inset 1px 1px 0 rgba(255,255,255,0.18), inset -1px -1px 0 rgba(11,47,29,0.05)`,
+        ...style,
       }}
     >
       <motion.span
         aria-hidden="true"
-        className="absolute inset-0 rounded-full"
-        animate={{ opacity: active ? 1 : 0 }}
+        className="absolute inset-0 rounded-[inherit]"
+        animate={{ opacity: active && !muted ? 1 : 0 }}
         transition={shouldAnimate ? SUBSCRIBE_STATE_TRANSITION : { duration: 0 }}
         style={{
           background: `linear-gradient(120deg, ${brand}E6, rgba(122,236,164,0.78), rgba(100,218,189,0.66), ${brand}A8)`,
@@ -170,8 +181,8 @@ export function SubscribeStyleButton({
       />
       <motion.span
         aria-hidden="true"
-        className="absolute inset-px rounded-full"
-        animate={{ opacity: active ? 0 : 1 }}
+        className="absolute inset-px rounded-[inherit]"
+        animate={{ opacity: !active && !muted ? 1 : 0 }}
         transition={shouldAnimate ? SUBSCRIBE_STATE_TRANSITION : { duration: 0 }}
         style={{
           background: `linear-gradient(135deg, ${brand}72 0%, rgba(189,247,208,0.68) 85%, ${brand}35 100%)`,
@@ -179,8 +190,18 @@ export function SubscribeStyleButton({
       />
       <motion.span
         aria-hidden="true"
-        className="absolute inset-px rounded-full"
-        animate={{ opacity: active ? 1 : 0 }}
+        className="absolute inset-px rounded-[inherit]"
+        animate={{ opacity: muted ? 1 : 0 }}
+        transition={shouldAnimate ? SUBSCRIBE_STATE_TRANSITION : { duration: 0 }}
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(224,229,226,0.88) 0%, rgba(208,216,211,0.80) 85%, rgba(190,199,194,0.60) 100%)",
+        }}
+      />
+      <motion.span
+        aria-hidden="true"
+        className="absolute inset-px rounded-[inherit]"
+        animate={{ opacity: active && !muted ? 1 : 0 }}
         transition={shouldAnimate ? SUBSCRIBE_STATE_TRANSITION : { duration: 0 }}
         style={{
           background:

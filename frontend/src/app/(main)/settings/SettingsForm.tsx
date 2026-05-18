@@ -128,7 +128,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
                 icon={<UserIcon className="size-5 text-[#15291C]" strokeWidth={2} />}
                 title="Личные данные"
                 subtitle="Имя, email"
-                onClick={() => router.push("/profile/edit")}
+                onClick={() => router.push("/me/edit")}
               />
               <Row
                 icon={<Shield className="size-5 text-[#15291C]" strokeWidth={2} />}
@@ -147,7 +147,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
                 icon={<Globe className="size-5 text-[#15291C]" strokeWidth={2} />}
                 title="Мой город"
                 value={user?.city || "—"}
-                onClick={() => router.push("/profile/edit")}
+                onClick={() => router.push("/me/edit")}
               />
             </Section>
 

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AnimatePresence,
   animate,
   type PanInfo,
   useMotionValue,
@@ -12,12 +11,10 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { flushSync } from "react-dom";
 
 import {
-  CollapsedPostCardView,
   ExpandedPostCardView,
 } from "@/components/feed/post-card-sections";
 import { CommentsSheet } from "@/components/feed/comments-sheet";
@@ -33,33 +30,16 @@ import {
 import { PhotoViewerModal } from "@/components/feed/post-card/photo-viewer-modal";
 import { CopyLinkAlert } from "@/components/shared/copy-link-alert";
 import { useSearchSubmit } from "@/components/search/use-search-submit";
-import { type Density, type Post, type PostComment } from "@/lib/mock-data";
+import type {
+  Density,
+  Post,
+  PostComment,
+} from "@/lib/mock-data";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+// upstream: imported COMMENTS_BY_POST_ID from @/lib/mock-data and indexed by post.id.
+// We pass comments as a prop to decouple from mock data — callers supply real API data.
 
-async function fetchPostComments(postId: number): Promise<PostComment[]> {
-  try {
-    const res = await fetch(`${API_URL}/posts/${postId}/comments/`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const rawComments: any[] = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
-    return rawComments.map((c: any) => ({
-      id: c.id,
-      user: c.user_detail?.username ? `@${c.user_detail.username}` : "@unknown",
-      realName: c.user_detail?.username || "Аноним",
-      avatarUrl: c.user_detail?.avatar || undefined,
-      when: c.created_at ? new Date(c.created_at).toLocaleDateString("ru-RU") : "",
-      text: c.text || "",
-      likes: 0,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-type PostCardProps = {
+type FullScreenPostProps = {
   post: Post;
   brand: string;
   currentUser: string | null;
@@ -70,6 +50,9 @@ type PostCardProps = {
   isLikePending?: boolean;
   isSaved: boolean;
   isSavePending?: boolean;
+  /** Real comments for this post, loaded by the caller from Django API. */
+  comments?: PostComment[];
+  onClose: () => void;
   onFollowToggle: (author: string, nextFollowing: boolean) => Promise<void>;
   onLikeToggle: (postId: number, nextLiked: boolean) => Promise<void>;
   onSaveToggle: (postId: number, nextSaved: boolean) => Promise<void>;
@@ -91,16 +74,6 @@ function getViewportSize(): ViewportSize {
     height: window.visualViewport?.height ?? window.innerHeight,
     width: window.visualViewport?.width ?? window.innerWidth,
   };
-}
-
-function usePulse() {
-  const [pulse, setPulse] = useState(0);
-
-  function triggerPulse() {
-    setPulse((currentPulse) => currentPulse + 1);
-  }
-
-  return [pulse, triggerPulse] as const;
 }
 
 function useViewportSize() {
@@ -151,7 +124,17 @@ function getPhotoRatio(density: Density, viewportSize: ViewportSize) {
   return density === "cozy" ? 1.12 : 1.26;
 }
 
-export function PostCard({
+function usePulse() {
+  const [pulse, setPulse] = useState(0);
+
+  function triggerPulse() {
+    setPulse((currentPulse) => currentPulse + 1);
+  }
+
+  return [pulse, triggerPulse] as const;
+}
+
+export function FullScreenPost({
   post,
   brand,
   currentUser,
@@ -162,11 +145,12 @@ export function PostCard({
   isLikePending = false,
   isSaved,
   isSavePending = false,
+  comments = [],
+  onClose,
   onFollowToggle,
   onLikeToggle,
   onSaveToggle,
-}: PostCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+}: FullScreenPostProps) {
   const [photoIdx, setPhotoIdx] = useState(0);
   const [photoIndicatorIdx, setPhotoIndicatorIdx] = useState(0);
   const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
@@ -175,7 +159,6 @@ export function PostCard({
     useState<PhotoDirection>(1);
   const [viewerOpenKey, setViewerOpenKey] = useState(0);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
-  const [loadedComments, setLoadedComments] = useState<PostComment[]>([]);
   const [photoWidth, setPhotoWidth] = useState(0);
   const [sharePulse, triggerSharePulse] = usePulse();
   const [morePulse, triggerMorePulse] = usePulse();
@@ -183,27 +166,22 @@ export function PostCard({
   const [copyLinkAlertKey, setCopyLinkAlertKey] = useState(0);
   const shouldReduceMotion = useReducedMotion();
   const submitSearchQuery = useSearchSubmit();
-
   const viewportSize = useViewportSize();
   const photoRatio = getPhotoRatio(density, viewportSize);
   const [mainTag, ...restTags] = post.tags;
   const likeCount = post.likes + (isLiked ? 1 : 0);
   const hasPhotoSlider = post.photos > 1;
-  const lastPhotoIdx = post.photos - 1;
+  const lastPhotoIdx = Math.max(post.photos - 1, 0);
   const canDragToPreviousPhoto = photoIdx > 0;
   const canDragToNextPhoto = photoIdx < lastPhotoIdx;
-  const feedPhotoViewportRef = useRef<HTMLDivElement>(null);
   const expandedPhotoViewportRef = useRef<HTMLDivElement>(null);
   const photoTrackX = useMotionValue(0);
   const photoAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
   const photoDragBaseXRef = useRef(0);
-  const suppressOpenAfterPhotoDragRef = useRef(false);
   const trackPhotoIndexes = getPhotoTrackIndexes(photoIdx, lastPhotoIdx);
 
   useLayoutEffect(() => {
-    const viewport = isExpanded
-      ? expandedPhotoViewportRef.current
-      : feedPhotoViewportRef.current;
+    const viewport = expandedPhotoViewportRef.current;
 
     if (!viewport) {
       return;
@@ -227,26 +205,33 @@ export function PostCard({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [isExpanded, photoTrackX]);
+  }, [photoTrackX]);
 
   useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(POST_CARD_EXPANDED_EVENT, {
+        detail: { expanded: true },
+      })
+    );
+
     return () => {
       photoAnimationRef.current?.stop();
+      window.dispatchEvent(
+        new CustomEvent(POST_CARD_EXPANDED_EVENT, {
+          detail: { expanded: false },
+        })
+      );
     };
   }, []);
 
   useEffect(() => {
-    if (!isExpanded) {
-      return;
-    }
-
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
+    function handleKeyDown(event: KeyboardEvent) {
       if (isPhotoViewerOpen || isCommentsOpen) {
         return;
       }
 
       if (event.key === "Escape") {
-        setIsExpanded(false);
+        onClose();
       }
     }
 
@@ -255,42 +240,19 @@ export function PostCard({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isCommentsOpen, isExpanded, isPhotoViewerOpen]);
-
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent(POST_CARD_EXPANDED_EVENT, {
-        detail: { expanded: isExpanded },
-      })
-    );
-
-    return () => {
-      if (isExpanded) {
-        window.dispatchEvent(
-          new CustomEvent(POST_CARD_EXPANDED_EVENT, {
-            detail: { expanded: false },
-          })
-        );
-      }
-    };
-  }, [isExpanded]);
+  }, [isCommentsOpen, isPhotoViewerOpen, onClose]);
 
   async function copyPostLink() {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const postUrl = new URL("/", window.location.origin);
+    const postUrl = new URL("/saved", window.location.origin);
     postUrl.searchParams.set("post", String(post.id));
-    const postLink = postUrl.toString();
 
     try {
-      await navigator.clipboard.writeText(postLink);
+      await navigator.clipboard.writeText(postUrl.toString());
       setCopyLinkAlertKey((currentKey) => currentKey + 1);
       return;
     } catch {
       const fallbackField = document.createElement("textarea");
-      fallbackField.value = postLink;
+      fallbackField.value = postUrl.toString();
       fallbackField.setAttribute("readonly", "");
       fallbackField.style.position = "fixed";
       fallbackField.style.top = "-999px";
@@ -303,70 +265,7 @@ export function PostCard({
     }
   }
 
-  function handleCardClick(event: ReactMouseEvent<HTMLElement>) {
-    if (isExpanded || isPhotoViewerOpen || suppressOpenAfterPhotoDragRef.current) {
-      return;
-    }
-
-    const target = event.target;
-
-    if (
-      target instanceof Element &&
-      target.closest("a,button,input,textarea,select,[data-card-interactive]")
-    ) {
-      return;
-    }
-
-    resetPhotoTrackToCenter();
-    setIsExpanded(true);
-  }
-
-  function handleLikeClick() {
-    void onLikeToggle(post.id, !isLiked);
-  }
-
-  function handleSaveClick() {
-    void onSaveToggle(post.id, !isSaved);
-  }
-
-  function handleCommentClick() {
-    triggerCommentPulse();
-    setIsCommentsOpen(true);
-  }
-
-  function handleShareClick() {
-    triggerSharePulse();
-    void copyPostLink();
-  }
-
-  function handleMoreClick() {
-    triggerMorePulse();
-  }
-
-  function handleTagClick(tag: string) {
-    submitSearchQuery(tag);
-  }
-
-  function handlePhotoDragStart() {
-    suppressOpenAfterPhotoDragRef.current = true;
-    photoAnimationRef.current?.stop();
-    photoDragBaseXRef.current = photoTrackX.get();
-    photoTrackX.stop();
-    setPhotoIndicatorIdx(photoIdx);
-  }
-
-  function releasePhotoDragSuppression() {
-    window.setTimeout(() => {
-      suppressOpenAfterPhotoDragRef.current = false;
-    }, 80);
-  }
-
   function handlePhotoOpen() {
-    if (suppressOpenAfterPhotoDragRef.current) {
-      return;
-    }
-
-    resetPhotoTrackToCenter();
     setViewerPhotoDirection(1);
     setViewerPhotoIdx(photoIdx);
     setViewerOpenKey((currentKey) => currentKey + 1);
@@ -398,14 +297,10 @@ export function PostCard({
     );
   }
 
-  function resetPhotoTrackToCenter() {
-    const centerX = getPhotoSwitchCenterX(photoWidth);
-
+  function handlePhotoDragStart() {
     photoAnimationRef.current?.stop();
-    photoAnimationRef.current = null;
+    photoDragBaseXRef.current = photoTrackX.get();
     photoTrackX.stop();
-    photoTrackX.jump(centerX);
-    photoDragBaseXRef.current = centerX;
     setPhotoIndicatorIdx(photoIdx);
   }
 
@@ -432,8 +327,6 @@ export function PostCard({
     _event: MouseEvent | TouchEvent | PointerEvent,
     info: PanInfo
   ) {
-    releasePhotoDragSuppression();
-
     if (!hasPhotoSlider || photoWidth <= 0) {
       return;
     }
@@ -460,82 +353,61 @@ export function PostCard({
     animatePhotoTrackToCenter();
   }
 
-  const headerActions = {
-    morePulse,
-    onMoreClick: handleMoreClick,
-    onShareClick: handleShareClick,
-    sharePulse,
-  };
-  const follow = {
-    currentUser,
-    isAuthorFollowed,
-    isFollowPending,
-    onFollowToggle,
-  };
-  const photoCarousel = {
-    canDragToNextPhoto,
-    canDragToPreviousPhoto,
-    hasPhotoSlider,
-    onPhotoDrag: handlePhotoDrag,
-    onPhotoDragEnd: handlePhotoDragEnd,
-    onPhotoDragStart: handlePhotoDragStart,
-    onPhotoOpen: handlePhotoOpen,
-    photoIndicatorIdx,
-    photoRatio,
-    photoTrackX,
-    photoWidth,
-    trackPhotoIndexes,
-  };
-  const engagement = {
-    commentPulse,
-    likePending: isLikePending,
-    likeCount,
-    liked: isLiked,
-    savePending: isSavePending,
-    onCommentClick: handleCommentClick,
-    onLikeClick: handleLikeClick,
-    onSaveClick: handleSaveClick,
-    saved: isSaved,
-  };
-
   return (
-    <div className="flex h-[calc(100%+5.125rem)] min-h-0 snap-start snap-always flex-col px-3.5 pt-2 pb-[5.75rem] [scroll-snap-stop:always] [@media(max-width:430px)_and_(max-height:860px)]:h-[calc(100%+4.25rem)] [@media(max-width:430px)_and_(max-height:860px)]:px-3 [@media(max-width:430px)_and_(max-height:860px)]:pb-[5rem]">
-      <CollapsedPostCardView
+    <>
+      <ExpandedPostCardView
         brand={brand}
-        engagement={engagement}
-        follow={follow}
-        headerActions={headerActions}
+        engagement={{
+          commentPulse,
+          likeCount,
+          liked: isLiked,
+          likePending: isLikePending,
+          onCommentClick: () => {
+            triggerCommentPulse();
+            setIsCommentsOpen(true);
+          },
+          onLikeClick: () => void onLikeToggle(post.id, !isLiked),
+          onSaveClick: () => void onSaveToggle(post.id, !isSaved),
+          savePending: isSavePending,
+          saved: isSaved,
+        }}
+        follow={{
+          currentUser,
+          isAuthorFollowed,
+          isFollowPending,
+          onFollowToggle,
+        }}
+        headerActions={{
+          morePulse,
+          onMoreClick: triggerMorePulse,
+          onShareClick: () => {
+            triggerSharePulse();
+            void copyPostLink();
+          },
+          sharePulse,
+        }}
         mainTag={mainTag}
-        onCardClick={handleCardClick}
-        onTagClick={handleTagClick}
+        onBackClick={onClose}
+        onTagClick={submitSearchQuery}
         photoCarousel={{
-          ...photoCarousel,
-          photoViewportRef: feedPhotoViewportRef,
+          canDragToNextPhoto,
+          canDragToPreviousPhoto,
+          hasPhotoSlider,
+          onPhotoDrag: handlePhotoDrag,
+          onPhotoDragEnd: handlePhotoDragEnd,
+          onPhotoDragStart: handlePhotoDragStart,
+          onPhotoOpen: handlePhotoOpen,
+          photoIndicatorIdx,
+          photoRatio,
+          photoTrackX,
+          photoViewportRef: expandedPhotoViewportRef,
+          photoWidth,
+          trackPhotoIndexes,
         }}
         post={post}
         restTags={restTags}
         shouldReduceMotion={shouldReduceMotion}
       />
-      <AnimatePresence>
-        {isExpanded && (
-          <ExpandedPostCardView
-            brand={brand}
-            engagement={engagement}
-            follow={follow}
-            headerActions={headerActions}
-            mainTag={mainTag}
-            onBackClick={() => setIsExpanded(false)}
-            onTagClick={handleTagClick}
-            photoCarousel={{
-              ...photoCarousel,
-              photoViewportRef: expandedPhotoViewportRef,
-            }}
-            post={post}
-            restTags={restTags}
-            shouldReduceMotion={shouldReduceMotion}
-          />
-        )}
-      </AnimatePresence>
       <PhotoViewerModal
         activeIndex={viewerPhotoIdx}
         direction={viewerPhotoDirection}
@@ -550,15 +422,12 @@ export function PostCard({
       <CommentsSheet
         open={isCommentsOpen}
         brand={brand}
-        comments={loadedComments}
+        comments={comments}
         commentsCount={post.comments}
         onClose={() => setIsCommentsOpen(false)}
-        onOpen={() => {
-          fetchPostComments(post.id).then(setLoadedComments);
-        }}
         shouldReduceMotion={shouldReduceMotion}
       />
       <CopyLinkAlert showKey={copyLinkAlertKey} />
-    </div>
+    </>
   );
 }

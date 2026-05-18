@@ -3,6 +3,10 @@
 // (см. lib/feed-client.ts для лайков/сохранений/подписок поверх реального бэка).
 // Здесь — заглушки, которые удовлетворяют типам и возвращают локальное состояние.
 
+import type { Post } from "@/lib/mock-data";
+
+export type FeedScope = "new" | "subs";
+
 export type FollowMutationResponse = {
   targetUser: string;
   following: boolean;
@@ -20,6 +24,36 @@ export type BookmarkMutationResponse = {
   saved: boolean;
   savedPostIds: number[];
 };
+
+// Тип для страницы избранного (Wave D: /saved).
+export type FavoritePostsResponse = {
+  currentUser: string | null;
+  followingUsers: string[];
+  likedPostIds: number[];
+  posts: Post[];
+  recentFavoriteTags: string[];
+  savedPostIds: number[];
+  savedPostsCount: number;
+};
+
+export function isFeedScope(value: string | null): value is FeedScope {
+  return value === "new" || value === "subs";
+}
+
+/** Утилита: добавить/убрать postId из массива. */
+export function getNextPostIdMembership(
+  postIds: number[],
+  postId: number,
+  included: boolean,
+) {
+  const hasPostId = postIds.includes(postId);
+
+  if (included) {
+    return hasPostId ? postIds : [...postIds, postId];
+  }
+
+  return hasPostId ? postIds.filter((id) => id !== postId) : postIds;
+}
 
 export async function requestFollowMutation(
   targetUser: string,

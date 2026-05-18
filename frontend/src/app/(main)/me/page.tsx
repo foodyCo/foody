@@ -1,9 +1,8 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { Settings as SettingsIcon, MapPin } from "lucide-react";
 import { apiRequest, fixMediaUrl, mapDjangoPostToDish } from "@/lib/api";
-import SubscribeButton from "@/components/SubscribeButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GlassSurface } from "@/components/feed/glass-surface";
 
@@ -25,7 +24,7 @@ function PostThumb({ post }: { post: any }) {
           <div>
             <p className="text-[14px] font-semibold text-[#15291C]">{post.title}</p>
             <p className="mt-1 text-[11px] font-medium text-[#5C6B62]">
-              ★ {Number(post.userRating || 0).toFixed(1)}
+              {Number(post.userRating || 0).toFixed(1)}
             </p>
           </div>
         </div>
@@ -34,89 +33,77 @@ function PostThumb({ post }: { post: any }) {
   );
 }
 
-export default async function UserProfile({
-  params,
+export default async function MePage({
+  searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string; profileSaved?: string }>;
 }) {
-  const { id } = await params;
+  const { tab, profileSaved } = await searchParams;
+  const activeTab = tab === "saved" ? "saved" : "posts";
+
   const session = (await auth()) as any;
-
-  const options: any = { headers: {} };
-  if (session?.user?.accessToken) {
-    options.headers.Authorization = `Bearer ${session.user.accessToken}`;
+  if (!session?.user?.accessToken) {
+    redirect("/login");
   }
 
-  // Redirect to /profile if this is the logged-in user's own page.
-  // session.user.id is now set to the real Django user ID (see auth.ts authorize).
-  if (session?.user?.id?.toString() === id) {
-    redirect("/me");
+  const token = session.user.accessToken;
+  let userProfile: any = null;
+  let postsResult: any[] = [];
+  let savedResult: any[] = [];
+
+  try {
+    const [posts, saved, me] = await Promise.all([
+      apiRequest("/posts/my/", { headers: { Authorization: `Bearer ${token}` } }),
+      apiRequest("/posts/saved/", { headers: { Authorization: `Bearer ${token}` } }),
+      apiRequest("/users/me/", { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+    ]);
+    postsResult = Array.isArray(posts?.results || posts)
+      ? (posts?.results || posts).map(mapDjangoPostToDish)
+      : [];
+    savedResult = Array.isArray(saved?.results || saved)
+      ? (saved?.results || saved).map(mapDjangoPostToDish)
+      : [];
+    userProfile = me;
+  } catch (e: any) {
+    if (e?.message === "UNAUTHORIZED") redirect("/login");
   }
 
-  // Double-check via /users/me/ in case id wasn't populated (e.g. old session)
-  if (session?.user?.accessToken) {
-    try {
-      const me = await apiRequest("/users/me/", options);
-      if (me?.id?.toString() === id) {
-        redirect("/me");
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  const [postsData, userProfile] = await Promise.all([
-    apiRequest(`/posts/user_posts/?user_id=${id}`, options).catch(() => ({ results: [] })),
-    apiRequest(`/users/${id}/`, options).catch(() => null),
-  ]);
-
-  const posts = Array.isArray(postsData?.results || postsData)
-    ? (postsData?.results || postsData).map(mapDjangoPostToDish)
-    : [];
-
-  if (!userProfile) {
-    return (
-      <main className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 flex flex-col px-4 pt-16 pb-25">
-          <GlassSurface className="flex flex-1 items-center justify-center rounded-[26px] border border-white/65 bg-white/45">
-            <div className="max-w-[280px] px-6 text-center">
-              <p className="text-[20px] font-extrabold text-[#15291C]">Пользователь не найден</p>
-            </div>
-          </GlassSurface>
-        </div>
-      </main>
-    );
-  }
-
-  const handle = userProfile.username || `user_${id}`;
-  const name = userProfile.full_name || userProfile.username || "Пользователь";
-  const avatar = fixMediaUrl(userProfile.avatar) || "";
-  const city = userProfile.city || "";
-  const bio = userProfile.bio_text || "";
+  const handle = userProfile?.username || session.user.email?.split("@")[0] || "user";
+  const name = userProfile?.full_name || userProfile?.username || "Пользователь";
+  const avatar = fixMediaUrl(userProfile?.avatar) || "";
+  const city = userProfile?.city || "";
+  const bio = userProfile?.bio_text || "";
   const stats = {
-    posts: userProfile.posts_count ?? posts.length,
-    followers: userProfile.followers_count ?? 0,
-    following: userProfile.following_count ?? 0,
+    posts: userProfile?.posts_count ?? postsResult.length,
+    followers: userProfile?.followers_count ?? 0,
+    following: userProfile?.following_count ?? 0,
   };
+
+  const listToShow = activeTab === "saved" ? savedResult : postsResult;
 
   return (
     <main className="absolute inset-0 overflow-hidden">
       <div className="absolute inset-0 flex flex-col pt-12.5">
         <header className="flex items-center justify-between px-5 pb-3">
-          <Link
-            href="/"
-            aria-label="Назад"
-            className="grid size-10 place-items-center rounded-full border border-white/65 bg-white/58 text-[#15291C] shadow-[0_8px_20px_rgba(20,40,28,0.12),inset_1px_1px_0_rgba(255,255,255,0.78)] backdrop-blur-[18px]"
-          >
-            <ArrowLeft className="size-5" strokeWidth={2.2} />
-          </Link>
-          <h1 className="text-[18px] font-extrabold tracking-[-0.3px] text-[#15291C]">
+          <h1 className="text-[20px] font-extrabold tracking-[-0.3px] text-[#15291C]">
             @{handle}
           </h1>
-          <span className="size-10" />
+          <Link
+            href="/settings"
+            aria-label="Настройки"
+            className="grid size-10 place-items-center rounded-full border border-white/65 bg-white/58 text-[#15291C] shadow-[0_8px_20px_rgba(20,40,28,0.12),inset_1px_1px_0_rgba(255,255,255,0.78)] backdrop-blur-[18px]"
+          >
+            <SettingsIcon className="size-5" strokeWidth={2.2} />
+          </Link>
         </header>
 
         <section className="hide-scroll flex-1 overflow-y-auto px-4 pb-25">
+          {profileSaved === "1" && (
+            <div className="mb-3 rounded-2xl border border-green-200 bg-green-50/80 px-4 py-3 text-center text-[13px] font-semibold text-green-800">
+              Профиль сохранён
+            </div>
+          )}
+
           <GlassSurface className="rounded-[26px] border border-white/65 bg-white/45 px-5 py-6">
             <div className="flex flex-col items-center text-center">
               <Avatar className="size-22 border-2 border-white shadow-[0_10px_28px_rgba(20,40,28,0.18)]">
@@ -143,15 +130,14 @@ export default async function UserProfile({
                 </p>
               )}
 
-              <div className="mt-4">
-                <SubscribeButton
-                  userId={id}
-                  initialIsFollowing={userProfile.is_following || false}
-                  session={session}
-                />
-              </div>
+              <Link
+                href="/me/edit"
+                className="mt-4 inline-flex h-9 items-center rounded-full bg-white/82 px-5 text-[13px] font-bold text-[#15291C] shadow-[inset_1px_1px_0_rgba(255,255,255,0.85),0_6px_16px_rgba(20,40,28,0.1)] hover:bg-white"
+              >
+                Редактировать профиль
+              </Link>
 
-              <div className="mt-5 grid grid-cols-3 gap-3 w-full max-w-sm">
+              <div className="mt-5 grid w-full max-w-sm grid-cols-3 gap-3">
                 <div className="text-center">
                   <div className="text-[20px] font-extrabold text-[#15291C]">{stats.posts}</div>
                   <div className="text-[11.5px] font-semibold tracking-wide text-[#8A958E] uppercase">Посты</div>
@@ -168,13 +154,40 @@ export default async function UserProfile({
             </div>
           </GlassSurface>
 
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {posts.length === 0 ? (
+          <div className="mt-5 grid grid-cols-2 rounded-full border border-white/60 bg-white/40 p-1 shadow-[inset_1px_1px_0_rgba(255,255,255,0.7)]">
+            <Link
+              href="/me?tab=posts"
+              prefetch={false}
+              className={
+                "rounded-full py-2 text-center text-[13.5px] font-bold transition-colors " +
+                (activeTab === "posts"
+                  ? "bg-white text-[#15291C] shadow-[0_4px_12px_rgba(20,40,28,0.08)]"
+                  : "text-[#5C6B62]")
+              }
+            >
+              Посты
+            </Link>
+            <Link
+              href="/me?tab=saved"
+              prefetch={false}
+              className={
+                "rounded-full py-2 text-center text-[13.5px] font-bold transition-colors " +
+                (activeTab === "saved"
+                  ? "bg-white text-[#15291C] shadow-[0_4px_12px_rgba(20,40,28,0.08)]"
+                  : "text-[#5C6B62]")
+              }
+            >
+              Сохранённое
+            </Link>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {listToShow.length === 0 ? (
               <div className="col-span-full py-10 text-center text-[14px] font-medium text-[#5C6B62]">
-                У пользователя пока нет постов.
+                {activeTab === "saved" ? "Нет сохранённых постов." : "У вас пока нет постов."}
               </div>
             ) : (
-              posts.map((p: any) => <PostThumb key={p.id} post={p} />)
+              listToShow.map((p: any) => <PostThumb key={p.id} post={p} />)
             )}
           </div>
         </section>

@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { motion, useReducedMotion } from "motion/react";
+import Link from "next/link";
+import { useReducedMotion } from "motion/react";
 
+import { FeedSegmentedControl } from "@/components/feed/feed-segmented-control";
 import { GlassSurface } from "@/components/feed/glass-surface";
 import { UserAvatar } from "@/components/feed/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,10 @@ import { cn } from "@/lib/utils";
 
 export type FeedTab = "new" | "subs";
 
-const TABS: { id: FeedTab; label: string }[] = [
+const TABS: readonly [
+  { id: "new"; label: string },
+  { id: "subs"; label: string },
+] = [
   { id: "new", label: "Новое" },
   { id: "subs", label: "Подписки" },
 ];
@@ -34,7 +39,6 @@ export function FeedHeader({
 }: FeedHeaderProps) {
   const isLoggedIn = !!currentUser;
   const shouldReduceMotion = useReducedMotion();
-  const activeTabLeft = tab === "new" ? "3px" : "calc(50% + 1px)";
 
   return (
     <header className="sticky top-0 z-20 px-3.5 pt-2 pb-0 max-[409px]:px-3">
@@ -55,58 +59,23 @@ export function FeedHeader({
             </span>
           </div>
 
-          <div
-            role="tablist"
+          <FeedSegmentedControl
             aria-label="Лента"
-            className="relative ml-0.5 grid min-w-[148px] flex-1 grid-cols-2 gap-0.5 rounded-full bg-[rgba(20,40,28,0.06)] p-[3px] max-[409px]:ml-0 max-[409px]:min-w-[116px]"
-          >
-            <motion.span
-              aria-hidden="true"
-              className="absolute top-[3px] bottom-[3px] w-[calc(50%_-_4px)] rounded-full bg-white shadow-[0_4px_15px_rgba(20,40,28,0.11)]"
-              initial={false}
-              animate={{ left: activeTabLeft }}
-              transition={
-                shouldReduceMotion
-                  ? { duration: 0 }
-                  : {
-                      type: "spring",
-                      stiffness: 520,
-                      damping: 42,
-                      mass: 0.55,
-                    }
-              }
-            />
-            {TABS.map((t) => {
-              const isActive = tab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => onTabChange(t.id)}
-                  className={cn(
-                    "relative grid h-[31px] min-w-0 cursor-pointer place-items-center overflow-hidden rounded-full px-1 pt-px font-sans text-[13px] leading-[1.1] font-extrabold tracking-[0px] transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/20 max-[409px]:text-[10.5px]",
-                    isActive ? "text-[#15291C]" : "text-[#5C6B62]"
-                  )}
-                >
-                  <span className="relative z-[1] whitespace-nowrap">
-                    {t.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+            items={TABS}
+            value={tab}
+            onValueChange={onTabChange}
+            className="ml-0.5 max-[409px]:ml-0"
+          />
 
           {isLoggedIn ? (
-            <button
-              type="button"
+            <Link
+              href="/me"
               aria-label={currentUser}
               title={currentUser}
               className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-transparent p-0 text-[#15291C] outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18"
             >
               <UserAvatar name={currentUser} size={32} className="shadow-none" />
-            </button>
+            </Link>
           ) : (
             <Button
               type="button"

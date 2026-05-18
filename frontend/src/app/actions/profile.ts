@@ -15,6 +15,8 @@ export async function updateProfile(formData: FormData, accessToken: string) {
         
         revalidatePath("/profile");
         revalidatePath("/profile/edit");
+        revalidatePath("/me");
+        revalidatePath("/me/edit");
         revalidatePath("/");
         
         return { success: true };
