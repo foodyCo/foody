@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Settings as SettingsIcon, MapPin } from "lucide-react";
+import { Settings as SettingsIcon, MapPin, ShieldCheck } from "lucide-react";
 import { apiRequest, fixMediaUrl, mapDjangoPostToDish } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GlassSurface } from "@/components/feed/glass-surface";
@@ -130,12 +130,23 @@ export default async function MePage({
                 </p>
               )}
 
-              <Link
-                href="/me/edit"
-                className="mt-4 inline-flex h-9 items-center rounded-full bg-white/82 px-5 text-[13px] font-bold text-[#15291C] shadow-[inset_1px_1px_0_rgba(255,255,255,0.85),0_6px_16px_rgba(20,40,28,0.1)] hover:bg-white"
-              >
-                Редактировать профиль
-              </Link>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <Link
+                  href="/me/edit"
+                  className="inline-flex h-9 items-center rounded-full bg-white/82 px-5 text-[13px] font-bold text-[#15291C] shadow-[inset_1px_1px_0_rgba(255,255,255,0.85),0_6px_16px_rgba(20,40,28,0.1)] hover:bg-white"
+                >
+                  Редактировать профиль
+                </Link>
+                {userProfile?.is_staff && (
+                  <Link
+                    href="/staff"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#1FA85C] px-4 text-[13px] font-bold text-white shadow-[0_6px_16px_rgba(31,168,92,0.32)] hover:bg-[#168B4A]"
+                  >
+                    <ShieldCheck className="size-4" />
+                    Модерация
+                  </Link>
+                )}
+              </div>
 
               <div className="mt-5 grid w-full max-w-sm grid-cols-3 gap-3">
                 <div className="text-center">
