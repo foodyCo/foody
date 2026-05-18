@@ -37,9 +37,14 @@ class PostFilterSet(django_filters.FilterSet):
     # ?city=Москва — по адресу ресторана (icontains)
     city = django_filters.CharFilter(field_name='restaurant__address', lookup_expr='icontains')
 
-    # ?price_min=100&price_max=500 — диапазон цен
-    price_min = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
-    price_max = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
+    # ?price_min=100&price_max=500 — диапазон цен.
+    # min_value=0 чтобы отрицательные значения отбивались 400-ой.
+    price_min = django_filters.NumberFilter(
+        field_name='price', lookup_expr='gte', min_value=0,
+    )
+    price_max = django_filters.NumberFilter(
+        field_name='price', lookup_expr='lte', min_value=0,
+    )
 
     class Meta:
         model = Post

@@ -9,7 +9,10 @@ export default async function Home(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const searchParams = await props.searchParams;
-  const isFollowingTab = searchParams.tab === "following";
+  // Принимаем оба алиаса: ?tab=following (внутренний URL фронта) и
+  // ?tab=subs (короткая форма, упоминается в сценариях/документации).
+  const tabParam = searchParams.tab;
+  const isFollowingTab = tabParam === "following" || tabParam === "subs";
   const initialTab: FeedTab = isFollowingTab ? "subs" : "new";
 
   const session = (await auth()) as any;
