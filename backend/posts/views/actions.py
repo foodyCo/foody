@@ -24,16 +24,16 @@ class PostActionsMixin:
             comments_queryset = post.comments.select_related('user').all()
             page = self.paginate_queryset(comments_queryset)
             if page is not None:
-                serializer = CommentSerializer(page, many=True)
+                serializer = CommentSerializer(page, many=True, context={"request": request})
                 return self.get_paginated_response(serializer.data)
-            serializer = CommentSerializer(comments_queryset, many=True)
+            serializer = CommentSerializer(comments_queryset, many=True, context={"request": request})
             return Response(serializer.data)
         elif request.method == 'POST':
             return self._create_comment(request, post)
             
     def _create_comment(self, request, post):
         """Хелпер для валидации и создания комментария"""
-        serializer = CommentSerializer(data=request.data)
+        serializer = CommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save(user=request.user, post=post)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
