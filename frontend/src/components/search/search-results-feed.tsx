@@ -1,20 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import { PostCard } from "@/components/feed/post-card";
-import {
-  requestBookmarkMutation,
-  requestFollowMutation,
-  requestLikeMutation,
-} from "@/lib/feed-api";
+import { toggleLike, toggleSave, toggleFollow } from "@/lib/feed-client";
 import type { Density, Post } from "@/lib/mock-data";
 
 type SearchResultsFeedProps = {
   brand: string;
   currentUser: string | null;
+  accessToken: string | null;
   density: Density;
   initialFollowingUsers: string[];
   initialLikedPostIds: number[];
@@ -25,6 +22,7 @@ type SearchResultsFeedProps = {
 export function SearchResultsFeed({
   brand,
   currentUser,
+  accessToken,
   density,
   initialFollowingUsers,
   initialLikedPostIds,
@@ -44,6 +42,15 @@ export function SearchResultsFeed({
     () => new Set()
   );
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Auto-dismiss notice after 3 seconds
+  useEffect(() => {
+    if (notice) {
+      const id = setTimeout(() => setNotice(null), 3000);
+      return () => clearTimeout(id);
+    }
+  }, [notice]);
+
   const followingUsersSet = useMemo(
     () => new Set(followingUsers),
     [followingUsers]
@@ -57,100 +64,99 @@ export function SearchResultsFeed({
     [savedPostIds]
   );
 
-  const toggleFollow = useCallback(
+  const onFollowToggle = useCallback(
     async (author: string, nextFollowing: boolean) => {
-      if (!currentUser || pendingAuthors.has(author)) {
+      if (!currentUser || !accessToken || pendingAuthors.has(author)) {
+        if (!currentUser) setNotice("Войдите, чтобы подписываться.");
         return;
       }
 
       setNotice(null);
-      setPendingAuthors((currentAuthors) => {
-        const nextAuthors = new Set(currentAuthors);
-        nextAuthors.add(author);
-
-        return nextAuthors;
-      });
+      setPendingAuthors((current) => new Set(current).add(author));
 
       try {
-        const result = await requestFollowMutation(author, nextFollowing);
-
-        setFollowingUsers(result.followingUsers);
+        const target = posts.find((p) => p.user === author);
+        const targetUserId = target?.userId ?? null;
+        await toggleFollow(author, targetUserId ?? null, accessToken, nextFollowing);
+        setFollowingUsers((current) => {
+          const next = new Set(current);
+          if (nextFollowing) next.add(author);
+          else next.delete(author);
+          return Array.from(next);
+        });
       } catch {
         setNotice("Не удалось обновить подписку. Попробуйте ещё раз.");
       } finally {
-        setPendingAuthors((currentAuthors) => {
-          const nextAuthors = new Set(currentAuthors);
-          nextAuthors.delete(author);
-
-          return nextAuthors;
+        setPendingAuthors((current) => {
+          const next = new Set(current);
+          next.delete(author);
+          return next;
         });
       }
     },
-    [currentUser, pendingAuthors]
+    [currentUser, accessToken, pendingAuthors, posts]
   );
 
-  const toggleLike = useCallback(
+  const onLikeToggle = useCallback(
     async (postId: number, nextLiked: boolean) => {
-      if (!currentUser || pendingLikePostIds.has(postId)) {
+      if (!currentUser || !accessToken || pendingLikePostIds.has(postId)) {
+        if (!currentUser) setNotice("Войдите, чтобы ставить лайки.");
         return;
       }
 
       setNotice(null);
-      setPendingLikePostIds((currentPostIds) => {
-        const nextPostIds = new Set(currentPostIds);
-        nextPostIds.add(postId);
-
-        return nextPostIds;
-      });
+      setPendingLikePostIds((current) => new Set(current).add(postId));
 
       try {
-        const result = await requestLikeMutation(postId, nextLiked);
-
-        setLikedPostIds(result.likedPostIds);
+        await toggleLike(postId, accessToken);
+        setLikedPostIds((current) => {
+          const next = new Set(current);
+          if (nextLiked) next.add(postId);
+          else next.delete(postId);
+          return Array.from(next);
+        });
       } catch {
         setNotice("Не удалось обновить лайк. Попробуйте ещё раз.");
       } finally {
-        setPendingLikePostIds((currentPostIds) => {
-          const nextPostIds = new Set(currentPostIds);
-          nextPostIds.delete(postId);
-
-          return nextPostIds;
+        setPendingLikePostIds((current) => {
+          const next = new Set(current);
+          next.delete(postId);
+          return next;
         });
       }
     },
-    [currentUser, pendingLikePostIds]
+    [currentUser, accessToken, pendingLikePostIds]
   );
 
-  const toggleSave = useCallback(
+  const onSaveToggle = useCallback(
     async (postId: number, nextSaved: boolean) => {
-      if (!currentUser || pendingSavePostIds.has(postId)) {
+      if (!currentUser || !accessToken || pendingSavePostIds.has(postId)) {
+        if (!currentUser) setNotice("Войдите, чтобы сохранять посты.");
         return;
       }
 
       setNotice(null);
-      setPendingSavePostIds((currentPostIds) => {
-        const nextPostIds = new Set(currentPostIds);
-        nextPostIds.add(postId);
-
-        return nextPostIds;
-      });
+      setPendingSavePostIds((current) => new Set(current).add(postId));
 
       try {
-        const result = await requestBookmarkMutation(postId, nextSaved);
-
-        setSavedPostIds(result.savedPostIds);
+        await toggleSave(postId, accessToken);
+        setSavedPostIds((current) => {
+          const next = new Set(current);
+          if (nextSaved) next.add(postId);
+          else next.delete(postId);
+          return Array.from(next);
+        });
       } catch {
         setNotice("Не удалось обновить избранное. Попробуйте ещё раз.");
       } finally {
-        setPendingSavePostIds((currentPostIds) => {
-          const nextPostIds = new Set(currentPostIds);
-          nextPostIds.delete(postId);
-
-          return nextPostIds;
+        setPendingSavePostIds((current) => {
+          const next = new Set(current);
+          next.delete(postId);
+          return next;
         });
       }
     },
-    [currentUser, pendingSavePostIds]
+    [currentUser, accessToken, pendingSavePostIds]
   );
 
   return (
@@ -168,9 +174,9 @@ export function SearchResultsFeed({
             isLikePending={pendingLikePostIds.has(post.id)}
             isSaved={savedPostIdsSet.has(post.id)}
             isSavePending={pendingSavePostIds.has(post.id)}
-            onFollowToggle={toggleFollow}
-            onLikeToggle={toggleLike}
-            onSaveToggle={toggleSave}
+            onFollowToggle={onFollowToggle}
+            onLikeToggle={onLikeToggle}
+            onSaveToggle={onSaveToggle}
           />
           <div className="px-3.5 -mt-2 pb-4 flex justify-end">
             <Link

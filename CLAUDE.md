@@ -16,7 +16,15 @@ cd infra && docker-compose down        # Stop all services
 cd infra && docker-compose logs -f backend   # Stream backend logs
 ```
 
-All services exposed via nginx at `http://localhost`. The `.env` file must exist at `infra/.env` (copy from `infra/.env.example`). Default dev credentials: `admin@example.com` / `admin123`.
+All services exposed via Caddy at `http://localhost`. The `.env` file must exist at `infra/.env` (copy from `infra/.env.example`). Default dev credentials: `admin@example.com` / `admin123`.
+
+### Backend management commands (run inside the container)
+```bash
+docker-compose exec backend python manage.py migrate
+docker-compose exec backend python manage.py createsuperuser
+docker-compose exec backend python manage.py makemigrations
+docker-compose exec backend python manage.py collectstatic --noinput
+```
 
 ### Tests
 ```bash
@@ -33,7 +41,7 @@ API docs are available at `http://localhost:8000/api/docs/` (Swagger UI via drf-
 
 ### Request Flow
 ```
-Browser → nginx (80/443)
+Browser → Caddy (80/443)
   ├── /api/auth/*     → Next.js (NextAuth routes)
   ├── /api/*          → Django backend
   ├── /admin/*        → Django admin
@@ -41,6 +49,8 @@ Browser → nginx (80/443)
   ├── /media/*        → Media files (served directly)
   └── /*              → Next.js frontend
 ```
+
+The Caddy config lives at `infra/caddy/Caddyfile` and uses `{$DOMAIN_NAME}` (defaults to `localhost`) for the site address. Caddy automatically obtains and renews Let's Encrypt TLS certificates for `DOMAIN_NAME` (certs/keys persisted in the `caddy_data` volume). Ports 80, 443/tcp and 443/udp (HTTP/3) are published in `docker-compose.yml`.
 
 ### Authentication
 - Users log in with **email + password** (not username)
@@ -99,16 +109,7 @@ Copy `infra/.env.example` to `infra/.env`. Key variables:
 | `INTERNAL_API_URL` | Backend URL for server-side Next.js requests |
 | `AUTH_SECRET` | NextAuth secret |
 | `UPDATE_STATS_INTERVAL` | Celery Beat interval for rating updates (seconds) |
-
-## Known Frontend ↔ Backend Gaps
-
-| Issue | Status |
-|---|---|
-| `GET /posts/following/` — endpoint missing, friends feed silently empty | Fixed in backend (action added) |
-| `GET /tags/` — no endpoint; `getTags()` server action always returns `[]` | Not implemented |
-| `CommentSerializer` returns `user` as ID integer + `username` string, but frontend expects `user_detail` object | Fixed in backend serializer |
-| Categories in create post page were hardcoded; now fetched from `/categories/` | Fixed |
-| `getCurrentUserAvatar()` in social.ts returned null (stale comment) | Fixed |
+| `DOMAIN_NAME` | Host name used by Caddy as the site address and for Let's Encrypt issuance (default `localhost`) |
 
 ## Known Hardcoded / Mock UI
 
@@ -117,10 +118,15 @@ Copy `infra/.env.example` to `infra/.env`. Key variables:
 - `settings/page.tsx` — version string `"Foody App Version 1.0.4 (Build 42)"` is hardcoded
 - Dish detail page `userStatus` shows hardcoded `"Гурман"` label under author name
 
+## Repository Layout Notes
+
+- `REPORTS/` — historical audits and one-off reports; **not** current documentation, do not treat as source of truth
+- `INFRA.md` — separate infrastructure document; consult it when changing deployment, nginx, or docker-compose
+- `frontend/*.py`, `frontend/fix-*.js`, `frontend/update_*.py` — one-off migration scripts kept for history; **do not run them**, and consider deleting
+
 ## Key Implementation Details
 
 - **Queryset optimization**: Views use `select_related` and `prefetch_related` extensively to avoid N+1 queries
 - **Media files**: Stored in `/media/`, served by nginx in production; `MEDIA_ROOT` configured in settings
 - **CORS**: Configured in `settings.py` via `django-cors-headers`; `CORS_ALLOWED_ORIGINS` must include the frontend origin
-- **Migrations**: Two custom migration files for Follow model (`0003_follow.py`) and city field (`0004_user_city.py`) are in `backend/users/migrations/`
 - **Staff panel**: Frontend at `(main)/staff/` mirrors the moderation API; only accessible to users with `is_staff=True`

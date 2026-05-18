@@ -42,13 +42,27 @@ export default async function UserProfile({
   const { id } = await params;
   const session = (await auth()) as any;
 
+  const options: any = { headers: {} };
+  if (session?.user?.accessToken) {
+    options.headers.Authorization = `Bearer ${session.user.accessToken}`;
+  }
+
+  // Redirect to /profile if this is the logged-in user's own page.
+  // session.user.id is now set to the real Django user ID (see auth.ts authorize).
   if (session?.user?.id?.toString() === id) {
     redirect("/profile");
   }
 
-  const options: any = { headers: {} };
+  // Double-check via /users/me/ in case id wasn't populated (e.g. old session)
   if (session?.user?.accessToken) {
-    options.headers.Authorization = `Bearer ${session.user.accessToken}`;
+    try {
+      const me = await apiRequest("/users/me/", options);
+      if (me?.id?.toString() === id) {
+        redirect("/profile");
+      }
+    } catch {
+      // ignore
+    }
   }
 
   const [postsData, userProfile] = await Promise.all([

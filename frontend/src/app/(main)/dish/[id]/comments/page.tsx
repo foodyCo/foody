@@ -36,22 +36,17 @@ export default async function CommentsPage({ params }: { params: Promise<{ id: s
         }
     } catch (e) {
         console.error("Error loading post data", e);
-        // Fallback for UI visualization
-        postData = {
-            id,
-            dish: { name: "Signature Tonkotsu Ramen" },
-            restaurant: { name: "Japanese Cuisine" },
-            images: [
-                { image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBoOvekwGy6jO-3Q8OJJRQUJhF_A_C5vcRt6gPPfvd9GjbWwNxy7Wawky5QC1pSCU0ZBQYaocwCw4R6zP5mJXG8c7bCQj-56OO1VsnothrVoKBRL4a97h_mGHezTiqa_ZxK3jhyqsIJUZcwEFVF3eo_WU9oL6QcsI1th6pq80q7jeD3Vz2rkv3fx6k7ocVVWHje19CRcjWb0X6j721tCRrxWOZaNASVILxEtGqWqpqGZ4wZ9Z4GZVmw-RZL6eEunk-1b9BLMsCsgM5v" }
-            ],
-            statistics: { rating_taste: 4.9 }
-        };
+        postData = null;
     }
 
-    const dishName = postData?.dish?.name || "Название блюда";
-    const restaurantName = postData?.restaurant?.name || "Ресторан";
-    const rating = Math.round(postData?.user_rating || postData?.statistics?.rating || 0);
-    const coverImage = fixMediaUrl(postData?.images?.[0]?.image) || "https://lh3.googleusercontent.com/aida-public/AB6AXuBoOvekwGy6jO-3Q8OJJRQUJhF_A_C5vcRt6gPPfvd9GjbWwNxy7Wawky5QC1pSCU0ZBQYaocwCw4R6zP5mJXG8c7bCQj-56OO1VsnothrVoKBRL4a97h_mGHezTiqa_ZxK3jhyqsIJUZcwEFVF3eo_WU9oL6QcsI1th6pq80q7jeD3Vz2rkv3fx6k7ocVVWHje19CRcjWb0X6j721tCRrxWOZaNASVILxEtGqWqpqGZ4wZ9Z4GZVmw-RZL6eEunk-1b9BLMsCsgM5v";
+    if (!postData) {
+        redirect(`/dish/${id}`);
+    }
+
+    const dishName = postData?.dish_name || "Название блюда";
+    const restaurantName = postData?.restaurant_name || "Ресторан";
+    const rating = Math.round(postData?.statistics?.rating || 0);
+    const coverImage = fixMediaUrl(postData?.images?.[0]?.image) || "/placeholder.png";
     const myAvatar = session?.user?.image || "/default-avatar.svg";
 
     let currentUserId: number | null = null;

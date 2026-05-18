@@ -32,7 +32,31 @@ import {
 } from "@/components/feed/post-card/photo-carousel";
 import { PhotoViewerModal } from "@/components/feed/post-card/photo-viewer-modal";
 import { useSearchSubmit } from "@/components/search/use-search-submit";
-import { COMMENTS_BY_POST_ID, type Density, type Post } from "@/lib/mock-data";
+import { type Density, type Post, type PostComment } from "@/lib/mock-data";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+async function fetchPostComments(postId: number): Promise<PostComment[]> {
+  try {
+    const res = await fetch(`${API_URL}/posts/${postId}/comments/`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const rawComments: any[] = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+    return rawComments.map((c: any) => ({
+      id: c.id,
+      user: c.user_detail?.username ? `@${c.user_detail.username}` : "@unknown",
+      realName: c.user_detail?.username || "Аноним",
+      avatarUrl: c.user_detail?.avatar || undefined,
+      when: c.created_at ? new Date(c.created_at).toLocaleDateString("ru-RU") : "",
+      text: c.text || "",
+      likes: 0,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 type PostCardProps = {
   post: Post;
@@ -150,6 +174,7 @@ export function PostCard({
     useState<PhotoDirection>(1);
   const [viewerOpenKey, setViewerOpenKey] = useState(0);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [loadedComments, setLoadedComments] = useState<PostComment[]>([]);
   const [photoWidth, setPhotoWidth] = useState(0);
   const [sharePulse, triggerSharePulse] = usePulse();
   const [morePulse, triggerMorePulse] = usePulse();
@@ -521,9 +546,12 @@ export function PostCard({
       <CommentsSheet
         open={isCommentsOpen}
         brand={brand}
-        comments={COMMENTS_BY_POST_ID[post.id] ?? []}
+        comments={loadedComments}
         commentsCount={post.comments}
         onClose={() => setIsCommentsOpen(false)}
+        onOpen={() => {
+          fetchPostComments(post.id).then(setLoadedComments);
+        }}
         shouldReduceMotion={shouldReduceMotion}
       />
     </div>

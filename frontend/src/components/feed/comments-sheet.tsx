@@ -31,6 +31,7 @@ type CommentsSheetProps = {
   commentsCount: number;
   shouldReduceMotion: boolean | null;
   onClose: () => void;
+  onOpen?: () => void;
 };
 
 type CommentRowProps = {
@@ -241,6 +242,7 @@ export function CommentsSheet({
   commentsCount,
   shouldReduceMotion,
   onClose,
+  onOpen,
 }: CommentsSheetProps) {
   const [draft, setDraft] = useState("");
   const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
@@ -319,6 +321,15 @@ export function CommentsSheet({
       isActive = false;
     };
   }, [open, visibleComments]);
+
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
+
+  useEffect(() => {
+    if (open && onOpenRef.current) {
+      onOpenRef.current();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) {

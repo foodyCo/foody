@@ -34,7 +34,7 @@ export default async function SearchResultsPage({
   const accessToken: string | null = session?.user?.accessToken ?? null;
 
   const qs = new URLSearchParams();
-  if (normalizedQuery) qs.set("search", query.trim());
+  if (normalizedQuery) qs.set("search", normalizedQuery);
   if (categoryId) qs.set("category_id", categoryId);
   if (priceMin) qs.set("price_min", priceMin);
   if (priceMax) qs.set("price_max", priceMax);
@@ -85,6 +85,7 @@ export default async function SearchResultsPage({
             <SearchResultsFeed
               brand={DEFAULT_TWEAKS.brand}
               currentUser={currentUserHandle}
+              accessToken={accessToken}
               density={DEFAULT_TWEAKS.density}
               initialFollowingUsers={[]}
               initialLikedPostIds={likedPostIds}

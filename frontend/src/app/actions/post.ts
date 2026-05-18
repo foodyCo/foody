@@ -2,9 +2,7 @@
 
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { apiRequest, mapDjangoPostToDish } from "@/lib/api";
-import { Dish, User } from "@/lib/data";
 
 
 export async function createPost(formData: FormData) {
@@ -21,17 +19,19 @@ export async function createPost(formData: FormData) {
     // В Django нам нужно 3 оценки. Фронтенд пока дает одну.
     // Пробросим одну и ту же во все три для начала, или предложим дефолты.
     const ratingValue = parseFloat(taste) || 0;
+    // Backend stores rating 0-10, form uses 0-5 stars — multiply to convert
+    const ratingBackend = Math.min(ratingValue * 2, 10);
 
     const newFormData = new FormData();
     newFormData.append("dish_name", title);
     newFormData.append("description", description);
-    newFormData.append("rating", ratingValue.toString());
+    newFormData.append("rating", ratingBackend.toString());
     
     // Add price if it exists
     const priceStr = formData.get("price") as string;
     const priceValue = parseFloat(priceStr);
     if (!isNaN(priceValue)) {
-        newFormData.append("price", priceStr);
+        newFormData.append("price", priceValue.toFixed(2));
     }
     
     const restName = (formData.get("restaurantName") as string)?.trim() || "Неизвестно";
@@ -58,8 +58,6 @@ export async function createPost(formData: FormData) {
             newFormData.append("uploaded_images", file);
         }
     });
-
-    console.log("Token used for create post:", session?.user?.accessToken ? "Exists" : "Missing");
 
     try {
         await apiRequest("/posts/", {
@@ -184,77 +182,6 @@ export async function getSearchPosts(query?: string, category?: string, accessTo
         return [];
     }
 }
-export async function getGroupedSearchDishes(query?: string, category?: string) {
-    try {
-        const posts = await getSearchPosts(query, category);
-
-        // Упрощенная группировка: просто возвращаем посты смапленные в нужный формат
-        // В будущем здесь можно добавить логику группировки по dish_name если нужно
-        return posts.map(dish => ({
-            ...dish,
-            weightedRating: dish.userRating,
-            reviewCount: 1, // В API пока нет агрегации
-            stats: {
-                ...dish.stats,
-                likes: dish.stats.likes,
-            },
-            latestPost: dish
-        }));
-    } catch (error) {
-        console.error("Grouped search error:", error);
-        return [];
-    }
-}
-
-export async function getGroupedDishDetails(title: string, restaurantName: string) {
-    try {
-        // В Django мы можем искать по dish_name и restaurant_name
-        const params = new URLSearchParams();
-        params.append("search", title); // Или более точный фильтр если есть
-        
-        const data = await apiRequest(`/posts/?search=${encodeURIComponent(title)}`);
-        const results = data.results || data;
-        
-        if (!Array.isArray(results) || results.length === 0) return null;
-
-        // Фильтруем точное совпадение если API вернуло лишнее
-        const filtered = results.filter((p: any) => 
-            p.dish_name?.toLowerCase() === title.toLowerCase() &&
-            p.restaurant_name?.toLowerCase() === restaurantName.toLowerCase()
-        );
-
-        if (filtered.length === 0) return null;
-
-        const posts = filtered.map(mapDjangoPostToDish);
-        const first = posts[0];
-
-        return {
-            title,
-            restaurantName,
-            restaurantId: first.restaurant.id,
-            restaurantAddress: first.restaurant.address,
-            category: "Все",
-            weightedRating: first.userRating,
-            reviewCount: posts.length,
-            stats: first.stats,
-            images: posts.flatMap(p => p.images),
-            tags: Array.from(new Set(posts.flatMap(p => p.tags))),
-            posts: posts.map(p => ({
-                id: p.id,
-                userRating: p.userRating,
-                description: p.description,
-                createdAt: p.createdAt,
-                author: p.author,
-                likes: p.stats.likes,
-                image: p.imageUrl
-            }))
-        };
-    } catch (error) {
-        console.error("Error fetching grouped dish details:", error);
-        return null;
-    }
-}
-
 export async function getFollowingPosts(accessToken?: string) {
     try {
         const options: any = {};
@@ -299,37 +226,21 @@ export async function getCategories(accessToken?: string) {
 }
 
 export async function getRestaurant(restaurantId: string | number, accessToken?: string) {
-    const url = `http://backend:8000/api/v1/restaurants/${restaurantId}/`;
-    const headers: Record<string, string> = {};
-    if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    const res = await fetch(url, { headers, cache: 'no-store' });
-    if (!res.ok) {
-        // Fallback to fetch without token if 401/error
-        const resNoToken = await fetch(url, { cache: 'no-store' });
-        if (resNoToken.ok) {
-            return resNoToken.json();
-        }
+    try {
+        const options: any = {};
+        if (accessToken) options.headers = { 'Authorization': `Bearer ${accessToken}` };
+        return await apiRequest(`/restaurants/${restaurantId}/`, options);
+    } catch {
         return null;
     }
-    return res.json();
 }
 
 export async function getRestaurantPosts(restaurantId: string | number, accessToken?: string) {
-    const url = `http://backend:8000/api/v1/posts/?restaurant_id=${restaurantId}`;
-    const headers: Record<string, string> = {};
-    if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    const res = await fetch(url, { headers, cache: 'no-store' });
-    if (!res.ok) {
-        // Fallback to fetch without token if basic user request fails
-        const resNoToken = await fetch(url, { cache: 'no-store' });
-        if (resNoToken.ok) {
-            return resNoToken.json();
-        }
+    try {
+        const options: any = {};
+        if (accessToken) options.headers = { 'Authorization': `Bearer ${accessToken}` };
+        return await apiRequest(`/posts/?restaurant_id=${restaurantId}`, options);
+    } catch {
         return { results: [] };
     }
-    return res.json();
 }

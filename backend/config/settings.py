@@ -175,6 +175,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 _cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5173')
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _cors_origins.split(',') if origin.strip()]
 
+# CSRF trusted origins (for HTTPS behind reverse proxy)
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
+
+# Reverse proxy / HTTPS termination (Caddy)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 # REST Framework Setup
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

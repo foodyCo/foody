@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { FeedHeader, type FeedTab } from "@/components/feed/feed-header";
 import { GlassSurface } from "@/components/feed/glass-surface";
@@ -63,6 +63,13 @@ export function FeedClient({
   const [followingSet, setFollowingSet] = useState<Set<string>>(() => new Set());
   const [pendingFollows, setPendingFollows] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (notice) {
+      const id = setTimeout(() => setNotice(null), 3000);
+      return () => clearTimeout(id);
+    }
+  }, [notice]);
 
   const onTabChange = useCallback((next: FeedTab) => {
     if (next === feedTab) return;

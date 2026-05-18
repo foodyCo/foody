@@ -77,9 +77,6 @@ export async function createComment(dishId: string, text: string) {
             },
             body: JSON.stringify({ text }),
         });
-        
-        // Wait 100ms for celery task to perform update in DB 
-        await new Promise(res => setTimeout(res, 100));
 
         revalidatePath('/');
         revalidatePath('/profile');
@@ -91,9 +88,17 @@ export async function createComment(dishId: string, text: string) {
 }
 
 export async function getCurrentUserAvatar() {
-    // В текущем бекенде нет эндпоинта /users/me/
-    // Возвращаем null, пока он не появится.
-    return null;
+    const session = await auth() as any;
+    if (!session?.user?.accessToken) return null;
+    try {
+        const me = await apiRequest("/users/me/", {
+            headers: { Authorization: `Bearer ${session.user.accessToken}` },
+        });
+        const { fixMediaUrl } = await import("@/lib/api");
+        return me?.avatar ? fixMediaUrl(me.avatar) : null;
+    } catch {
+        return null;
+    }
 }
 
 export async function toggleFollow(userId: string | number, isFollowing: boolean) {
@@ -109,9 +114,6 @@ export async function toggleFollow(userId: string | number, isFollowing: boolean
             },
         });
         
-        // Wait 100ms for celery/db updates if any
-        await new Promise(res => setTimeout(res, 100));
-
         revalidatePath(`/users/${userId}`);
         revalidatePath('/profile');
         return { success: true };

@@ -63,7 +63,7 @@ export function mapApiPostToFeedPost(api: ApiPost): Post {
     when: formatRelative(api.created_at),
     dish: api.dish_name ?? "",
     place: api.restaurant_name ?? "",
-    rating: Math.round((rawRating / 2) * 10) / 10,
+    rating: Math.round(rawRating * 10) / 10,
     price: api.price ? `₽${Math.round(parseFloat(api.price))}` : "",
     text: api.description || "",
     tags: (api.tags || []).map((t) => `#${t.name}`),

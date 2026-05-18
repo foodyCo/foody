@@ -1,0 +1,39 @@
+{$DOMAIN_NAME} {
+    encode gzip
+
+    request_body {
+        max_size 20MB
+    }
+
+    # Django static
+    handle_path /static/* {
+        root * /var/www/static
+        file_server
+    }
+
+    # Django media
+    handle_path /media/* {
+        root * /var/www/media
+        file_server
+    }
+
+    # NextAuth → frontend (важно: до /api/*)
+    handle /api/auth/* {
+        reverse_proxy frontend:3000
+    }
+
+    # Django API
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Django admin
+    handle /admin/* {
+        reverse_proxy backend:8000
+    }
+
+    # Next.js (всё остальное)
+    handle {
+        reverse_proxy frontend:3000
+    }
+}

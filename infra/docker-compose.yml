@@ -78,19 +78,24 @@ services:
       - db
       - redis
 
-  nginx:
-    image: nginx:alpine
+  caddy:
+    image: caddy:2-alpine
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
     volumes:
-      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template
-      - django_static:/var/www/static
-      - django_media:/var/www/media
-    environment:
-      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
-      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - django_static:/var/www/static:ro
+      - django_media:/var/www/media:ro
+    env_file:
+      - .env
     depends_on:
       - frontend
       - backend
@@ -102,3 +107,7 @@ volumes:
     name: foody_django_static
   django_media:
     name: foody_django_media
+  caddy_data:
+    name: foody_caddy_data
+  caddy_config:
+    name: foody_caddy_config
