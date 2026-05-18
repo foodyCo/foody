@@ -16,8 +16,12 @@ export async function registerUser(formData: FormData) {
     }
 
     try {
+        // username = чистый email-префикс. Если кто-то уже занял такой —
+        // бэк ответит 400 с сообщением, фронт покажет это юзеру.
+        // Раньше тут добавлялось `+ "_" + Math.floor(Math.random()*1000)` —
+        // получались уродливые ники user_520 даже когда коллизии нет.
         const registrationData = {
-            username: email.split('@')[0] + "_" + Math.floor(Math.random() * 1000),
+            username: email.split('@')[0].toLowerCase(),
             email,
             password,
             password_confirm: password,
