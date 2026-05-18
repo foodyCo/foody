@@ -22,7 +22,7 @@ import {
 } from "@/lib/feed-api";
 import type { PostComment } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import { deleteComment } from "@/app/actions/post";
+import { createComment, deleteComment } from "@/app/actions/post";
 
 import { HEART_COLOR, canAnimate } from "./post-card/post-card-shared";
 
@@ -277,6 +277,8 @@ export function CommentsSheet({
   const [deletedCommentKeys, setDeletedCommentKeys] = useState<Set<string>>(
     () => new Set()
   );
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const shouldAnimate = canAnimate(shouldReduceMotion);
   const visibleComments = useMemo(
@@ -452,6 +454,19 @@ export function CommentsSheet({
       return;
     }
 
+    // Optimistic toggle BEFORE the request so the UI reacts instantly.
+    setLikedCommentIds((currentCommentIds) => {
+      const nextCommentIds = new Set(currentCommentIds);
+
+      if (nextLiked) {
+        nextCommentIds.add(commentId);
+      } else {
+        nextCommentIds.delete(commentId);
+      }
+
+      return Array.from(nextCommentIds);
+    });
+
     setPendingLikedCommentIds((currentCommentIds) => {
       const nextCommentIds = new Set(currentCommentIds);
       nextCommentIds.add(commentId);
@@ -462,9 +477,29 @@ export function CommentsSheet({
     try {
       const result = await requestCommentLikeMutation(comment.id, nextLiked, accessToken);
 
-      setLikedCommentIds(result.likedCommentIds);
+      // Reconcile with server: if server disagrees, flip state back.
+      // NOTE: requestCommentLikeMutation always returns likedCommentIds: [],
+      // so do NOT replace the whole set — only adjust this one comment.
+      setLikedCommentIds((currentCommentIds) => {
+        const nextCommentIds = new Set(currentCommentIds);
+        if (result.liked) {
+          nextCommentIds.add(commentId);
+        } else {
+          nextCommentIds.delete(commentId);
+        }
+        return Array.from(nextCommentIds);
+      });
     } catch {
-      return;
+      // Revert optimistic toggle on error
+      setLikedCommentIds((currentCommentIds) => {
+        const nextCommentIds = new Set(currentCommentIds);
+        if (nextLiked) {
+          nextCommentIds.delete(commentId);
+        } else {
+          nextCommentIds.add(commentId);
+        }
+        return Array.from(nextCommentIds);
+      });
     } finally {
       setPendingLikedCommentIds((currentCommentIds) => {
         const nextCommentIds = new Set(currentCommentIds);
@@ -476,7 +511,16 @@ export function CommentsSheet({
   }
 
   async function handleDelete(comment: PostComment) {
-    if (!postId || comment.clientId) return;
+    if (!postId) return;
+
+    // Locally-only comment (not yet persisted) — just drop it from submitted list.
+    if (comment.clientId) {
+      setSubmittedComments((current) =>
+        current.filter((c) => c.clientId !== comment.clientId)
+      );
+      return;
+    }
+
     const key = getCommentIdKey(comment.id);
     // Optimistically remove from view
     setDeletedCommentKeys((current) => {
@@ -484,37 +528,107 @@ export function CommentsSheet({
       next.add(key);
       return next;
     });
-    await deleteComment(String(postId), comment.id as number | string).catch(() => {
-      // Revert on failure
+    try {
+      const result: any = await deleteComment(
+        String(postId),
+        comment.id as number | string
+      );
+      if (result?.error) {
+        // Revert on failure
+        setDeletedCommentKeys((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+        setSubmitNotice(result.error || "Не удалось удалить комментарий");
+        return;
+      }
+      // Success — also drop from any submitted optimistic state mirror
+      setSubmittedComments((current) =>
+        current.filter((c) => getCommentIdKey(c.id) !== key)
+      );
+    } catch (error: any) {
       setDeletedCommentKeys((current) => {
         const next = new Set(current);
         next.delete(key);
         return next;
       });
-    });
+      setSubmitNotice(error?.message || "Не удалось удалить комментарий");
+    }
   }
 
-  function handleSubmit(event?: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
 
     const text = draft.trim();
 
-    if (!text) {
+    if (!text || isSubmitting) {
       return;
     }
 
+    if (!postId) {
+      setSubmitNotice("Не удалось определить пост");
+      return;
+    }
+
+    const currentReplyTarget = replyTarget;
     const nextComment = createOptimisticComment(
       {
         text,
-        replyToCommentId: replyTarget?.id,
-        replyToUser: replyTarget?.user,
+        replyToCommentId: currentReplyTarget?.id,
+        replyToUser: currentReplyTarget?.user,
       },
       CURRENT_USER
     );
 
+    // Optimistic: append immediately and clear input
     setSubmittedComments((currentComments) => [...currentComments, nextComment]);
     setDraft("");
     setReplyTarget(null);
+    setSubmitNotice(null);
+    setIsSubmitting(true);
+
+    try {
+      // For replies prepend a mention so backend stores it as plain text reply.
+      const payloadText = currentReplyTarget
+        ? `${getDisplayHandle(currentReplyTarget.user)} ${text}`
+        : text;
+      const result: any = await createComment(String(postId), payloadText);
+
+      if (result?.error) {
+        // Revert optimistic add + restore draft so user can retry
+        setSubmittedComments((currentComments) =>
+          currentComments.filter((c) => c.clientId !== nextComment.clientId)
+        );
+        setDraft(text);
+        setReplyTarget(currentReplyTarget);
+        setSubmitNotice(result.error || "Не удалось отправить комментарий");
+      } else if (result?.data) {
+        // Replace optimistic comment with the persisted one (real id)
+        const persisted = result.data;
+        setSubmittedComments((currentComments) =>
+          currentComments.map((c) =>
+            c.clientId === nextComment.clientId
+              ? {
+                  ...c,
+                  id: persisted.id ?? c.id,
+                  clientId: undefined,
+                  status: undefined,
+                }
+              : c
+          )
+        );
+      }
+    } catch (error: any) {
+      setSubmittedComments((currentComments) =>
+        currentComments.filter((c) => c.clientId !== nextComment.clientId)
+      );
+      setDraft(text);
+      setReplyTarget(currentReplyTarget);
+      setSubmitNotice(error?.message || "Не удалось отправить комментарий");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleDraftKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -636,6 +750,15 @@ export function CommentsSheet({
                 )}
               </AnimatePresence>
 
+              {submitNotice && (
+                <div
+                  role="alert"
+                  className="mb-2 rounded-md bg-red-50 px-3 py-1.5 text-[12.5px] font-semibold text-red-600"
+                >
+                  {submitNotice}
+                </div>
+              )}
+
               <form className="flex items-end gap-2.5" onSubmit={handleSubmit}>
                 <CommentAvatar
                   comment={CURRENT_USER}
@@ -665,7 +788,8 @@ export function CommentsSheet({
                 <motion.button
                   type="submit"
                   aria-label="Отправить комментарий"
-                  disabled={draft.trim().length === 0}
+                  aria-busy={isSubmitting}
+                  disabled={draft.trim().length === 0 || isSubmitting}
                   className="relative grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full border border-transparent text-[#0B2F1D] shadow-[inset_1px_1px_0_rgba(255,255,255,0.18),inset_-1px_-1px_0_rgba(11,47,29,0.05)] outline-none backdrop-blur-[18px] backdrop-saturate-[180%] transition-opacity focus-visible:ring-2 focus-visible:ring-[#15291C]/18 disabled:cursor-default disabled:opacity-45 [-webkit-tap-highlight-color:transparent]"
                   style={{
                     boxShadow: `0 8px 18px ${brand}1F, inset 1px 1px 0 rgba(255,255,255,0.18), inset -1px -1px 0 rgba(11,47,29,0.05)`,

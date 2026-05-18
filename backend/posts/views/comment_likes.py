@@ -9,7 +9,7 @@ from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from ..models import Comment, CommentLike
+from ..models import Comment, CommentLike, Post
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +25,24 @@ class CommentLikeView(APIView):
         Финальное состояние всегда совпадает с чётностью количества кликов,
         дубликатов CommentLike нет (защита и от unique_together тоже).
         """
-        # 404 если коммента нет — проверка дёшево, без транзакции.
-        if not Comment.objects.filter(id=comment_id).exists():
+        # 404 если коммента нет.
+        try:
+            comment = Comment.objects.select_related('post').get(id=comment_id)
+        except Comment.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
+
+        # Симметрично с PostLike: автор не может лайкать свои комменты на
+        # своих pending/rejected постах — то же ограничение «накрутки скрытого».
+        # (Если пост чужой или approved — лайк свободен.)
+        if (
+            comment.user_id == request.user.id
+            and comment.post.user_id == request.user.id
+            and comment.post.status != Post.STATUS_APPROVED
+        ):
+            return Response(
+                {"detail": "Нельзя лайкать собственный коммент на не-одобренном посте."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         with transaction.atomic():
             # Блок-строка по коммент-id чтобы параллельные toggle'ы стояли в очереди.
@@ -67,10 +82,15 @@ class CommentLikesBatchView(APIView):
 
     def get(self, request):
         raw_ids = request.query_params.get('ids', '')
+        if not raw_ids:
+            return Response({'liked_comment_ids': []})
         try:
             ids = [int(x) for x in raw_ids.split(',') if x.strip()]
         except ValueError:
-            return Response({'liked_comment_ids': []})
+            return Response(
+                {'detail': 'ids должны быть целыми числами через запятую.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if not ids:
             return Response({'liked_comment_ids': []})
         liked = CommentLike.objects.filter(
