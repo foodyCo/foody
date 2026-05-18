@@ -1,3 +1,4 @@
+import bleach
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -17,6 +18,17 @@ class UserSerializer(serializers.ModelSerializer):
     posts_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
+    # Явные ограничения: bio до 280 символов (UI лимит ставит 250, даём небольшой
+    # запас). full_name / city — обязательно непустые при PATCH (allow_blank=False).
+    bio_text = serializers.CharField(
+        max_length=280, required=False, allow_blank=True, trim_whitespace=True,
+    )
+    full_name = serializers.CharField(
+        max_length=120, required=False, allow_blank=False, trim_whitespace=True,
+    )
+    city = serializers.CharField(
+        max_length=100, required=False, allow_blank=False, trim_whitespace=True,
+    )
 
     class Meta:
         model = User
@@ -26,6 +38,12 @@ class UserSerializer(serializers.ModelSerializer):
             'posts_count', 'followers_count', 'following_count', 'is_following',
         )
         read_only_fields = ('id', 'email', 'date_joined', 'is_staff', 'followers_count', 'following_count')
+
+    def validate_bio_text(self, value):
+        """Очищаем bio от HTML-тегов (defence-in-depth, помимо React escape)."""
+        if not value:
+            return ''
+        return bleach.clean(value, tags=[], attributes={}, strip=True)
 
     def get_avatar(self, obj):
         """Возвращает относительный URL /media/... без хоста."""

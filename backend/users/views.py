@@ -68,7 +68,9 @@ class SubscribeView(APIView):
         if created:
             # Counters updated via post_save signal in users/signals.py
             logger.info('User %s followed user %s', request.user.id, target.id)
-        return Response({'status': 'followed'})
+        # `created` отдаём фронту чтобы он мог отличить "только что подписался"
+        # от "уже был подписан" (идемпотентность POST).
+        return Response({'status': 'followed', 'created': created})
 
     def delete(self, request, user_id):
         target = get_object_or_404(User, id=user_id)
