@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-import { getSearchResultsHref } from "@/lib/search";
+import { getSearchResultsHref, getTagSearchHref } from "@/lib/search";
 
 type UseSearchSubmitOptions = {
   onSubmitted?: (query: string) => void;
@@ -18,6 +18,15 @@ export function useSearchSubmit({ onSubmitted }: UseSearchSubmitOptions = {}) {
       if (trimmedQuery.length === 0) return;
 
       onSubmitted?.(trimmedQuery);
+
+      if (trimmedQuery.startsWith('#')) {
+        const tagName = trimmedQuery.slice(1).trim();
+        if (tagName) {
+          router.push(getTagSearchHref(tagName));
+          return;
+        }
+      }
+
       router.push(getSearchResultsHref(trimmedQuery));
     },
     [onSubmitted, router]

@@ -32,7 +32,9 @@ import {
 } from "@/components/feed/post-card/photo-carousel";
 import { PhotoViewerModal } from "@/components/feed/post-card/photo-viewer-modal";
 import { CopyLinkAlert } from "@/components/shared/copy-link-alert";
-import { useSearchSubmit } from "@/components/search/use-search-submit";
+import { useRouter } from "next/navigation";
+
+import { getTagSearchHref } from "@/lib/search";
 import { type Density, type Post, type PostComment } from "@/lib/mock-data";
 
 // CSR fetch — относительный путь, браузер подставит origin (foody.press или localhost)
@@ -181,7 +183,7 @@ export function PostCard({
   const [commentPulse, triggerCommentPulse] = usePulse();
   const [copyLinkAlertKey, setCopyLinkAlertKey] = useState(0);
   const shouldReduceMotion = useReducedMotion();
-  const submitSearchQuery = useSearchSubmit();
+  const router = useRouter();
 
   const viewportSize = useViewportSize();
   const photoRatio = getPhotoRatio(density, viewportSize);
@@ -343,7 +345,8 @@ export function PostCard({
   }
 
   function handleTagClick(tag: string) {
-    submitSearchQuery(tag);
+    const cleanTag = tag.replace(/^#/, '');
+    router.push(getTagSearchHref(cleanTag));
   }
 
   function handlePhotoDragStart() {

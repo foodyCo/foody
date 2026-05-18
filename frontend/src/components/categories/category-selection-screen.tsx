@@ -386,8 +386,8 @@ export function CategorySelectionScreen({
           return;
         }
       }
-      // Fallback: поиск по #label если бэк не отдал категорию
-      router.push(getSearchResultsHref(`#${category.label}`));
+      // Fallback: текстовый поиск по label если бэк не отдал категорию
+      router.push(getSearchResultsHref(category.label));
       return;
     }
 

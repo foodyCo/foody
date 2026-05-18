@@ -54,17 +54,32 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def popular(self, request):
         """
         GET /api/v1/categories/popular/?limit=8
-        Возвращает категории, отсортированные по количеству связанных постов
-        (через привязки блюд и ресторанов). Категории без активности уходят в конец.
+        Возвращает категории, отсортированные по количеству **approved постов**,
+        связанных с категорией (через dish.categories ИЛИ restaurant.categories).
+        Раньше формула считала просто привязки блюд+ресторанов — категория с
+        одним заброшенным блюдом без активных постов могла обгонять активную.
         """
         try:
             limit = int(request.query_params.get('limit', 8))
         except (TypeError, ValueError):
             limit = 8
         limit = max(1, min(limit, 50))
+
+        from django.db.models import Q
+        # Approved посты, чьи dish ИЛИ restaurant привязаны к категории.
+        # Считаем через distinct posts чтобы один пост с категорийным dish
+        # И категорийным restaurant не считался дважды.
         qs = (
             Category.objects.annotate(
-                usage=Count('dishes', distinct=True) + Count('restaurants', distinct=True)
+                usage=Count(
+                    'dishes__posts',
+                    filter=Q(dishes__posts__status='approved'),
+                    distinct=True,
+                ) + Count(
+                    'restaurants__posts',
+                    filter=Q(restaurants__posts__status='approved'),
+                    distinct=True,
+                )
             )
             .order_by('-usage', 'name')[:limit]
         )
