@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
@@ -17,6 +17,8 @@ type SearchResultsFeedProps = {
   initialLikedPostIds: number[];
   initialSavedPostIds: number[];
   posts: Post[];
+  /** Whether there are more pages to load (cursor next != null). */
+  hasMore?: boolean;
 };
 
 export function SearchResultsFeed({
@@ -28,6 +30,7 @@ export function SearchResultsFeed({
   initialLikedPostIds,
   initialSavedPostIds,
   posts,
+  hasMore = false,
 }: SearchResultsFeedProps) {
   const [followingUsers, setFollowingUsers] = useState(initialFollowingUsers);
   const [likedPostIds, setLikedPostIds] = useState(initialLikedPostIds);
@@ -42,6 +45,31 @@ export function SearchResultsFeed({
     () => new Set()
   );
   const [notice, setNotice] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // PG4: wheel-to-snap handler — lets mouse wheel navigate the snap-y container
+  useEffect(() => {
+    const el = containerRef.current?.closest<HTMLElement>(".snap-y") ?? null;
+    if (!el) return;
+    let acc = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      acc += e.deltaY;
+      if (Math.abs(acc) > 80) {
+        const dir = acc > 0 ? 1 : -1;
+        el.scrollBy({ top: el.clientHeight * dir, behavior: "smooth" });
+        acc = 0;
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => { acc = 0; }, 200);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      clearTimeout(timer);
+    };
+  }, []);
 
   // Auto-dismiss notice after 3 seconds
   useEffect(() => {
@@ -160,7 +188,7 @@ export function SearchResultsFeed({
   );
 
   return (
-    <>
+    <div ref={containerRef}>
       {posts.map((post) => (
         <div key={post.id} className="relative">
           <PostCard
@@ -190,11 +218,17 @@ export function SearchResultsFeed({
         </div>
       ))}
 
+      {!hasMore && posts.length > 0 && (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          — конец результатов —
+        </p>
+      )}
+
       {notice && (
         <div className="pointer-events-none fixed right-4 bottom-[6.25rem] left-4 z-30 rounded-[18px] border border-white/70 bg-white/78 px-4 py-3 text-center text-[13px] leading-tight font-bold text-[#15291C] shadow-[0_12px_24px_rgba(20,40,28,0.14),inset_1px_1px_0_rgba(255,255,255,0.8)] backdrop-blur-[20px]">
           <p role="status">{notice}</p>
         </div>
       )}
-    </>
+    </div>
   );
 }

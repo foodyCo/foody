@@ -1,6 +1,9 @@
 import { SearchHistory } from "@/components/search/search-history";
 import { DEFAULT_TWEAKS } from "@/lib/tweaks";
-import { POPULAR_TAGS } from "@/lib/mock-data";
+
+// POPULAR_TAGS хардкод удалён (SO3).
+// TODO: загружать из /api/v1/tags/popular/ когда бэк реализует эндпоинт (задача G1).
+const POPULAR_TAGS: string[] = [];
 
 export default function SearchPage() {
   return (

@@ -5,14 +5,29 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from ..models import Restaurant, Dish, Category, Tag
 from ..serializers import RestaurantSerializer, DishSerializer, CategorySerializer, TagSerializer
 
-class RestaurantViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+
+class TagViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
-    Вьюсет для поиска ресторанов (только чтение).
+    S1: Вьюсет для тегов — список и детальный просмотр (только чтение).
+    Отдаётся без пагинации (тегов обычно мало — десятки, удобно забирать одним запросом).
     """
-    queryset = Restaurant.objects.all()
+    queryset = Tag.objects.all().order_by('-usage_count', 'name')
+    serializer_class = TagSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None  # справочник целиком — фронт сам решает сколько показать
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
+
+
+class RestaurantViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """
+    Вьюсет для поиска и просмотра ресторанов (только чтение).
+    S2: Добавлен RetrieveModelMixin — теперь GET /restaurants/{id}/ возвращает 200.
+    """
+    queryset = Restaurant.objects.prefetch_related('categories', 'tags').all()
     serializer_class = RestaurantSerializer
     permission_classes = [IsAuthenticated]
-    
+
     filter_backends = [SearchFilter]
     search_fields = ['name']
     ordering = ['name']

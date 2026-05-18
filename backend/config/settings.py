@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
     # Third party
     'rest_framework',
+    'django_filters',
     'corsheaders',
     'drf_spectacular',
 
@@ -195,7 +196,11 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': get_env_int('PAGE_SIZE', 20),
 
     # Дефолтный поиск по всем вьюхам, где указан filter_backends
-    'DEFAULT_FILTER_BACKENDS': ['rest_framework.filters.SearchFilter'],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
 
     # OpenAPI схема через drf-spectacular
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',

@@ -1,8 +1,10 @@
-from django.db.models.signals import post_save, pre_delete
+import os
+
+from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.db.models import F
-from .models import Post, PostLike, PostSave, PostStatistics, Comment, Tag, PostTag, RestaurantTag, DishTag
-from .tasks import update_likes_count, update_saves_count, update_comments_count
+from .models import Post, PostImage, PostLike, PostSave, PostStatistics, Comment, Tag, PostTag, RestaurantTag, DishTag
+
 
 @receiver(post_save, sender=Post)
 def create_post_statistics(sender, instance, created, **kwargs):
@@ -12,35 +14,64 @@ def create_post_statistics(sender, instance, created, **kwargs):
     if created:
         PostStatistics.objects.create(post=instance)
 
-# Лайки
+
+# PA3: удаление файла с диска при удалении PostImage
+@receiver(post_delete, sender=PostImage)
+def delete_image_file_on_postimage_delete(sender, instance, **kwargs):
+    if instance.image and hasattr(instance.image, 'path'):
+        try:
+            if os.path.isfile(instance.image.path):
+                os.remove(instance.image.path)
+        except (ValueError, OSError):
+            pass  # gracefully skip if file missing or path resolution fails
+
+
+# C1: Счётчики комментариев — синхронно через F(), без Celery
+@receiver(post_save, sender=Comment)
+def increment_comments_count(sender, instance, created, **kwargs):
+    if created:
+        PostStatistics.objects.filter(post_id=instance.post_id).update(
+            comments_count=F('comments_count') + 1
+        )
+
+
+@receiver(post_delete, sender=Comment)
+def decrement_comments_count(sender, instance, **kwargs):
+    PostStatistics.objects.filter(post_id=instance.post_id, comments_count__gt=0).update(
+        comments_count=F('comments_count') - 1
+    )
+
+
+# Лайки — синхронно через F(), без Celery
 @receiver(post_save, sender=PostLike)
 def on_like_created(sender, instance, created, **kwargs):
     if created:
-        update_likes_count.delay(instance.post_id, increment=True)
+        PostStatistics.objects.filter(post_id=instance.post_id).update(
+            likes_count=F('likes_count') + 1
+        )
+
 
 @receiver(pre_delete, sender=PostLike)
 def on_like_deleted(sender, instance, **kwargs):
-    update_likes_count.delay(instance.post_id, increment=False)
+    PostStatistics.objects.filter(post_id=instance.post_id, likes_count__gt=0).update(
+        likes_count=F('likes_count') - 1
+    )
 
-# Сохранения
+
+# Сохранения — синхронно через F(), без Celery
 @receiver(post_save, sender=PostSave)
 def on_save_created(sender, instance, created, **kwargs):
     if created:
-        update_saves_count.delay(instance.post_id, increment=True)
+        PostStatistics.objects.filter(post_id=instance.post_id).update(
+            saves_count=F('saves_count') + 1
+        )
+
 
 @receiver(pre_delete, sender=PostSave)
 def on_save_deleted(sender, instance, **kwargs):
-    update_saves_count.delay(instance.post_id, increment=False)
-
-# Комментарии
-@receiver(post_save, sender=Comment)
-def on_comment_created(sender, instance, created, **kwargs):
-    if created:
-        update_comments_count.delay(instance.post_id, increment=True)
-
-@receiver(pre_delete, sender=Comment)
-def on_comment_deleted(sender, instance, **kwargs):
-    update_comments_count.delay(instance.post_id, increment=False)
+    PostStatistics.objects.filter(post_id=instance.post_id, saves_count__gt=0).update(
+        saves_count=F('saves_count') - 1
+    )
 
 # Теги (Атомарное обновление usage_count)
 def atomic_update_tag_usage(tag_id, increment=True):

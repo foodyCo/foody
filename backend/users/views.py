@@ -52,8 +52,7 @@ class SubscribeView(APIView):
             return Response({'error': 'Нельзя подписаться на себя'}, status=status.HTTP_400_BAD_REQUEST)
         _, created = Follow.objects.get_or_create(follower=request.user, following=target)
         if created:
-            User.objects.filter(id=target.id).update(followers_count=F('followers_count') + 1)
-            User.objects.filter(id=request.user.id).update(following_count=F('following_count') + 1)
+            # Counters updated via post_save signal in users/signals.py
             logger.info('User %s followed user %s', request.user.id, target.id)
         return Response({'status': 'followed'})
 
@@ -61,7 +60,6 @@ class SubscribeView(APIView):
         target = get_object_or_404(User, id=user_id)
         deleted_count, _ = Follow.objects.filter(follower=request.user, following=target).delete()
         if deleted_count:
-            User.objects.filter(id=target.id, followers_count__gt=0).update(followers_count=F('followers_count') - 1)
-            User.objects.filter(id=request.user.id, following_count__gt=0).update(following_count=F('following_count') - 1)
+            # Counters updated via post_delete signal in users/signals.py
             logger.info('User %s unfollowed user %s', request.user.id, target.id)
         return Response(status=status.HTTP_204_NO_CONTENT)

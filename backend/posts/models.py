@@ -1,6 +1,11 @@
+import sys
+from io import BytesIO
+
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from PIL import Image
 
 class Tag(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name='Название тега')
@@ -139,6 +144,41 @@ class PostImage(models.Model):
     # сам преобразует это в URL http://server_ip/media/post_images/...
     image = models.ImageField(upload_to='post_images/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def _strip_exif(self):
+        """Пересохраняет изображение без EXIF-метаданных (включая GPS)."""
+        if not self.image:
+            return
+        img = Image.open(self.image)
+        fmt = img.format or 'JPEG'
+        buf = BytesIO()
+        save_kwargs = {'format': fmt, 'optimize': True}
+        if fmt == 'JPEG':
+            # JPEG не поддерживает прозрачность — конвертируем RGBA→RGB
+            if img.mode == 'RGBA':
+                img = img.convert('RGB')
+            save_kwargs['quality'] = 85
+            save_kwargs['exif'] = b''
+        elif fmt == 'PNG':
+            save_kwargs['pnginfo'] = None
+        elif fmt == 'WEBP':
+            save_kwargs['quality'] = 85
+        img.save(buf, **save_kwargs)
+        buf.seek(0)
+        content_type = Image.MIME.get(fmt, getattr(self.image.file, 'content_type', 'image/jpeg'))
+        self.image = InMemoryUploadedFile(
+            buf, 'ImageField', self.image.name, content_type,
+            sys.getsizeof(buf), None,
+        )
+
+    def save(self, *args, **kwargs):
+        # Стрипаем EXIF только при первом сохранении (pk ещё нет)
+        if not self.pk and self.image:
+            try:
+                self._strip_exif()
+            except Exception:
+                pass  # не падаем на битых/неподдерживаемых файлах
+        super().save(*args, **kwargs)
 
 class PostStatistics(models.Model):
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='statistics')

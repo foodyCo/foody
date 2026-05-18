@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import { FeedHeader, type FeedTab } from "@/components/feed/feed-header";
 import { GlassSurface } from "@/components/feed/glass-surface";
@@ -54,6 +55,7 @@ export function FeedClient({
   accessToken,
   initialTab = "new",
 }: FeedClientProps) {
+  const router = useRouter();
   const [feedTab, setFeedTab] = useState<FeedTab>(initialTab);
   const [posts] = useState<Post[]>(initialPosts);
   const [likedSet, setLikedSet] = useState<Set<number>>(() => new Set(likedIds));
@@ -90,6 +92,8 @@ export function FeedClient({
           else next.delete(postId);
           return next;
         });
+        // LO1: инвалидировать SSR-кеш страницы поста чтобы счётчик обновился
+        router.refresh();
       } catch {
         setNotice("Не удалось обновить лайк.");
       } finally {
@@ -100,7 +104,7 @@ export function FeedClient({
         });
       }
     },
-    [accessToken, pendingLikes],
+    [accessToken, pendingLikes, router],
   );
 
   const onSaveToggle = useCallback(
@@ -115,6 +119,8 @@ export function FeedClient({
           else next.delete(postId);
           return next;
         });
+        // LO1: инвалидировать SSR-кеш (актуальный список сохранённых на /favorites)
+        router.refresh();
       } catch {
         setNotice("Не удалось обновить избранное.");
       } finally {
@@ -125,7 +131,7 @@ export function FeedClient({
         });
       }
     },
-    [accessToken, pendingSaves],
+    [accessToken, pendingSaves, router],
   );
 
   const onFollowToggle = useCallback(

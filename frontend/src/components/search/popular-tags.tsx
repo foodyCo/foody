@@ -1,8 +1,10 @@
 "use client";
 
 import { Flame } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { SectionHeader } from "@/components/search/section-header";
+import { getTagSearchHref } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
 type PopularTagsProps = {
@@ -15,6 +17,12 @@ const PRESS_CLASSES =
   "origin-center transition-transform duration-150 ease-out active:scale-[0.94] [-webkit-tap-highlight-color:transparent]";
 
 export function PopularTags({ tags, brand, onSubmitQuery }: PopularTagsProps) {
+  const router = useRouter();
+
+  function handleTagClick(tag: string) {
+    router.push(getTagSearchHref(tag));
+  }
+
   return (
     <div className="px-[18px] pb-7">
       <SectionHeader
@@ -27,7 +35,7 @@ export function PopularTags({ tags, brand, onSubmitQuery }: PopularTagsProps) {
           <button
             key={tag}
             type="button"
-            onClick={() => onSubmitQuery(tag)}
+            onClick={() => handleTagClick(tag)}
             className={cn(
               "inline-flex h-[30px] cursor-pointer items-center justify-center rounded-full border-[0.5px] border-transparent px-3 pt-px text-[12.5px] leading-none font-bold tracking-[0px] text-[#15291C] outline-none backdrop-blur-[20px] backdrop-saturate-[180%]",
               "focus-visible:ring-2 focus-visible:ring-[#15291C]/18 focus-visible:ring-offset-0",

@@ -50,12 +50,14 @@ export default async function CommentsPage({ params }: { params: Promise<{ id: s
     const myAvatar = session?.user?.image || "/default-avatar.svg";
 
     let currentUserId: number | null = null;
+    let currentUsername: string | null = null;
     if (session?.user?.accessToken) {
         try {
             const me = await apiRequest("/users/me/", {
                 headers: { Authorization: `Bearer ${session.user.accessToken}` },
             });
             currentUserId = me?.id ?? null;
+            currentUsername = me?.username ?? null;
         } catch { /* ignore */ }
     }
 
@@ -101,6 +103,7 @@ export default async function CommentsPage({ params }: { params: Promise<{ id: s
                 isAuthenticated={!!session}
                 accentRedirect={`/dish/${id}`}
                 currentUserId={currentUserId}
+                currentUsername={currentUsername}
             />
         </div>
     );

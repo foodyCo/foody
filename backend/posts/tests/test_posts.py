@@ -115,9 +115,9 @@ class TestPostViews:
         post = Post.objects.first()
         assert post.restaurant == res
         
-        # Блюдо должно появиться
-        assert Dish.objects.filter(name="new awesome dish", restaurant=res).exists()
-        dish = Dish.objects.get(name="new awesome dish", restaurant=res)
+        # Блюдо должно появиться; CR2-фикс: имя сохраняется в исходном регистре
+        assert Dish.objects.filter(name="New Awesome Dish", restaurant=res).exists()
+        dish = Dish.objects.get(name="New Awesome Dish", restaurant=res)
         assert post.dish == dish
 
     def test_create_post_existing_restaurant_existing_dish(self, auth_client):
@@ -169,7 +169,8 @@ class TestPostViews:
         res = Restaurant.objects.get(name="Brand New Rest")
         assert res.address == "New York"
         
-        assert Dish.objects.filter(name="fresh burger", restaurant=res).exists()
+        # CR2-фикс: имя сохраняется в исходном регистре
+        assert Dish.objects.filter(name="Fresh Burger", restaurant=res).exists()
         
         post = Post.objects.first()
         assert post.restaurant == res

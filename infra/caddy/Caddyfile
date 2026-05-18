@@ -36,4 +36,17 @@
     handle {
         reverse_proxy frontend:3000
     }
+
+    handle_errors {
+        @413 expression {http.error.status_code} == 413
+        handle @413 {
+            header Content-Type "application/json"
+            respond `{"error":"payload_too_large","message":"Файл превышает лимит 20 МБ.","status":413}` 413
+        }
+        @5xx expression {http.error.status_code} >= 500
+        handle @5xx {
+            header Content-Type "application/json"
+            respond `{"error":"server_error","message":"Внутренняя ошибка сервера.","status":{http.error.status_code}}` {http.error.status_code}
+        }
+    }
 }

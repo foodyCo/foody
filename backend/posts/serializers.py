@@ -1,13 +1,27 @@
+import bleach
 from django.db import transaction
 from django.conf import settings
 from rest_framework import serializers
 from .models import Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, Restaurant, Dish, Category
 from users.serializers import UserSerializer, FeedPostAuthorSerializer
 
+# Разрешённые HTML-теги для комментариев: никаких (только plain text)
+_COMMENT_ALLOWED_TAGS: list = []
+_COMMENT_ALLOWED_ATTRS: dict = {}
+
+
 class PostImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = PostImage
         fields = ['id', 'image', 'uploaded_at']
+
+    def get_image(self, obj):
+        """Возвращает относительный URL /media/... без хоста."""
+        if not obj.image:
+            return None
+        return obj.image.url
 
 class PostStatisticsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -40,11 +54,24 @@ class DishSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     user_detail = FeedPostAuthorSerializer(source='user', read_only=True)
+    text = serializers.CharField(max_length=2000, trim_whitespace=True)
 
     class Meta:
         model = Comment
         fields = ['id', 'user', 'user_detail', 'text', 'created_at']
         read_only_fields = ['user', 'created_at']
+
+    def validate_text(self, value):
+        """Очищаем HTML-теги, оставляем plain text. Защита от XSS."""
+        cleaned = bleach.clean(
+            value,
+            tags=_COMMENT_ALLOWED_TAGS,
+            attributes=_COMMENT_ALLOWED_ATTRS,
+            strip=True,
+        )
+        if not cleaned.strip():
+            raise serializers.ValidationError("Текст комментария не может быть пустым.")
+        return cleaned
 
 class PostListSerializer(serializers.ModelSerializer):
     """
@@ -88,21 +115,28 @@ class PostListSerializer(serializers.ModelSerializer):
 
 class PostUpdateSerializer(serializers.ModelSerializer):
     """
-    Сериализатор для редактирования поста. Позволяет менять только description, price и теги.
+    Сериализатор для редактирования поста. Позволяет менять description, price, теги
+    и добавлять новые фотографии (append, не replace).
     """
     tags_list = serializers.ListField(
         child=serializers.CharField(max_length=50),
         write_only=True,
         required=False
     )
+    uploaded_images = serializers.ListField(
+        child=serializers.ImageField(allow_empty_file=False, use_url=False),
+        write_only=True,
+        required=False,
+    )
 
     class Meta:
         model = Post
-        fields = ['description', 'price', 'tags_list']
+        fields = ['description', 'price', 'tags_list', 'uploaded_images']
 
     @transaction.atomic
     def update(self, instance, validated_data):
         tags_list = validated_data.pop('tags_list', None)
+        uploaded_images = validated_data.pop('uploaded_images', [])
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -118,6 +152,10 @@ class PostUpdateSerializer(serializers.ModelSerializer):
                 if tag_name:
                     tag, _ = Tag.objects.get_or_create(name=tag_name)
                     PostTag.objects.create(post=instance, tag=tag)
+
+        # Добавляем новые фото (append); EXIF стрипается автоматически в PostImage.save()
+        for image in uploaded_images:
+            PostImage.objects.create(post=instance, image=image)
 
         return instance
 
@@ -189,9 +227,11 @@ class PostCreateSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError({"restaurant": "Необходимо передать restaurant_id или restaurant_name."})
             
-        # Создаем или привязываем блюдо к этому ресторану (игнорируем регистр и пробелы для красоты)
-        clean_dish_name = dish_name.strip().lower()
-        dish, _ = Dish.objects.get_or_create(name=clean_dish_name, restaurant=restaurant)
+        # Ищем блюдо без учёта регистра (iexact), сохраняем оригинальный регистр при создании
+        clean_dish_name = dish_name.strip()
+        dish = Dish.objects.filter(restaurant=restaurant, name__iexact=clean_dish_name).first()
+        if not dish:
+            dish = Dish.objects.create(name=clean_dish_name, restaurant=restaurant)
         
         user = self.context['request'].user
         

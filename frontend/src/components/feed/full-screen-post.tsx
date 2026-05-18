@@ -266,6 +266,7 @@ export function FullScreenPost({
   }
 
   function handlePhotoOpen() {
+    if (post.photos === 0 || !post.photoUrls?.length) return;
     setViewerPhotoDirection(1);
     setViewerPhotoIdx(photoIdx);
     setViewerOpenKey((currentKey) => currentKey + 1);
@@ -426,6 +427,8 @@ export function FullScreenPost({
         commentsCount={post.comments}
         onClose={() => setIsCommentsOpen(false)}
         shouldReduceMotion={shouldReduceMotion}
+        currentUsername={currentUser?.replace(/^@/, "") ?? null}
+        postId={post.id}
       />
       <CopyLinkAlert showKey={copyLinkAlertKey} />
     </>

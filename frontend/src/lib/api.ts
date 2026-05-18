@@ -49,12 +49,17 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     return response.json();
 }
 
-export function fixMediaUrl(url: string | null | undefined): string {
-    if (!url) return "";
-    if (url.startsWith("http://backend:8000")) {
-        return url.replace("http://backend:8000", "http://localhost:8000");
+export function fixMediaUrl(path: string | null | undefined): string | undefined {
+    if (!path) return undefined;
+    // Абсолютный URL — оставить, но срезать dev-хосты чтобы браузер не ломился на localhost/backend из прода
+    if (/^https?:\/\//i.test(path)) {
+        return path.replace(
+            /^https?:\/\/(localhost|backend|0\.0\.0\.0|127\.0\.0\.1)(:\d+)?/,
+            ""
+        );
     }
-    return url;
+    // Относительный путь — добавить ведущий слэш если нет, браузер сам подставит origin
+    return path.startsWith("/") ? path : `/${path}`;
 }
 
 export function mapDjangoPostToDish(post: any): Dish {

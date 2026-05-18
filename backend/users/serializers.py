@@ -16,6 +16,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 class UserSerializer(serializers.ModelSerializer):
     posts_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -26,6 +27,12 @@ class UserSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'email', 'date_joined', 'is_staff', 'followers_count', 'following_count')
 
+    def get_avatar(self, obj):
+        """Возвращает относительный URL /media/... без хоста."""
+        if not obj.avatar:
+            return None
+        return obj.avatar.url
+
     def get_posts_count(self, obj):
         return obj.posts.filter(status='approved').count()
 
@@ -35,14 +42,23 @@ class UserSerializer(serializers.ModelSerializer):
             return Follow.objects.filter(follower=request.user, following=obj).exists()
         return False
 
+
 class FeedPostAuthorSerializer(serializers.ModelSerializer):
     """
     Легковесный сериализатор для отображения автора в ленте постов.
     Содержит только минимум данных для экономии трафика.
     """
+    avatar = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ('id', 'username', 'full_name', 'avatar')
+
+    def get_avatar(self, obj):
+        """Возвращает относительный URL /media/... без хоста."""
+        if not obj.avatar:
+            return None
+        return obj.avatar.url
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])

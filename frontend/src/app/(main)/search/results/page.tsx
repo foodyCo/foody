@@ -14,6 +14,7 @@ import {
 type SearchResultsPageProps = {
   searchParams: Promise<{
     q?: string | string[];
+    tag_name?: string | string[];
     category_id?: string | string[];
     price_min?: string | string[];
     price_max?: string | string[];
@@ -26,6 +27,7 @@ export default async function SearchResultsPage({
   const params = await searchParams;
   const query = getSingleSearchParam(params.q);
   const normalizedQuery = normalizeSearchQuery(query);
+  const tagName = getSingleSearchParam(params.tag_name);
   const categoryId = getSingleSearchParam(params.category_id);
   const priceMin = getSingleSearchParam(params.price_min);
   const priceMax = getSingleSearchParam(params.price_max);
@@ -35,12 +37,14 @@ export default async function SearchResultsPage({
 
   const qs = new URLSearchParams();
   if (normalizedQuery) qs.set("search", normalizedQuery);
+  if (tagName) qs.set("tag_name", tagName);
   if (categoryId) qs.set("category_id", categoryId);
   if (priceMin) qs.set("price_min", priceMin);
   if (priceMax) qs.set("price_max", priceMax);
   const endpoint = qs.toString() ? `/posts/?${qs.toString()}` : "/posts/";
 
   let apiPosts: ApiPost[] = [];
+  let hasMore = false;
   try {
     const options: any = { headers: {} };
     if (accessToken) options.headers.Authorization = `Bearer ${accessToken}`;
@@ -51,6 +55,7 @@ export default async function SearchResultsPage({
       ? data
       : [];
     apiPosts = results as ApiPost[];
+    hasMore = Boolean(data?.next);
   } catch {
     /* ignore — отдадим пустые результаты */
   }
@@ -91,6 +96,7 @@ export default async function SearchResultsPage({
               initialLikedPostIds={likedPostIds}
               initialSavedPostIds={savedPostIds}
               posts={posts}
+              hasMore={hasMore}
             />
           ) : (
             <div className="flex h-full snap-start snap-always flex-col px-3.5 pt-2 pb-[5.75rem]">

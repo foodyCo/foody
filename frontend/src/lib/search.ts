@@ -13,6 +13,13 @@ export function getSearchResultsHref(query: string) {
   return `${SEARCH_RESULTS_PATH}?${params.toString()}`;
 }
 
+export function getTagSearchHref(tagName: string) {
+  const trimmed = tagName.trim();
+  const params = new URLSearchParams({ tag_name: trimmed });
+
+  return `${SEARCH_RESULTS_PATH}?${params.toString()}`;
+}
+
 export function getSingleSearchParam(
   value: string | string[] | undefined
 ) {

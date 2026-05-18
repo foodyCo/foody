@@ -101,6 +101,9 @@ export async function getCurrentUserAvatar() {
     }
 }
 
+// F1: правильный эндпоинт для подписок — /api/v1/users/{id}/subscribe/
+// POST — подписаться, DELETE — отписаться.
+// Эндпоинты /follow/ и /unfollow/ НЕ существуют (вернут 404).
 export async function toggleFollow(userId: string | number, isFollowing: boolean) {
     const session = await auth() as any;
     if (!session?.user?.accessToken) return { error: "Not authenticated" };

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
 import {
   AnimatePresence,
   animate,
@@ -448,6 +448,16 @@ export function PhotoViewerModal({
               />
             )}
           </motion.div>
+
+          <motion.button
+            type="button"
+            aria-label="Закрыть"
+            className="absolute right-3 top-3 z-30 grid size-9 place-items-center rounded-full border border-white/15 bg-black/60 text-white shadow-md backdrop-blur-md cursor-pointer outline-none hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/50 max-[430px]:size-8.5"
+            whileTap={shouldAnimate ? { scale: 0.92 } : undefined}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+          >
+            <X className="size-5 max-[430px]:size-4.5" strokeWidth={2.45} />
+          </motion.button>
 
           {hasMultiplePhotos && (
             <div className="pointer-events-none z-20 mt-4 flex gap-1.5 rounded-full border border-white/25 bg-white/[0.1] p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">

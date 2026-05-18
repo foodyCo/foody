@@ -26,6 +26,7 @@ import {
   getDishCategories,
   getPopularCuisineCategories,
   getPopularDishCategories,
+  type ApiCategory,
   type CategoryMode,
   type FoodCategory,
 } from "@/lib/categories";
@@ -39,6 +40,10 @@ type CategorySelectionScreenProps = {
   brand: string;
   palette: Palette;
   source: CategorySelectionSource;
+  /** Категории из бэка (server-side fetch). Если передан — клик по категории
+   *  при source="search" использует числовой category_id вместо #label.
+   */
+  apiCategories?: ApiCategory[];
   onBack?: () => void;
   onSelectCategory?: (category: FoodCategory) => void;
 };
@@ -237,6 +242,7 @@ export function CategorySelectionScreen({
   brand,
   palette,
   source,
+  apiCategories,
   onBack,
   onSelectCategory,
 }: CategorySelectionScreenProps) {
@@ -352,6 +358,17 @@ export function CategorySelectionScreen({
     }
 
     if (source === "search") {
+      // NR2: если есть данные из бэка — используем числовой category_id
+      if (apiCategories && apiCategories.length > 0) {
+        const apiCat = apiCategories.find(
+          (c) => c.name.toLowerCase() === category.label.toLowerCase()
+        );
+        if (apiCat) {
+          router.push(`/search/results?category_id=${apiCat.id}`);
+          return;
+        }
+      }
+      // Fallback: поиск по #label если бэк не отдал категорию
       router.push(getSearchResultsHref(`#${category.label}`));
       return;
     }

@@ -68,6 +68,8 @@ The Caddy config lives at `infra/caddy/Caddyfile` and uses `{$DOMAIN_NAME}` (def
 - Posts: `/api/v1/posts/` — CRUD + actions (like, save, review, my_posts, saved_posts)
 - Restaurants: `/api/v1/restaurants/`
 - Moderation: `/api/v1/moderation/` (staff only)
+- Follow: `POST /api/v1/users/{id}/subscribe/` (подписаться), `DELETE /api/v1/users/{id}/subscribe/` (отписаться).
+  Эндпоинты `/follow/` и `/unfollow/` **НЕ существуют** (вернут 404).
 
 ViewSets use DRF DefaultRouter. Custom actions use `@action` decorator.
 

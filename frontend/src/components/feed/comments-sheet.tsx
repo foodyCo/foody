@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Heart, Reply, X } from "lucide-react";
+import { ArrowRight, Heart, Reply, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   useEffect,
@@ -21,6 +21,7 @@ import {
 } from "@/lib/feed-api";
 import type { PostComment } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { deleteComment } from "@/app/actions/post";
 
 import { HEART_COLOR, canAnimate } from "./post-card/post-card-shared";
 
@@ -32,6 +33,9 @@ type CommentsSheetProps = {
   shouldReduceMotion: boolean | null;
   onClose: () => void;
   onOpen?: () => void;
+  currentUserId?: number | null;
+  currentUsername?: string | null;
+  postId?: number | null;
 };
 
 type CommentRowProps = {
@@ -39,6 +43,9 @@ type CommentRowProps = {
   comment: PostComment;
   liked: boolean;
   likePending: boolean;
+  currentUserId?: number | null;
+  currentUsername?: string | null;
+  onDelete?: (comment: PostComment) => void;
   onLikeToggle: (comment: PostComment, nextLiked: boolean) => void;
   onReply: (comment: PostComment) => void;
   shouldReduceMotion: boolean | null;
@@ -65,14 +72,16 @@ const AVATAR_PALETTES: ReadonlyArray<readonly [string, string]> = [
   ["#F2CC8F", "#81B29A"],
   ["#CDB4DB", "#FFAFCC"],
 ];
-const CURRENT_USER: PostComment = {
-  id: 0,
-  user: "@you",
-  realName: "Вы",
-  when: "только что",
-  text: "",
-  likes: 0,
-};
+function makeCurrentUser(username?: string | null): PostComment {
+  return {
+    id: 0,
+    user: username ? `@${username}` : "@you",
+    realName: username ?? "Вы",
+    when: "только что",
+    text: "",
+    likes: 0,
+  };
+}
 
 function getDisplayHandle(user: string) {
   return user.startsWith("@") ? user : `@${user}`;
@@ -179,11 +188,14 @@ function createClientCommentId() {
   return `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function createOptimisticComment(payload: CreateCommentPayload): PostComment {
+function createOptimisticComment(
+  payload: CreateCommentPayload,
+  currentUser: PostComment
+): PostComment {
   const clientId = createClientCommentId();
 
   return {
-    ...CURRENT_USER,
+    ...currentUser,
     id: clientId,
     clientId,
     replyTo: payload.replyToUser,
@@ -243,7 +255,11 @@ export function CommentsSheet({
   shouldReduceMotion,
   onClose,
   onOpen,
+  currentUserId,
+  currentUsername,
+  postId,
 }: CommentsSheetProps) {
+  const CURRENT_USER = makeCurrentUser(currentUsername);
   const [draft, setDraft] = useState("");
   const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
   const [commentLikesLoaded, setCommentLikesLoaded] = useState(false);
@@ -255,11 +271,17 @@ export function CommentsSheet({
   >(() => new Set());
   const [replyTarget, setReplyTarget] = useState<PostComment | null>(null);
   const [submittedComments, setSubmittedComments] = useState<PostComment[]>([]);
+  const [deletedCommentKeys, setDeletedCommentKeys] = useState<Set<string>>(
+    () => new Set()
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const shouldAnimate = canAnimate(shouldReduceMotion);
   const visibleComments = useMemo(
-    () => mergeCommentsWithSubmitted(comments, submittedComments),
-    [comments, submittedComments]
+    () =>
+      mergeCommentsWithSubmitted(comments, submittedComments).filter(
+        (c) => !deletedCommentKeys.has(getCommentIdKey(c.id))
+      ),
+    [comments, submittedComments, deletedCommentKeys]
   );
   const unsyncedSubmittedCommentsCount = useMemo(
     () =>
@@ -450,6 +472,25 @@ export function CommentsSheet({
     }
   }
 
+  async function handleDelete(comment: PostComment) {
+    if (!postId || comment.clientId) return;
+    const key = getCommentIdKey(comment.id);
+    // Optimistically remove from view
+    setDeletedCommentKeys((current) => {
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+    await deleteComment(String(postId), comment.id as number | string).catch(() => {
+      // Revert on failure
+      setDeletedCommentKeys((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    });
+  }
+
   function handleSubmit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
 
@@ -459,11 +500,14 @@ export function CommentsSheet({
       return;
     }
 
-    const nextComment = createOptimisticComment({
-      text,
-      replyToCommentId: replyTarget?.id,
-      replyToUser: replyTarget?.user,
-    });
+    const nextComment = createOptimisticComment(
+      {
+        text,
+        replyToCommentId: replyTarget?.id,
+        replyToUser: replyTarget?.user,
+      },
+      CURRENT_USER
+    );
 
     setSubmittedComments((currentComments) => [...currentComments, nextComment]);
     setDraft("");
@@ -541,6 +585,8 @@ export function CommentsSheet({
                     key={comment.id}
                     brand={brand}
                     comment={comment}
+                    currentUserId={currentUserId}
+                    currentUsername={currentUsername}
                     liked={
                       comment.clientId
                         ? localLikedCommentIdsSet.has(getCommentIdKey(comment.id))
@@ -551,6 +597,7 @@ export function CommentsSheet({
                     likePending={pendingLikedCommentIds.has(
                       getCommentIdKey(comment.id)
                     )}
+                    onDelete={handleDelete}
                     onLikeToggle={handleLikeToggle}
                     onReply={handleReply}
                     shouldReduceMotion={shouldReduceMotion}
@@ -652,13 +699,24 @@ export function CommentsSheet({
 function CommentRow({
   brand,
   comment,
+  currentUserId,
+  currentUsername,
   liked,
   likePending,
+  onDelete,
   onLikeToggle,
   onReply,
   shouldReduceMotion,
 }: CommentRowProps) {
   const shouldAnimate = canAnimate(shouldReduceMotion);
+  // A comment is "own" if the handle matches (for API comments), or if it's a
+  // locally-submitted comment (clientId present) by the current user.
+  const myHandle = currentUsername
+    ? getDisplayHandle(currentUsername)
+    : null;
+  const isOwnComment =
+    (comment.clientId != null) ||
+    (myHandle != null && getDisplayHandle(comment.user) === myHandle);
   const likeCount = comment.likes + (liked ? 1 : 0) - (comment.liked ? 1 : 0);
 
   return (
@@ -673,7 +731,7 @@ function CommentRow({
       <div className="min-w-0">
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="truncate text-[15.5px] leading-tight font-extrabold tracking-normal text-black">
-            {comment.realName}
+            {getDisplayHandle(comment.user)}
           </span>
           {SHOW_COMMENT_TIMESTAMPS && (
             <span className="shrink-0 text-[12px] leading-tight font-bold text-[#99A1AB]">
@@ -693,16 +751,29 @@ function CommentRow({
           {comment.text}
         </p>
 
-        <motion.button
-          type="button"
-          className="mt-2 cursor-pointer border-0 bg-transparent p-0 text-[12.5px] leading-tight font-extrabold text-[#65707A] outline-none transition-colors hover:text-[#15291C] focus-visible:ring-2 focus-visible:ring-black/10"
-          whileHover={shouldAnimate ? { y: 1 } : undefined}
-          whileTap={shouldAnimate ? { scale: 0.96, y: 4 } : undefined}
-          transition={{ duration: 0.16, ease: "easeOut" }}
-          onClick={() => onReply(comment)}
-        >
-          Ответить
-        </motion.button>
+        <div className="mt-2 flex items-center gap-3">
+          <motion.button
+            type="button"
+            className="cursor-pointer border-0 bg-transparent p-0 text-[12.5px] leading-tight font-extrabold text-[#65707A] outline-none transition-colors hover:text-[#15291C] focus-visible:ring-2 focus-visible:ring-black/10"
+            whileHover={shouldAnimate ? { y: 1 } : undefined}
+            whileTap={shouldAnimate ? { scale: 0.96, y: 4 } : undefined}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+            onClick={() => onReply(comment)}
+          >
+            Ответить
+          </motion.button>
+          {isOwnComment && onDelete && (
+              <motion.button
+                type="button"
+                aria-label="Удалить комментарий"
+                className="cursor-pointer border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-black/10"
+                whileTap={shouldAnimate ? { scale: 0.9 } : undefined}
+                onClick={() => onDelete(comment)}
+              >
+                <Trash2 className="size-3.5 text-red-500" />
+              </motion.button>
+            )}
+        </div>
       </div>
 
       <button

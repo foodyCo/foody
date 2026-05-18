@@ -1,5 +1,8 @@
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+// Клиентские мутации используют относительный путь — браузер сам подставит origin.
+// На проде: https://foody.press/api/v1/...
+// На локалке через Caddy: http://localhost/api/v1/...
+// НИКОГДА не использовать NEXT_PUBLIC_API_URL здесь — это CSR-слой.
+const API_BASE = "/api/v1";
 
 async function authedFetch(
   path: string,
@@ -13,7 +16,7 @@ async function authedFetch(
   if (init.body && !(init.body instanceof FormData)) {
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
   }
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
     cache: "no-store",

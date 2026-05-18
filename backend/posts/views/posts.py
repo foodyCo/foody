@@ -4,37 +4,50 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import SearchFilter, OrderingFilter
 from django.db.models import Prefetch, Q
+from django_filters.rest_framework import DjangoFilterBackend
 
 from users.models import Follow
 
 logger = logging.getLogger(__name__)
 from ..models import Post, PostLike, PostSave
 from ..serializers import PostListSerializer, PostCreateSerializer, PostUpdateSerializer
-from ..pagination import StandardResultsCursorPagination
+from ..pagination import StandardResultsPagePagination
+from ..filters import PostFilterSet
+
 
 class BasePostViewSet(viewsets.ModelViewSet):
     """
-    CRUD Вьюсет для Постов. 
+    CRUD Вьюсет для Постов.
     Отвечает за права доступа и роутинг. Конкретная валидация данных — в сериализаторах.
     """
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    pagination_class = StandardResultsCursorPagination
-    
-    # Поиск по названию блюда, ресторана и категории
-    filter_backends = [SearchFilter]
-    search_fields = ['dish__name', 'restaurant__name', 'dish__categories__name', 'restaurant__categories__name']
-    
+    pagination_class = StandardResultsPagePagination
+
+    # Фильтрация, поиск, сортировка
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = PostFilterSet
+    search_fields = [
+        'dish__name', 'restaurant__name',
+        'dish__categories__name', 'restaurant__categories__name',
+        'tags__name',  # S11: поиск по тегам
+    ]
+    ordering_fields = ['created_at', 'statistics__rating', 'statistics__likes_count', 'price']
+    ordering = ['-created_at', '-id']  # S7: tie-breaker по id
+
     def get_queryset(self):
         """
         Возвращает базовый QuerySet для постов с оптимизацией N+1 запросов.
         Если пользователь авторизован, подгружает его лайки и сохранения.
         my_posts: показывает все посты автора (включая pending/rejected).
-        Остальные экшены: только одобренные посты.
+        Остальные list-действия: только одобренные посты.
+        retrieve: обрабатывается отдельно в get_object() — владелец видит свои.
         """
         user = self.request.user
-        posts_queryset = Post.objects.select_related('user', 'statistics', 'restaurant', 'dish').prefetch_related('images', 'tags')
+        posts_queryset = Post.objects.select_related(
+            'user', 'statistics', 'restaurant', 'dish'
+        ).prefetch_related('images', 'tags')
         if user.is_authenticated:
             posts_queryset = posts_queryset.prefetch_related(
                 Prefetch('likes', queryset=PostLike.objects.filter(user=user), to_attr='prefetched_likes'),
@@ -42,42 +55,57 @@ class BasePostViewSet(viewsets.ModelViewSet):
             )
         # my_posts: пользователь видит свои посты любого статуса
         if hasattr(self, 'action') and self.action == 'my_posts':
-            return posts_queryset.order_by('-created_at')
-        # все остальные экшены: только одобренные посты
-        posts_queryset = posts_queryset.filter(status=Post.STATUS_APPROVED)
-
-        # Фильтр по точной категории (dish или restaurant)
-        category_id = self.request.query_params.get('category_id')
-        if category_id:
-            posts_queryset = posts_queryset.filter(
-                Q(dish__categories__id=category_id) | Q(restaurant__categories__id=category_id)
-            ).distinct()
-
-        # Фильтр по городу (ищем в адресе ресторана)
-        city = self.request.query_params.get('city')
-        if city:
-            posts_queryset = posts_queryset.filter(restaurant__address__icontains=city)
-
-        # Фильтр по цене (от - до)
-        price_min = self.request.query_params.get('price_min')
-        price_max = self.request.query_params.get('price_max')
-        posts_queryset = posts_queryset.filter(**{
-            **({'price__gte': price_min} if price_min is not None else {}),
-            **({'price__lte': price_max} if price_max is not None else {}),
-        })
-
-        return posts_queryset.order_by('-created_at')
+            return posts_queryset.order_by('-created_at', '-id')
+        # все остальные list-действия: только одобренные посты
+        # (retrieve использует get_object() который расширяет это правило для владельца)
+        return posts_queryset.filter(status=Post.STATUS_APPROVED).order_by('-created_at', '-id')
 
     def get_serializer_class(self):
         """
         Определяет, какой сериализатор использовать в зависимости от выполняемого действия.
         Для чтения возвращает полный сериализатор, для записи - сериализатор создания.
         """
-        # Для GET (list, retrieve, my_posts, saved_posts, user_posts) возвращаем полный граф
-        if self.action in ['list', 'retrieve', 'my_posts', 'saved_posts', 'user_posts', 'following']:
+        # Для GET (list, retrieve, my_posts, saved_posts, user_posts, following, liked) возвращаем полный граф
+        if self.action in ['list', 'retrieve', 'my_posts', 'saved_posts', 'user_posts', 'following', 'liked']:
             return PostListSerializer
         # Для POST, PUT, PATCH используем чисто валидационный сериализатор
         return PostCreateSerializer
+
+    def get_object(self):
+        """
+        CR3 + M2: владелец поста может видеть свои pending/rejected посты.
+        Публичный список (get_queryset) остаётся approved-only.
+        Анонимный пользователь — только approved.
+        """
+        user = self.request.user
+        # Строим queryset с учётом прав: approved для всех + свои любого статуса
+        qs = Post.objects.select_related(
+            'user', 'statistics', 'restaurant', 'dish'
+        ).prefetch_related('images', 'tags')
+        if user.is_authenticated:
+            qs = qs.prefetch_related(
+                Prefetch('likes', queryset=PostLike.objects.filter(user=user), to_attr='prefetched_likes'),
+                Prefetch('saves', queryset=PostSave.objects.filter(user=user), to_attr='prefetched_saves')
+            )
+            qs = qs.filter(Q(status=Post.STATUS_APPROVED) | Q(user=user))
+        else:
+            qs = qs.filter(status=Post.STATUS_APPROVED)
+
+        obj = get_object_or_404(qs, pk=self.kwargs['pk'])
+        self.check_object_permissions(self.request, obj)
+        return obj
+
+    def create(self, request, *args, **kwargs):
+        """
+        CR1: переопределяем create() чтобы вернуть полный PostListSerializer вместо
+        неполного PostCreateSerializer (у которого часть полей write_only).
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        post = serializer.save()
+        output = PostListSerializer(post, context=self.get_serializer_context())
+        headers = self.get_success_headers(output.data)
+        return Response(output.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def destroy(self, request, *args, **kwargs):
         """
@@ -170,6 +198,22 @@ class BasePostViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='liked', url_name='liked')
+    def liked(self, request):
+        """
+        L1: Возвращает список постов, которые текущий пользователь лайкнул.
+        Только одобренные посты (approved).
+        """
+        liked_queryset = self.filter_queryset(self.get_queryset().filter(likes__user=request.user))
+
+        page = self.paginate_queryset(liked_queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(liked_queryset, many=True)
         return Response(serializer.data)
 
     # Логика действий (Лайки, Сохранения, Комментарии) находится в PostActionsMixin,

@@ -35,11 +35,10 @@ import { CopyLinkAlert } from "@/components/shared/copy-link-alert";
 import { useSearchSubmit } from "@/components/search/use-search-submit";
 import { type Density, type Post, type PostComment } from "@/lib/mock-data";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-
+// CSR fetch — относительный путь, браузер подставит origin (foody.press или localhost)
 async function fetchPostComments(postId: number): Promise<PostComment[]> {
   try {
-    const res = await fetch(`${API_URL}/posts/${postId}/comments/`, {
+    const res = await fetch(`/api/v1/posts/${postId}/comments/`, {
       cache: "no-store",
     });
     if (!res.ok) return [];
@@ -365,6 +364,8 @@ export function PostCard({
     if (suppressOpenAfterPhotoDragRef.current) {
       return;
     }
+
+    if (post.photos === 0 || !post.photoUrls?.length) return;
 
     resetPhotoTrackToCenter();
     setViewerPhotoDirection(1);

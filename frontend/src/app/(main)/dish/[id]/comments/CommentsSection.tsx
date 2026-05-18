@@ -26,6 +26,7 @@ export default function CommentsSection({
     isAuthenticated,
     accentRedirect,
     currentUserId,
+    currentUsername,
 }: {
     postId: string;
     initialComments: CommentType[];
@@ -33,6 +34,7 @@ export default function CommentsSection({
     isAuthenticated: boolean;
     accentRedirect: string;
     currentUserId?: number | null;
+    currentUsername?: string | null;
 }) {
     const router = useRouter();
     const [comments, setComments] = useState<CommentType[]>(initialComments);
@@ -47,7 +49,7 @@ export default function CommentsSection({
         // Optimistic UI update
         const newOb: CommentType = {
             id: Date.now(),
-            user: { id: 0, username: "Вы", image: myAvatar },
+            user: { id: currentUserId ?? 0, username: currentUsername ?? "Вы", image: myAvatar },
             text: newText,
             created_at: "Только что",
             likes: 0
@@ -154,7 +156,7 @@ export default function CommentsSection({
                             <p className={styles.commentText}>{c.text}</p>
                             <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
                                 <button className={styles.replyBtn}>Ответить</button>
-                                {currentUserId != null && c.user.id === currentUserId && (
+                                {currentUserId != null && Number(c.user.id) === Number(currentUserId) && (
                                     <button
                                         type="button"
                                         onClick={() => handleDelete(c.id)}

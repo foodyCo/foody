@@ -208,16 +208,8 @@ export const COMMENTS_BY_POST_ID: Record<number, PostComment[]> = {
   ],
 };
 
-export const POPULAR_TAGS: string[] = [
-  "Рамён",
-  "Суши",
-  "Пицца",
-  "Бургеры",
-  "Паста",
-  "Том-Ям",
-  "Поке",
-  "Шаурма",
-];
+// POPULAR_TAGS удалён — хардкод убран (SO3).
+// TODO: получать популярные теги из /api/v1/tags/popular/ когда бэк добавит этот эндпоинт (G1).
 
 export const RECENT_SEARCHES: string[] = [
   "рамен с уткой",

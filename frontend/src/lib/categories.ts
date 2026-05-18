@@ -1,3 +1,5 @@
+import { apiRequest } from "@/lib/api";
+
 export type CategoryMode = "dishes" | "cuisines";
 
 export type FoodCategory = {
@@ -103,4 +105,37 @@ export function matchCategoryByName(name: string): FoodCategory | null {
   const normalized = name.trim().toLowerCase();
   const all = [...DISH_CATEGORIES, ...CUISINE_CATEGORIES];
   return all.find((c) => c.label.toLowerCase() === normalized) ?? null;
+}
+
+export type ApiCategory = {
+  id: number;
+  name: string;
+  icon: string;
+  color: string;
+};
+
+/**
+ * Загрузить категории с бэка (/api/v1/categories/) и обогатить их emoji/mode
+ * из локальной карты. Если бэк недоступен — возвращает пустой массив.
+ */
+export async function fetchCategories(): Promise<ApiCategory[]> {
+  try {
+    const data = await apiRequest("/categories/");
+    const rawList: { id: number; name: string }[] = Array.isArray(data)
+      ? data
+      : (data?.results ?? []);
+
+    return rawList.map((cat) => {
+      const matched = matchCategoryByName(cat.name);
+      return {
+        id: cat.id,
+        name: cat.name,
+        icon: matched?.emoji ?? "🍽️",
+        color: matched ? "#2ECC71" : "#888888",
+      };
+    });
+  } catch {
+    // Если бэк не отдал категории — возвращаем пустой массив, UI покажет заглушку
+    return [];
+  }
 }

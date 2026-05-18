@@ -197,22 +197,37 @@ class TestRestaurantNameNormalization:
 @pytest.mark.django_db
 class TestCommentsOnNonApprovedPosts:
 
-    def test_get_comments_on_pending_post_returns_404(self, auth_client):
-        """GET /posts/{pk}/comments/ на pending пост возвращает 404."""
+    def test_owner_can_get_comments_on_pending_post(self, auth_client):
+        """CR3-фикс: владелец поста может просматривать свои pending-посты (и их комментарии)."""
         client, user = auth_client
         restaurant = Restaurant.objects.create(name="R", address="A")
         dish = Dish.objects.create(name="d", restaurant=restaurant)
         post = Post.objects.create(user=user, dish=dish, status=Post.STATUS_PENDING)
 
         response = client.get(reverse('post-comments', kwargs={'pk': post.pk}))
+        assert response.status_code == 200
+
+    def test_other_user_cannot_get_comments_on_pending_post(self, auth_client, api_client):
+        """Чужой pending-пост по-прежнему возвращает 404 для не-владельца."""
+        _, owner = auth_client
+        restaurant = Restaurant.objects.create(name="R3", address="A3")
+        dish = Dish.objects.create(name="d3", restaurant=restaurant)
+        post = Post.objects.create(user=owner, dish=dish, status=Post.STATUS_PENDING)
+
+        # Создаём другого пользователя и логинимся
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        other = User.objects.create_user(email="other@test.com", password="pwd", username="other")
+        api_client.force_authenticate(user=other)
+        response = api_client.get(reverse('post-comments', kwargs={'pk': post.pk}))
         assert response.status_code == 404
 
-    def test_get_comments_on_rejected_post_returns_404(self, auth_client):
-        """GET /posts/{pk}/comments/ на rejected пост возвращает 404."""
+    def test_owner_can_get_comments_on_rejected_post(self, auth_client):
+        """CR3-фикс: владелец поста может просматривать свои rejected-посты (и их комментарии)."""
         client, user = auth_client
         restaurant = Restaurant.objects.create(name="R2", address="A2")
         dish = Dish.objects.create(name="d2", restaurant=restaurant)
         post = Post.objects.create(user=user, dish=dish, status=Post.STATUS_REJECTED)
 
         response = client.get(reverse('post-comments', kwargs={'pk': post.pk}))
-        assert response.status_code == 404
+        assert response.status_code == 200
