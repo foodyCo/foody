@@ -4,10 +4,10 @@
 """
 import logging
 
+from django.db import transaction
 from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
 
 from ..models import Comment, CommentLike
 
@@ -18,23 +18,35 @@ class CommentLikeView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, comment_id):
-        """Toggle лайка на коммент. POST = поставить, повторный POST = снять."""
-        comment = get_object_or_404(Comment, id=comment_id)
-        like_obj, created = CommentLike.objects.get_or_create(
-            comment=comment, user=request.user
-        )
-        if not created:
-            like_obj.delete()
-            logger.info('User %s unliked comment %s', request.user.id, comment_id)
+        """
+        Toggle лайка на коммент. Атомарно: select_for_update берёт строку
+        коммента под блокировку, чтобы параллельные POST'ы от одного юзера
+        сериализовались (тот же паттерн что для PostLike в actions.py::like).
+        Финальное состояние всегда совпадает с чётностью количества кликов,
+        дубликатов CommentLike нет (защита и от unique_together тоже).
+        """
+        # 404 если коммента нет — проверка дёшево, без транзакции.
+        if not Comment.objects.filter(id=comment_id).exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        with transaction.atomic():
+            # Блок-строка по коммент-id чтобы параллельные toggle'ы стояли в очереди.
+            Comment.objects.select_for_update().filter(pk=comment_id).first()
+            like_obj, created = CommentLike.objects.get_or_create(
+                comment_id=comment_id, user=request.user
+            )
+            if not created:
+                like_obj.delete()
+                logger.info('User %s unliked comment %s', request.user.id, comment_id)
+                return Response(
+                    {'liked': False, 'comment_id': comment_id},
+                    status=status.HTTP_200_OK,
+                )
+            logger.info('User %s liked comment %s', request.user.id, comment_id)
             return Response(
-                {'liked': False, 'comment_id': comment_id},
+                {'liked': True, 'comment_id': comment_id},
                 status=status.HTTP_200_OK,
             )
-        logger.info('User %s liked comment %s', request.user.id, comment_id)
-        return Response(
-            {'liked': True, 'comment_id': comment_id},
-            status=status.HTTP_200_OK,
-        )
 
     def delete(self, request, comment_id):
         """Явный DELETE — снимает лайк без toggle-семантики (для UI consistency)."""
