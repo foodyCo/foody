@@ -55,16 +55,26 @@ export default function StaffPanel({
             delete next[post.id];
             return next;
         });
-        const result = await approvePost(post.id);
-        if (result?.error) {
-            setErrorByPost((prev) => ({ ...prev, [post.id]: result.error }));
+        // R10-BUG-2: server action может выкинуть 503 (Next.js stale chunk).
+        // Без try/catch handler «умирал» — pendingActionId оставался не-null,
+        // диалог не закрывался, Cancel/ESC не работали (см. BUG-8/10/11).
+        try {
+            const result = await approvePost(post.id);
+            if (result?.error) {
+                setErrorByPost((prev) => ({ ...prev, [post.id]: result.error }));
+                return;
+            }
+            startTransition(() => {
+                setPosts((prev) => prev.filter((p) => p.id !== post.id));
+            });
+        } catch (e: any) {
+            setErrorByPost((prev) => ({
+                ...prev,
+                [post.id]: "Ошибка при одобрении — обновите страницу.",
+            }));
+        } finally {
             setPendingActionId(null);
-            return;
         }
-        startTransition(() => {
-            setPosts((prev) => prev.filter((p) => p.id !== post.id));
-            setPendingActionId(null);
-        });
     }
 
     async function handleRejectConfirm() {
@@ -72,20 +82,27 @@ export default function StaffPanel({
         const target = rejectTarget;
         setPendingActionId(target.id);
         const reason = rejectReason.trim();
-        const result = await rejectPost(target.id, reason);
-        if (result?.error) {
-            setErrorByPost((prev) => ({ ...prev, [target.id]: result.error }));
+        try {
+            const result = await rejectPost(target.id, reason);
+            if (result?.error) {
+                setErrorByPost((prev) => ({ ...prev, [target.id]: result.error }));
+                return;
+            }
+            startTransition(() => {
+                setPosts((prev) => prev.filter((p) => p.id !== target.id));
+            });
+        } catch (e: any) {
+            setErrorByPost((prev) => ({
+                ...prev,
+                [target.id]: "Ошибка при отклонении — обновите страницу.",
+            }));
+        } finally {
+            // Гарантированно закрываем диалог (BUG-11) и сбрасываем
+            // pendingActionId — чтобы Cancel/ESC снова стали активны.
             setPendingActionId(null);
             setRejectTarget(null);
             setRejectReason("");
-            return;
         }
-        startTransition(() => {
-            setPosts((prev) => prev.filter((p) => p.id !== target.id));
-            setPendingActionId(null);
-            setRejectTarget(null);
-            setRejectReason("");
-        });
     }
 
     if (posts.length === 0) {
@@ -253,9 +270,10 @@ export default function StaffPanel({
                         autoFocus
                     />
                     <AlertDialogFooter>
-                        <AlertDialogCancel
-                            disabled={pendingActionId === rejectTarget?.id}
-                        >
+                        {/* Cancel не disabled даже во время action — модератор
+                            должен иметь возможность закрыть диалог при зависшем
+                            запросе (R10-BUG-8). */}
+                        <AlertDialogCancel>
                             Отмена
                         </AlertDialogCancel>
                         <AlertDialogAction

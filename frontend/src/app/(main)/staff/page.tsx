@@ -32,11 +32,19 @@ export default async function StaffPage() {
     }
 
     let pendingRaw: any[] = [];
+    let totalCount = 0;
     try {
-        const data = await apiRequest("/moderation/", {
+        // R10-BUG-14: дефолт sort id ASC ставил старые посты первыми; новые
+        // pending уходили в конец, модератор их не видел. Явно сортируем по
+        // -created_at чтобы свежие были сверху.
+        const data = await apiRequest("/moderation/?ordering=-created_at", {
             headers: { Authorization: `Bearer ${token}` },
         });
         pendingRaw = data?.results ?? data ?? [];
+        // R10-BUG-1: счётчик в шапке показывал page_size (длину массива),
+        // а не реальное количество pending постов в очереди. Берём count из
+        // paginated ответа (если массив без пагинации — fallback на длину).
+        totalCount = typeof data?.count === 'number' ? data.count : pendingRaw.length;
     } catch (e) {
         console.error("Failed to load moderation queue", e);
     }
@@ -78,7 +86,7 @@ export default async function StaffPage() {
                         </h1>
                     </div>
                     <span className="rounded-full bg-[#1FA85C]/15 px-2.5 py-1 text-[11px] font-semibold text-[#1FA85C]">
-                        {pending.length}
+                        {totalCount}
                     </span>
                 </div>
             </GlassSurface>
