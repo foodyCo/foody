@@ -2,7 +2,7 @@ from django.db.models import Count
 from rest_framework import viewsets, mixins
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from ..models import Restaurant, Dish, Category, Tag
@@ -16,7 +16,8 @@ class TagViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gene
     """
     queryset = Tag.objects.all().order_by('-usage_count', 'name')
     serializer_class = TagSerializer
-    permission_classes = [IsAuthenticated]
+    # Справочник тегов публичный — anon должен видеть теги для /search.
+    permission_classes = [AllowAny]
     pagination_class = None  # справочник целиком — фронт сам решает сколько показать
     filter_backends = [SearchFilter]
     search_fields = ['name']
@@ -29,7 +30,8 @@ class RestaurantViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     """
     queryset = Restaurant.objects.prefetch_related('categories', 'tags').all()
     serializer_class = RestaurantSerializer
-    permission_classes = [IsAuthenticated]
+    # Каталог ресторанов публичный — без anon /restaurant/{id} страница пустая.
+    permission_classes = [AllowAny]
 
     filter_backends = [SearchFilter]
     search_fields = ['name']
@@ -46,8 +48,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
     search_fields = ['name']
 
     def get_permissions(self):
+        # Чтение справочника категорий публично, изменение — только staff.
         if self.action in ['list', 'retrieve', 'popular']:
-            return [IsAuthenticated()]
+            return [AllowAny()]
         return [IsAdminUser()]
 
     @action(detail=False, methods=['get'], url_path='popular')
@@ -92,7 +95,8 @@ class DishViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     Вьюсет для подгрузки списка блюд ресторана (только чтение).
     """
     serializer_class = DishSerializer
-    permission_classes = [IsAuthenticated]
+    # Каталог блюд публичный (нужен для страницы ресторана anon-юзеру).
+    permission_classes = [AllowAny]
     
     filter_backends = [SearchFilter]
     search_fields = ['name']

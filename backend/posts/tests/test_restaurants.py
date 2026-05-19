@@ -88,9 +88,15 @@ class TestCategoryViews:
         assert len(response.data['results']) == 2
 
     def test_list_categories_unauthenticated(self, api_client):
-        """Неавторизованный пользователь получает 401."""
+        """
+        R7-fix: каталог категорий публичный (anon-юзер должен видеть
+        категории на /search и /categories страницах без логина).
+        """
+        Category.objects.create(name="Суши")
+        Category.objects.create(name="Паста")
         response = api_client.get(reverse('category-list'))
-        assert response.status_code == 401
+        assert response.status_code == 200
+        assert len(response.data['results']) == 2
 
     def test_retrieve_category(self, auth_client):
         """Авторизованный пользователь может получить категорию по id."""

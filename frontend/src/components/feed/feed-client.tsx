@@ -75,14 +75,22 @@ export function FeedClient({
 
   const onTabChange = useCallback((next: FeedTab) => {
     if (next === feedTab) return;
+    if (next === "subs" && (!currentUser || !accessToken)) {
+      router.push(`/login?callbackUrl=${encodeURIComponent("/?tab=following")}`);
+      return;
+    }
     const params = new URLSearchParams();
     if (next === "subs") params.set("tab", "following");
     window.location.assign(params.toString() ? `/?${params.toString()}` : "/");
-  }, [feedTab]);
+  }, [feedTab, currentUser, accessToken, router]);
 
   const onLikeToggle = useCallback(
     async (postId: number, nextLiked: boolean) => {
-      if (!accessToken || pendingLikes.has(postId)) return;
+      if (!currentUser || !accessToken) {
+        setNotice("Войдите, чтобы лайкнуть.");
+        return;
+      }
+      if (pendingLikes.has(postId)) return;
       setPendingLikes((s) => new Set(s).add(postId));
       try {
         await toggleLike(postId, accessToken);
@@ -104,12 +112,16 @@ export function FeedClient({
         });
       }
     },
-    [accessToken, pendingLikes, router],
+    [accessToken, currentUser, pendingLikes, router],
   );
 
   const onSaveToggle = useCallback(
     async (postId: number, nextSaved: boolean) => {
-      if (!accessToken || pendingSaves.has(postId)) return;
+      if (!currentUser || !accessToken) {
+        setNotice("Войдите, чтобы сохранить.");
+        return;
+      }
+      if (pendingSaves.has(postId)) return;
       setPendingSaves((s) => new Set(s).add(postId));
       try {
         await toggleSave(postId, accessToken);
@@ -131,12 +143,16 @@ export function FeedClient({
         });
       }
     },
-    [accessToken, pendingSaves, router],
+    [accessToken, currentUser, pendingSaves, router],
   );
 
   const onFollowToggle = useCallback(
     async (author: string, nextFollowing: boolean) => {
-      if (!accessToken || pendingFollows.has(author)) return;
+      if (!currentUser || !accessToken) {
+        setNotice("Войдите, чтобы подписаться.");
+        return;
+      }
+      if (pendingFollows.has(author)) return;
       const target = posts.find((p) => p.user === author);
       const targetUserId = target?.userId;
       if (!targetUserId) {
@@ -162,7 +178,7 @@ export function FeedClient({
         });
       }
     },
-    [accessToken, pendingFollows, posts],
+    [accessToken, currentUser, pendingFollows, posts],
   );
 
   const likedSnapshot = useMemo(() => likedSet, [likedSet]);

@@ -60,6 +60,25 @@ class UserSerializer(serializers.ModelSerializer):
             return Follow.objects.filter(follower=request.user, following=obj).exists()
         return False
 
+    def to_representation(self, instance):
+        """
+        PII leak fix: для anon или не-self запросов скрываем чувствительные поля
+        (email, birth_date, is_staff, date_joined). is_staff staff-юзеры могут
+        видеть на чужих профилях (нужно для модерации).
+        """
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        viewer = getattr(request, 'user', None) if request else None
+        is_self = bool(viewer and viewer.is_authenticated and viewer.pk == instance.pk)
+        is_staff_viewer = bool(viewer and viewer.is_authenticated and viewer.is_staff)
+        if not is_self:
+            data.pop('email', None)
+            data.pop('birth_date', None)
+            data.pop('date_joined', None)
+            if not is_staff_viewer:
+                data.pop('is_staff', None)
+        return data
+
 
 class FeedPostAuthorSerializer(serializers.ModelSerializer):
     """

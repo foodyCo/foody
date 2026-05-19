@@ -165,10 +165,12 @@ class BasePostViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(saved_posts_queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_name='user-posts')
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny], url_name='user-posts')
     def user_posts(self, request):
         """
-        Возвращает список постов (ленту) конкретного пользователя по параметру user_id.
+        Возвращает список постов конкретного пользователя по параметру user_id.
+        Публичный (AllowAny) — anon видит approved-контент на чужом профиле.
+        get_queryset для anon уже отфильтрует pending/rejected.
         """
         user_id = request.query_params.get('user_id')
         if not user_id:

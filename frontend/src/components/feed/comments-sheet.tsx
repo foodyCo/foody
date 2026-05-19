@@ -566,6 +566,11 @@ export function CommentsSheet({
       return;
     }
 
+    if (!currentUsername) {
+      setSubmitNotice("Войдите, чтобы комментировать");
+      return;
+    }
+
     if (!postId) {
       setSubmitNotice("Не удалось определить пост");
       return;
@@ -770,17 +775,22 @@ export function CommentsSheet({
                     ref={textareaRef}
                     rows={1}
                     value={draft}
+                    disabled={!currentUsername}
                     aria-label={
-                      replyTarget
-                        ? `Ответить ${getDisplayHandle(replyTarget.user)}`
-                        : "Добавить комментарий"
+                      !currentUsername
+                        ? "Войдите, чтобы комментировать"
+                        : replyTarget
+                          ? `Ответить ${getDisplayHandle(replyTarget.user)}`
+                          : "Добавить комментарий"
                     }
                     placeholder={
-                      replyTarget
-                        ? `Ответить ${getDisplayHandle(replyTarget.user)}...`
-                        : "Добавить комментарий..."
+                      !currentUsername
+                        ? "Войдите, чтобы комментировать"
+                        : replyTarget
+                          ? `Ответить ${getDisplayHandle(replyTarget.user)}...`
+                          : "Добавить комментарий..."
                     }
-                    className="hide-scroll block max-h-[7.5rem] min-h-6 w-full min-w-0 resize-none overflow-x-hidden bg-transparent p-0 font-[family-name:var(--font-roboto)] text-[15px] leading-6 font-medium break-words whitespace-pre-wrap text-[#15291C] outline-none placeholder:text-[#8F98A3]"
+                    className="hide-scroll block max-h-[7.5rem] min-h-6 w-full min-w-0 resize-none overflow-x-hidden bg-transparent p-0 font-[family-name:var(--font-roboto)] text-[15px] leading-6 font-medium break-words whitespace-pre-wrap text-[#15291C] outline-none placeholder:text-[#8F98A3] disabled:cursor-not-allowed"
                     onChange={(event) => setDraft(event.target.value)}
                     onKeyDown={handleDraftKeyDown}
                   />
@@ -789,7 +799,7 @@ export function CommentsSheet({
                   type="submit"
                   aria-label="Отправить комментарий"
                   aria-busy={isSubmitting}
-                  disabled={draft.trim().length === 0 || isSubmitting}
+                  disabled={!currentUsername || draft.trim().length === 0 || isSubmitting}
                   className="relative grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full border border-transparent text-[#0B2F1D] shadow-[inset_1px_1px_0_rgba(255,255,255,0.18),inset_-1px_-1px_0_rgba(11,47,29,0.05)] outline-none backdrop-blur-[18px] backdrop-saturate-[180%] transition-opacity focus-visible:ring-2 focus-visible:ring-[#15291C]/18 disabled:cursor-default disabled:opacity-45 [-webkit-tap-highlight-color:transparent]"
                   style={{
                     boxShadow: `0 8px 18px ${brand}1F, inset 1px 1px 0 rgba(255,255,255,0.18), inset -1px -1px 0 rgba(11,47,29,0.05)`,
