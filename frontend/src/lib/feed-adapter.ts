@@ -8,6 +8,7 @@ export type ApiPostUser = {
   username: string;
   full_name?: string | null;
   avatar?: string | null;
+  is_following?: boolean;
 };
 
 export type ApiPost = {

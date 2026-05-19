@@ -83,19 +83,38 @@ class UserSerializer(serializers.ModelSerializer):
 class FeedPostAuthorSerializer(serializers.ModelSerializer):
     """
     Легковесный сериализатор для отображения автора в ленте постов.
-    Содержит только минимум данных для экономии трафика.
+    Содержит только минимум данных для экономии трафика + поле is_following
+    чтобы фронт мог сразу нарисовать правильное состояние follow-кнопки в
+    карточке (R4-B4 follow-в-карточке).
     """
     avatar = serializers.SerializerMethodField()
+    is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'full_name', 'avatar')
+        fields = ('id', 'username', 'full_name', 'avatar', 'is_following')
 
     def get_avatar(self, obj):
         """Возвращает относительный URL /media/... без хоста."""
         if not obj.avatar:
             return None
         return obj.avatar.url
+
+    def get_is_following(self, obj):
+        """
+        True если текущий запрашивающий юзер подписан на этого автора.
+        Anon / self → False. Использует prefetched_following_ids set, если
+        viewset его проставил (для N=50 постов в ленте — один запрос вместо
+        50 проверок); fallback на .exists() при отсутствии.
+        """
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        viewer = getattr(request, 'user', None) if request else None
+        if not viewer or not viewer.is_authenticated or viewer.pk == obj.pk:
+            return False
+        prefetched = self.context.get('following_ids') if hasattr(self, 'context') else None
+        if prefetched is not None:
+            return obj.pk in prefetched
+        return Follow.objects.filter(follower=viewer, following=obj).exists()
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])

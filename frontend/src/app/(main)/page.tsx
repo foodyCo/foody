@@ -44,14 +44,17 @@ export default async function Home(props: {
   const likedIds = apiPosts.filter((p) => p.is_liked).map((p) => p.id);
   const savedIds = apiPosts.filter((p) => p.is_saved).map((p) => p.id);
 
-  // R4-B4: начальный список подписок — пока пустой массив.
-  // Бэк не отдаёт is_following в FeedPostAuthorSerializer, а /users/me/following/
-  // не реализован. После клика «Подписаться» состояние трекается на клиенте
-  // (тот же паттерн что и в search-results-feed.tsx, см. строка с
-  // `initialFollowingUsers={[]}`). При перезагрузке страницы кнопка снова
-  // покажет «Подписаться» — это известный trade-off до появления is_following
-  // в API ленты или эндпоинта /users/me/following/.
-  const initialFollowingUsers: string[] = [];
+  // R4-B4 + follow-up fix: бэк теперь отдаёт is_following в
+  // FeedPostAuthorSerializer (`user.is_following`). Собираем уникальные
+  // @username'ы авторов, на которых текущий юзер подписан — FeedClient
+  // использует это как initial state кнопки follow в карточках.
+  const initialFollowingUsers: string[] = Array.from(
+    new Set(
+      apiPosts
+        .filter((p) => p.user?.is_following)
+        .map((p) => `@${p.user.username}`)
+    )
+  );
 
   let myHandle: string | null = null;
   if (accessToken) {
