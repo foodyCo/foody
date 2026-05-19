@@ -121,6 +121,10 @@ class PostListSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
     dish_name = serializers.CharField(source='dish.name', read_only=True)
+    # Категории для UI «Категория: Азия». Объединяем категории dish и restaurant
+    # (одна и та же категория может быть привязана к обеим — на фронте OK дедуп
+    # сам через id).
+    categories = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
     status = serializers.CharField(read_only=True)
@@ -131,8 +135,18 @@ class PostListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'restaurant', 'restaurant_name', 'dish', 'dish_name',
             'description', 'price', 'created_at', 'images', 'statistics',
-            'tags', 'is_liked', 'is_saved', 'status', 'rejection_reason'
+            'tags', 'categories', 'is_liked', 'is_saved', 'status', 'rejection_reason'
         ]
+
+    def get_categories(self, obj):
+        cats = {}
+        if obj.dish_id:
+            for c in obj.dish.categories.all():
+                cats[c.id] = {'id': c.id, 'name': c.name}
+        if obj.restaurant_id:
+            for c in obj.restaurant.categories.all():
+                cats.setdefault(c.id, {'id': c.id, 'name': c.name})
+        return list(cats.values())
 
     def get_is_liked(self, obj):
         user = self.context.get('request').user if self.context.get('request') else None

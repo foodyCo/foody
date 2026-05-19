@@ -25,6 +25,16 @@ export async function changePassword(formData: FormData) {
     return { error: "Смена пароля через API пока не реализована" };
 }
 
+/**
+ * Server Action для logout. Используется вместо клиентского signOut() из
+ * `next-auth/react` — за обратным прокси (Caddy → frontend:3000) клиентский
+ * вариант валится с MissingCSRF в NextAuth v5 beta.30. Серверный signOut от
+ * CSRF не зависит и корректно чистит cookie + редиректит на /login.
+ */
+export async function signOutAction() {
+    await signOut({ redirect: true, redirectTo: "/login" });
+}
+
 export async function deleteAccount() {
     const session = await auth() as any;
     if (!session?.user?.accessToken) {

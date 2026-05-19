@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOutAction } from "@/app/actions/settings";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -104,8 +104,8 @@ export default function SettingsForm({ user }: SettingsFormProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   async function handleDeleteAccount() {
+    // deleteAccount server action делает signOut+redirect внутри себя.
     await deleteAccount();
-    signOut({ callbackUrl: "/login" });
   }
 
   return (
@@ -150,7 +150,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
                 icon={<LogOut className="size-5 text-red-600" strokeWidth={2} />}
                 title="Выйти из аккаунта"
                 danger
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={() => signOutAction()}
               />
               <Row
                 icon={<Trash2 className="size-5 text-red-600" strokeWidth={2} />}

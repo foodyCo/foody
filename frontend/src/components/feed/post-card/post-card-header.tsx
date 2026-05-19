@@ -126,8 +126,12 @@ export function PostCardHeader({
   const authorMeta = expanded
     ? formatFullscreenAuthorMeta(post.when)
     : `${post.realName} · ${post.when}`;
+  // R4-B4: показываем «Подписаться/Отписаться» и в свёрнутой карточке.
+  // Прячем только для собственных постов. Для анонимов кнопка тоже видна —
+  // её onClick на feed-client.tsx редиректит на /login.
+  // userId должен быть определён, иначе toggleFollow не знает кому подписываться.
   const canShowSubscribeButton =
-    expanded && currentUser !== null && currentUser !== post.user;
+    currentUser !== post.user && post.userId !== undefined;
 
   const headerContent = (
     <>

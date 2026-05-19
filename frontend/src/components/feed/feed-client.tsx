@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { FeedHeader, type FeedTab } from "@/components/feed/feed-header";
 import { GlassSurface } from "@/components/feed/glass-surface";
 import { PostCard } from "@/components/feed/post-card";
+import { mapApiPostToFeedPost, type ApiPost } from "@/lib/feed-adapter";
 import type { Post } from "@/lib/mock-data";
 import { DEFAULT_TWEAKS } from "@/lib/tweaks";
 import { toggleLike, toggleSave, toggleFollow } from "@/lib/feed-client";
@@ -45,6 +53,12 @@ type FeedClientProps = {
   currentUser: string | null;
   accessToken: string | null;
   initialTab?: FeedTab;
+  /** Следующая страница (page-number) или null, если SSR-страница последняя. */
+  initialNextPage?: number | null;
+  /** Эндпоинт для дозагрузки: "/posts/" или "/posts/following/". */
+  endpoint?: string;
+  /** Стартовый набор подписанных handles вида "@username". */
+  initialFollowingUsers?: string[];
 };
 
 export function FeedClient({
@@ -54,17 +68,108 @@ export function FeedClient({
   currentUser,
   accessToken,
   initialTab = "new",
+  initialNextPage = null,
+  endpoint = "/posts/",
+  initialFollowingUsers = [],
 }: FeedClientProps) {
   const router = useRouter();
   const [feedTab, setFeedTab] = useState<FeedTab>(initialTab);
-  const [posts] = useState<Post[]>(initialPosts);
+  // R4-B2 infinite scroll: posts уже не readonly — мы дописываем новые страницы.
+  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [nextPage, setNextPage] = useState<number | null>(initialNextPage);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [likedSet, setLikedSet] = useState<Set<number>>(() => new Set(likedIds));
   const [savedSet, setSavedSet] = useState<Set<number>>(() => new Set(savedIds));
   const [pendingLikes, setPendingLikes] = useState<Set<number>>(() => new Set());
   const [pendingSaves, setPendingSaves] = useState<Set<number>>(() => new Set());
-  const [followingSet, setFollowingSet] = useState<Set<string>>(() => new Set());
+  const [followingSet, setFollowingSet] = useState<Set<string>>(
+    () => new Set(initialFollowingUsers),
+  );
   const [pendingFollows, setPendingFollows] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<string | null>(null);
+
+  // R4-B2: загрузка следующей страницы. Один in-flight запрос за раз,
+  // дедуп по id (на случай если бэк вернёт пересекающиеся результаты).
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore) return;
+    if (nextPage === null) return;
+    setIsLoadingMore(true);
+    setLoadError(null);
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(nextPage));
+      const headers: Record<string, string> = {};
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      const res = await fetch(`/api/v1${endpoint}?${params.toString()}`, {
+        headers,
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        throw new Error(`status ${res.status}`);
+      }
+      const data = await res.json();
+      const apiResults: ApiPost[] = Array.isArray(data?.results)
+        ? data.results
+        : Array.isArray(data)
+        ? data
+        : [];
+      const newPosts = apiResults.map(mapApiPostToFeedPost);
+      const newLiked = apiResults.filter((p) => p.is_liked).map((p) => p.id);
+      const newSaved = apiResults.filter((p) => p.is_saved).map((p) => p.id);
+      setPosts((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const deduped = newPosts.filter((p) => !existingIds.has(p.id));
+        return [...prev, ...deduped];
+      });
+      if (newLiked.length) {
+        setLikedSet((prev) => {
+          const next = new Set(prev);
+          for (const id of newLiked) next.add(id);
+          return next;
+        });
+      }
+      if (newSaved.length) {
+        setSavedSet((prev) => {
+          const next = new Set(prev);
+          for (const id of newSaved) next.add(id);
+          return next;
+        });
+      }
+      setNextPage(data?.next ? nextPage + 1 : null);
+    } catch {
+      setLoadError("Не удалось подгрузить ленту. Попробуйте ещё раз.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [accessToken, endpoint, isLoadingMore, nextPage]);
+
+  // IntersectionObserver на sentinel в конце ленты. Когда видим — догружаем.
+  useEffect(() => {
+    if (nextPage === null) return;
+    const target = sentinelRef.current;
+    if (!target) return;
+    // Берём scroll-контейнер (section с overflow-y-auto), чтобы наблюдать
+    // относительно него, а не относительно body.
+    const scrollRoot = target.closest("section");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            void loadMore();
+          }
+        }
+      },
+      {
+        root: scrollRoot ?? null,
+        rootMargin: "200px",
+        threshold: 0,
+      },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMore, nextPage, posts.length]);
 
   useEffect(() => {
     if (notice) {
@@ -149,7 +254,9 @@ export function FeedClient({
   const onFollowToggle = useCallback(
     async (author: string, nextFollowing: boolean) => {
       if (!currentUser || !accessToken) {
-        setNotice("Войдите, чтобы подписаться.");
+        // R4-B4: неавторизованный клик по «Подписаться» → редирект на логин,
+        // как в R7-fix. Кнопка только что отрендерилась рядом с handle.
+        router.push(`/login?callbackUrl=${encodeURIComponent("/")}`);
         return;
       }
       if (pendingFollows.has(author)) return;
@@ -178,7 +285,7 @@ export function FeedClient({
         });
       }
     },
-    [accessToken, currentUser, pendingFollows, posts],
+    [accessToken, currentUser, pendingFollows, posts, router],
   );
 
   const likedSnapshot = useMemo(() => likedSet, [likedSet]);
@@ -199,24 +306,49 @@ export function FeedClient({
           className="hide-scroll flex-1 snap-y snap-mandatory overflow-y-auto pb-24"
         >
           {posts.length > 0 ? (
-            posts.map((post) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                brand={TWEAKS.brand}
-                density={TWEAKS.density}
-                currentUser={currentUser}
-                isAuthorFollowed={followingSet.has(post.user)}
-                isFollowPending={pendingFollows.has(post.user)}
-                isLiked={likedSnapshot.has(post.id)}
-                isLikePending={pendingLikes.has(post.id)}
-                isSaved={savedSnapshot.has(post.id)}
-                isSavePending={pendingSaves.has(post.id)}
-                onFollowToggle={onFollowToggle}
-                onLikeToggle={onLikeToggle}
-                onSaveToggle={onSaveToggle}
-              />
-            ))
+            <>
+              {posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  brand={TWEAKS.brand}
+                  density={TWEAKS.density}
+                  currentUser={currentUser}
+                  isAuthorFollowed={followingSet.has(post.user)}
+                  isFollowPending={pendingFollows.has(post.user)}
+                  isLiked={likedSnapshot.has(post.id)}
+                  isLikePending={pendingLikes.has(post.id)}
+                  isSaved={savedSnapshot.has(post.id)}
+                  isSavePending={pendingSaves.has(post.id)}
+                  onFollowToggle={onFollowToggle}
+                  onLikeToggle={onLikeToggle}
+                  onSaveToggle={onSaveToggle}
+                />
+              ))}
+              {/* R4-B2: sentinel + индикатор подгрузки/конца ленты. */}
+              {nextPage !== null && (
+                <div
+                  ref={sentinelRef}
+                  data-testid="feed-load-more-sentinel"
+                  className="snap-start snap-always flex min-h-[40vh] items-center justify-center px-4 py-10"
+                >
+                  <div className="rounded-full border border-white/65 bg-white/65 px-5 py-2.5 text-center text-[13px] font-bold text-[#5C6B62] shadow-[0_8px_20px_rgba(20,40,28,0.08),inset_1px_1px_0_rgba(255,255,255,0.72)] backdrop-blur-[16px]">
+                    {loadError
+                      ? loadError
+                      : isLoadingMore
+                      ? "Загрузка..."
+                      : "Прокрутите для загрузки"}
+                  </div>
+                </div>
+              )}
+              {nextPage === null && posts.length > 0 && (
+                <div className="snap-start snap-always flex min-h-[40vh] items-center justify-center px-4 py-10">
+                  <div className="rounded-full border border-white/65 bg-white/65 px-5 py-2.5 text-center text-[13px] font-bold text-[#5C6B62] shadow-[0_8px_20px_rgba(20,40,28,0.08),inset_1px_1px_0_rgba(255,255,255,0.72)] backdrop-blur-[16px]">
+                    — конец ленты —
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <FeedStatusCard
               title={feedTab === "subs" ? "Подписок пока нет" : "Постов пока нет"}

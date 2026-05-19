@@ -37,7 +37,7 @@ export function DishPhoto({
           src={src}
           alt={alt || label || ""}
           className="absolute inset-0 size-full object-cover"
-          loading="lazy"
+          loading="eager"
         />
         {label && (
           <div
