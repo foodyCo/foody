@@ -188,7 +188,19 @@ export function PostCard({
   const viewportSize = useViewportSize();
   const photoRatio = getPhotoRatio(density, viewportSize);
   const [mainTag, ...restTags] = post.tags;
-  const likeCount = post.likes + (isLiked ? 1 : 0);
+  // Подсчёт лайков через дельту: post.likes — серверная истина на момент
+  // монтирования этой карточки (уже включает лайк юзера если он лайкнул).
+  // Раньше было `post.likes + (isLiked ? 1 : 0)` — после reload счётчик
+  // показывал +2 (post.likes уже +1 от свежего SSR, и isLiked=true ещё +1).
+  // Сейчас считаем разницу между текущим isLiked и состоянием на mount.
+  const initialLikedRef = useRef<boolean>(isLiked);
+  useEffect(() => {
+    // Сброс «исходного» значения когда карточка переиспользуется для другого поста.
+    initialLikedRef.current = isLiked;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id]);
+  const likeDelta = (isLiked ? 1 : 0) - (initialLikedRef.current ? 1 : 0);
+  const likeCount = post.likes + likeDelta;
   const hasPhotoSlider = post.photos > 1;
   const lastPhotoIdx = post.photos - 1;
   const canDragToPreviousPhoto = photoIdx > 0;

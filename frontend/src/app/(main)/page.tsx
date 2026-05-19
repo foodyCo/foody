@@ -5,6 +5,8 @@ import { FeedClient } from "@/components/feed/feed-client";
 import { mapApiPostToFeedPost, type ApiPost } from "@/lib/feed-adapter";
 import type { FeedTab } from "@/components/feed/feed-header";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {

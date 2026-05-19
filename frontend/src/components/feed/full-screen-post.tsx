@@ -169,7 +169,16 @@ export function FullScreenPost({
   const viewportSize = useViewportSize();
   const photoRatio = getPhotoRatio(density, viewportSize);
   const [mainTag, ...restTags] = post.tags;
-  const likeCount = post.likes + (isLiked ? 1 : 0);
+  // Подсчёт лайков через дельту — см. post-card.tsx для подробного описания.
+  // Кратко: post.likes — серверная истина на момент монтирования; раньше было
+  // `+ (isLiked ? 1 : 0)` и после reload счётчик показывал +2.
+  const initialLikedRef = useRef<boolean>(isLiked);
+  useEffect(() => {
+    initialLikedRef.current = isLiked;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id]);
+  const likeDelta = (isLiked ? 1 : 0) - (initialLikedRef.current ? 1 : 0);
+  const likeCount = post.likes + likeDelta;
   const hasPhotoSlider = post.photos > 1;
   const lastPhotoIdx = Math.max(post.photos - 1, 0);
   const canDragToPreviousPhoto = photoIdx > 0;

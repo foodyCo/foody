@@ -6,6 +6,8 @@ import { apiRequest, fixMediaUrl, mapDjangoPostToDish } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GlassSurface } from "@/components/feed/glass-surface";
 
+export const dynamic = "force-dynamic";
+
 function PostThumb({ post }: { post: any }) {
   // status приходит из mapDjangoPostToDish (lib/api.ts) — pending / approved / rejected.
   // Для своих постов на /me показываем бейдж только если НЕ approved, чтобы автор

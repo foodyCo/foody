@@ -6,6 +6,8 @@ import { mapApiPostToFeedPost, type ApiPost } from "@/lib/feed-adapter";
 import { GlassSurface } from "@/components/feed/glass-surface";
 import { Bookmark } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function SavedPage() {
   const session = (await auth()) as any;
   if (!session?.user?.accessToken) {
