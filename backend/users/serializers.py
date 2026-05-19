@@ -1,4 +1,5 @@
 import bleach
+from django.db import IntegrityError
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -132,11 +133,29 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password_confirm')
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            full_name=validated_data.get('full_name', ''),
-            city=validated_data.get('city', '')
-        )
+        # R13-S2/B1: до этого fix параллельные регистрации с одним email
+        # давали 500 IntegrityError. Сериализаторный unique-check проверяется
+        # ДО transaction.commit и не защищает от race. Ловим IntegrityError
+        # и превращаем в осмысленный 400.
+        try:
+            user = User.objects.create_user(
+                username=validated_data['username'],
+                email=validated_data['email'],
+                password=validated_data['password'],
+                full_name=validated_data.get('full_name', ''),
+                city=validated_data.get('city', ''),
+            )
+        except IntegrityError as exc:
+            msg = str(exc).lower()
+            if 'email' in msg:
+                raise serializers.ValidationError(
+                    {'email': 'Пользователь с таким email уже существует.'}
+                )
+            if 'username' in msg:
+                raise serializers.ValidationError(
+                    {'username': 'Этот никнейм уже занят.'}
+                )
+            raise serializers.ValidationError(
+                {'non_field_errors': 'Не удалось создать пользователя.'}
+            )
         return user

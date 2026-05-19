@@ -5,6 +5,18 @@
         max_size 20MB
     }
 
+    # R13-S1/B4 security headers (HSTS + clickjacking + MIME-sniff defence + leak cleanup)
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(self), camera=(), microphone=()"
+        # Скрываем x-powered-by из Next.js
+        -X-Powered-By
+        -Server
+    }
+
     # Django static
     handle_path /static/* {
         root * /var/www/static

@@ -19,3 +19,17 @@ def disable_throttling(settings):
         **settings.REST_FRAMEWORK,
         'DEFAULT_THROTTLE_CLASSES': [],
     }
+
+
+@pytest.fixture(autouse=True)
+def clear_throttle_cache():
+    """
+    Login throttle (LoginRateThrottle / 10 per minute) attached directly to
+    /auth/token/ view via throttle_classes — DEFAULT_THROTTLE_CLASSES=[] override
+    в disable_throttling не убирает per-view throttle. Чистим кэш между тестами
+    чтобы каждый тест начинал с пустым счётчиком.
+    """
+    from django.core.cache import cache
+    cache.clear()
+    yield
+    cache.clear()
