@@ -194,11 +194,13 @@ export function PostCard({
   // показывал +2 (post.likes уже +1 от свежего SSR, и isLiked=true ещё +1).
   // Сейчас считаем разницу между текущим isLiked и состоянием на mount.
   const initialLikedRef = useRef<boolean>(isLiked);
+  // Сброс «исходного» значения когда карточка переиспользуется для другого поста.
+  // useEffect намеренно зависит только от post.id — нам нужно снимок isLiked
+  // в момент первого рендера для этого поста, а не каждое его изменение.
+  const postIdForEffect = post.id;
   useEffect(() => {
-    // Сброс «исходного» значения когда карточка переиспользуется для другого поста.
     initialLikedRef.current = isLiked;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post.id]);
+  }, [postIdForEffect]); // eslint-disable-line
   const likeDelta = (isLiked ? 1 : 0) - (initialLikedRef.current ? 1 : 0);
   const likeCount = post.likes + likeDelta;
   const hasPhotoSlider = post.photos > 1;

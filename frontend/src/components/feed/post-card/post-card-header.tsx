@@ -278,6 +278,10 @@ function SubscribeButton({
       >
         <motion.span
           className="[grid-area:1/1] whitespace-nowrap"
+          initial={{
+            opacity: subscribed ? 0 : 1,
+            y: subscribed ? -2 : 0,
+          }}
           animate={{
             opacity: subscribed ? 0 : 1,
             y: shouldAnimate && subscribed ? -2 : 0,
@@ -288,6 +292,10 @@ function SubscribeButton({
         </motion.span>
         <motion.span
           className="[grid-area:1/1] whitespace-nowrap"
+          initial={{
+            opacity: subscribed ? 1 : 0,
+            y: subscribed ? 0 : 2,
+          }}
           animate={{
             opacity: subscribed ? 1 : 0,
             y: shouldAnimate && subscribed ? 0 : 2,

@@ -173,10 +173,10 @@ export function FullScreenPost({
   // Кратко: post.likes — серверная истина на момент монтирования; раньше было
   // `+ (isLiked ? 1 : 0)` и после reload счётчик показывал +2.
   const initialLikedRef = useRef<boolean>(isLiked);
+  const postIdForEffect = post.id;
   useEffect(() => {
     initialLikedRef.current = isLiked;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post.id]);
+  }, [postIdForEffect]); // eslint-disable-line
   const likeDelta = (isLiked ? 1 : 0) - (initialLikedRef.current ? 1 : 0);
   const likeCount = post.likes + likeDelta;
   const hasPhotoSlider = post.photos > 1;
