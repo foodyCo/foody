@@ -17,7 +17,10 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { approvePost, rejectPost } from "@/app/actions/moderation";
+import {
+    approvePostClient,
+    rejectPostClient,
+} from "@/lib/moderation-client";
 
 export interface PendingPost {
     id: number;
@@ -38,8 +41,10 @@ export interface PendingPost {
 
 export default function StaffPanel({
     pendingPosts,
+    accessToken,
 }: {
     pendingPosts: PendingPost[];
+    accessToken: string;
 }) {
     const [posts, setPosts] = useState<PendingPost[]>(pendingPosts);
     const [pendingActionId, setPendingActionId] = useState<number | null>(null);
@@ -55,13 +60,22 @@ export default function StaffPanel({
             delete next[post.id];
             return next;
         });
-        // R10-BUG-2: server action может выкинуть 503 (Next.js stale chunk).
-        // Без try/catch handler «умирал» — pendingActionId оставался не-null,
-        // диалог не закрывался, Cancel/ESC не работали (см. BUG-8/10/11).
+        // R10-BUG-2: раньше server action approvePost выкидывал 503
+        // ("Failed to find Server Action 'true'") после rebuild. Сейчас идём
+        // напрямую в Django API через approvePostClient. try/catch остаётся
+        // на случай сетевых ошибок (см. BUG-8/10/11) — handler не должен
+        // «зависать» с pendingActionId != null.
         try {
-            const result = await approvePost(post.id);
-            if (result?.error) {
-                setErrorByPost((prev) => ({ ...prev, [post.id]: result.error }));
+            if (!accessToken) {
+                setErrorByPost((prev) => ({
+                    ...prev,
+                    [post.id]: "Нет токена авторизации — войдите заново.",
+                }));
+                return;
+            }
+            const result = await approvePostClient(post.id, accessToken);
+            if ("error" in result && result.error) {
+                setErrorByPost((prev) => ({ ...prev, [post.id]: result.error! }));
                 return;
             }
             startTransition(() => {
@@ -83,9 +97,16 @@ export default function StaffPanel({
         setPendingActionId(target.id);
         const reason = rejectReason.trim();
         try {
-            const result = await rejectPost(target.id, reason);
-            if (result?.error) {
-                setErrorByPost((prev) => ({ ...prev, [target.id]: result.error }));
+            if (!accessToken) {
+                setErrorByPost((prev) => ({
+                    ...prev,
+                    [target.id]: "Нет токена авторизации — войдите заново.",
+                }));
+                return;
+            }
+            const result = await rejectPostClient(target.id, reason, accessToken);
+            if ("error" in result && result.error) {
+                setErrorByPost((prev) => ({ ...prev, [target.id]: result.error! }));
                 return;
             }
             startTransition(() => {

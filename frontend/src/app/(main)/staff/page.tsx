@@ -91,7 +91,10 @@ export default async function StaffPage() {
                 </div>
             </GlassSurface>
 
-            <StaffPanel pendingPosts={pending} />
+            {/* R10-BUG-2: пробрасываем токен в client-компонент чтобы он мог
+                звать Django API напрямую (минуя server actions, которые
+                ломались с 503 после rebuild). */}
+            <StaffPanel pendingPosts={pending} accessToken={token} />
         </main>
     );
 }

@@ -49,12 +49,17 @@ const FULLSCREEN_PILL_STATE_TRANSITION = {
 
 const FULLSCREEN_ACTION_BUTTON_CLASS =
   "relative inline-flex h-[50px] w-[92%] min-w-0 cursor-pointer items-center justify-center gap-2.5 overflow-hidden rounded-full border border-transparent px-2.5 text-[#0B2F1D] outline-none backdrop-blur-[18px] backdrop-saturate-[180%] focus-visible:ring-2 focus-visible:ring-[#15291C]/18 [-webkit-tap-highlight-color:transparent] [@media(max-width:430px)_and_(max-height:860px)]:h-11";
+// B1 (touch targets): добавлен min-h-11 + вертикальный padding, чтобы hit-area
+// была ≥44px по высоте (Apple HIG), при этом визуальный размер иконок не меняется.
+// Отрицательный -my-2 компенсирует увеличение высоты, чтобы вёрстка не съезжала.
 const COLLAPSED_ACTION_BUTTON_CLASS =
-  "inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0";
+  "inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 min-h-11 py-2 -my-2 px-2 -mx-2";
 const FULLSCREEN_SAVE_BUTTON_CLASS =
   "relative grid h-[50px] w-full min-w-0 cursor-pointer place-items-center overflow-hidden rounded-full border border-transparent px-5 text-[#0B2F1D] outline-none backdrop-blur-[18px] backdrop-saturate-[180%] focus-visible:ring-2 focus-visible:ring-[#15291C]/18 [-webkit-tap-highlight-color:transparent] [@media(max-width:430px)_and_(max-height:860px)]:h-11";
+// B1 (touch targets): визуально save-кнопка остаётся 36px / 32px, но hit-area
+// расширена до ≥44×44 через невидимый ::before. Без изменения вёрстки.
 const COLLAPSED_SAVE_BUTTON_CLASS =
-  "relative ml-auto grid size-9 cursor-pointer place-items-center overflow-hidden rounded-[10px] transition-colors [@media(max-width:430px)_and_(max-height:860px)]:size-8";
+  "relative ml-auto grid size-9 cursor-pointer place-items-center rounded-[10px] transition-colors before:absolute before:-inset-1 before:content-[''] before:rounded-[14px] [@media(max-width:430px)_and_(max-height:860px)]:size-8 [@media(max-width:430px)_and_(max-height:860px)]:before:-inset-1.5";
 
 export type EngagementBarProps = {
   post: Post;

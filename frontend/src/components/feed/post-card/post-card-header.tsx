@@ -142,9 +142,11 @@ export function PostCardHeader({
           title="Назад"
           onClick={onBackClick}
           className={cn(
-            "grid size-9 shrink-0 cursor-pointer place-items-center rounded-full text-[#15291C] outline-none",
+            // B1 (touch targets): визуально 36×36, hit-area через ::before ≥44×44.
+            "relative grid size-9 shrink-0 cursor-pointer place-items-center rounded-full text-[#15291C] outline-none",
             "border border-white/65 bg-white/58 shadow-[0_8px_20px_rgba(20,40,28,0.14),inset_1px_1px_0_rgba(255,255,255,0.86),inset_-1px_-1px_0_rgba(255,255,255,0.28)]",
-            "backdrop-blur-[18px] backdrop-saturate-[180%] transition-transform duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#15291C]/18"
+            "backdrop-blur-[18px] backdrop-saturate-[180%] transition-transform duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
+            "before:absolute before:-inset-1 before:content-[''] before:rounded-full"
           )}
           whileTap={canAnimate(shouldReduceMotion) ? { scale: 0.92 } : undefined}
         >
@@ -336,7 +338,9 @@ function IconPulseButton({
       title={title}
       aria-label={ariaLabel}
       onClick={onClick}
-      className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-[9px] bg-[rgba(20,40,28,0.06)] text-[#15291C]"
+      // B1 (touch targets): визуально кнопка остаётся 32×32, но hit-area
+      // расширен невидимым ::before до ≥44×44 (Apple HIG).
+      className="relative grid size-8 shrink-0 cursor-pointer place-items-center rounded-[9px] bg-[rgba(20,40,28,0.06)] text-[#15291C] before:absolute before:-inset-1.5 before:content-[''] before:rounded-[12px]"
     >
       <motion.span
         key={`${ariaLabel}-${pulse}`}

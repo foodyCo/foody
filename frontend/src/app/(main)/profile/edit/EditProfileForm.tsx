@@ -166,12 +166,20 @@ export default function EditProfileForm({
 
             <GlassSurface className="rounded-[22px] border border-white/65 bg-white/45 px-5 py-5">
               <div className="space-y-4">
+                {/* B2 (a11y): у каждого input/textarea есть name + id, label.htmlFor
+                    указывает на них — autofill / screen readers / тесты работают. */}
                 <div>
-                  <label className="mb-2 block text-[13px] font-bold tracking-[0.1em] text-[#5C6B62] uppercase">
+                  <label
+                    htmlFor="full_name"
+                    className="mb-2 block text-[13px] font-bold tracking-[0.1em] text-[#5C6B62] uppercase"
+                  >
                     Имя
                   </label>
                   <GlassSurface className={FIELD_SURFACE}>
                     <Input
+                      id="full_name"
+                      name="full_name"
+                      autoComplete="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Ваше имя"
@@ -181,11 +189,17 @@ export default function EditProfileForm({
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[13px] font-bold tracking-[0.1em] text-[#5C6B62] uppercase">
+                  <label
+                    htmlFor="username"
+                    className="mb-2 block text-[13px] font-bold tracking-[0.1em] text-[#5C6B62] uppercase"
+                  >
                     Никнейм
                   </label>
                   <GlassSurface className={FIELD_SURFACE}>
                     <Input
+                      id="username"
+                      name="username"
+                      autoComplete="username"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="username"
@@ -195,11 +209,17 @@ export default function EditProfileForm({
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[13px] font-bold tracking-[0.1em] text-[#5C6B62] uppercase">
+                  <label
+                    htmlFor="city"
+                    className="mb-2 block text-[13px] font-bold tracking-[0.1em] text-[#5C6B62] uppercase"
+                  >
                     Город
                   </label>
                   <GlassSurface className={FIELD_SURFACE}>
                     <Input
+                      id="city"
+                      name="city"
+                      autoComplete="address-level2"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       placeholder="Город"
@@ -210,7 +230,10 @@ export default function EditProfileForm({
 
                 <div>
                   <div className="mb-2 flex items-end justify-between">
-                    <label className="text-[13px] font-bold tracking-[0.1em] text-[#5C6B62] uppercase">
+                    <label
+                      htmlFor="bio"
+                      className="text-[13px] font-bold tracking-[0.1em] text-[#5C6B62] uppercase"
+                    >
                       О себе
                     </label>
                     <span className="text-[11px] font-medium text-[#8A958E]">
@@ -219,6 +242,8 @@ export default function EditProfileForm({
                   </div>
                   <GlassSurface className={cn(FIELD_SURFACE, "h-auto min-h-[120px]")}>
                     <Textarea
+                      id="bio"
+                      name="bio"
                       value={bio}
                       onChange={(e) => setBio(e.target.value.substring(0, 250))}
                       placeholder="Расскажите о себе..."
