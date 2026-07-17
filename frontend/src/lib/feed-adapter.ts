@@ -53,7 +53,9 @@ function formatRelative(iso: string): string {
 
 export function mapApiPostToFeedPost(api: ApiPost): Post {
   const stats = api.statistics || {};
-  const rawRating = stats.rating ?? 0;
+  // Бэкенд хранит оценку в шкале 0–10 (createPost умножает звёзды ×2).
+  // Для отображения переводим обратно в 0–5 звёзд (÷2).
+  const rawRating = (stats.rating ?? 0) / 2;
   const photoUrls = (api.images || [])
     .map((img) => fixMediaUrl(img.image))
     .filter(Boolean) as string[];

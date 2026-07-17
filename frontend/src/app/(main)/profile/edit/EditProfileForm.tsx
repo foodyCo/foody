@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Camera, ArrowLeft } from "lucide-react";
 import { updateProfile } from "@/app/actions/profile";
 import { GlassSurface } from "@/components/feed/glass-surface";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CitySelect } from "@/components/ui/city-select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -93,7 +94,7 @@ export default function EditProfileForm({
 
   return (
     <main className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 flex flex-col pt-12.5">
+      <div className="absolute inset-0 flex flex-col pt-2">
         <header className="mb-2 flex items-center justify-between px-5">
           <button
             type="button"
@@ -124,15 +125,14 @@ export default function EditProfileForm({
           <div className="space-y-5">
             <section className="flex flex-col items-center text-center">
               <div className="relative">
-                <div className="size-28 overflow-hidden rounded-full border-2 border-white shadow-[0_12px_30px_rgba(20,40,28,0.2)]">
-                  <Image
-                    src={previewUrl}
-                    alt={name || "Профиль"}
-                    width={112}
-                    height={112}
-                    className="size-full object-cover"
-                  />
-                </div>
+                <Avatar className="size-28 border-2 border-[#2ECC71] shadow-[0_12px_30px_rgba(20,40,28,0.2)] after:hidden">
+                  {previewUrl ? (
+                    <AvatarImage src={previewUrl} alt={name || "Профиль"} className="object-cover" />
+                  ) : null}
+                  <AvatarFallback className="bg-white text-[28px] font-extrabold text-[#15291C]">
+                    {(name || "?").charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -164,7 +164,7 @@ export default function EditProfileForm({
               </div>
             )}
 
-            <GlassSurface className="rounded-[22px] border border-white/65 bg-white/45 px-5 py-5">
+            <GlassSurface className="rounded-[22px] border border-white/65 bg-white/45 px-5 py-5 shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
               <div className="space-y-4">
                 {/* B2 (a11y): у каждого input/textarea есть name + id, label.htmlFor
                     указывает на них — autofill / screen readers / тесты работают. */}
@@ -215,17 +215,15 @@ export default function EditProfileForm({
                   >
                     Город
                   </label>
-                  <GlassSurface className={FIELD_SURFACE}>
-                    <Input
-                      id="city"
-                      name="city"
-                      autoComplete="address-level2"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="Город"
-                      className={FIELD_INPUT}
-                    />
-                  </GlassSurface>
+                  <CitySelect
+                    id="city"
+                    name="city"
+                    value={city}
+                    onChange={setCity}
+                    autoComplete="address-level2"
+                    surfaceClassName={FIELD_SURFACE}
+                    inputClassName={FIELD_INPUT}
+                  />
                 </div>
 
                 <div>

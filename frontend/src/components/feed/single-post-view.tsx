@@ -64,7 +64,7 @@ export function SinglePostView({
 
   return (
     <main className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 flex flex-col pt-12.5">
+      <div className="absolute inset-0 flex flex-col pt-2">
         <header className="mb-2 flex items-center gap-3 px-5">
           <button
             type="button"

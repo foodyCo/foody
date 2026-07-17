@@ -10,7 +10,6 @@ import {
   type Variants,
 } from "motion/react";
 
-import { FeedSegmentedControl } from "@/components/feed/feed-segmented-control";
 import { GlassSurface } from "@/components/feed/glass-surface";
 import {
   FIELD_TINT_CLASSES,
@@ -61,14 +60,6 @@ type LoadState =
   | { status: "success"; data: CategoryData; error: null }
   | { status: "error"; data: null; error: string };
 
-const MODE_TABS: readonly [
-  { id: "dishes"; label: string },
-  { id: "cuisines"; label: string },
-] = [
-  { id: "dishes", label: "Блюда" },
-  { id: "cuisines", label: "Кухни" },
-];
-
 const POPULAR_SLIDE_DISTANCE = 42;
 
 type PopularSlideCustom = {
@@ -97,7 +88,7 @@ function canAnimate(shouldReduceMotion: boolean | null) {
 
 function EmptyState({ title, text }: { title: string; text: string }) {
   return (
-    <GlassSurface className="rounded-[22px] border border-white/62 bg-white/54 px-4 py-5 text-center">
+    <GlassSurface className="rounded-[22px] border border-white/62 bg-white/54 px-4 py-5 text-center shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
       <p className="text-[18px] leading-tight font-semibold text-[#15291C]">
         {title}
       </p>
@@ -121,22 +112,11 @@ function CategorySkeleton() {
   );
 }
 
-function CategoryListSkeleton() {
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: 5 }, (_, index) => (
-        <div key={index} className="h-11 rounded-[18px] bg-white/66" />
-      ))}
-    </div>
-  );
-}
 
 function PopularCategoryGrid({
-  brand,
   categories,
   onSelect,
 }: {
-  brand: string;
   categories: FoodCategory[];
   onSelect: (category: FoodCategory) => void;
 }) {
@@ -165,8 +145,7 @@ function PopularCategoryGrid({
           whileTap={canAnimate(shouldReduceMotion) ? { scale: 0.94 } : undefined}
         >
           <span
-            className="grid aspect-square w-full place-items-center rounded-[22px] border border-transparent text-[30px] shadow-[0_8px_20px_rgba(20,40,28,0.08)] transition-transform duration-200 group-hover:-translate-y-0.5 max-[380px]:text-[26px]"
-            style={getReviewChromeStyle(brand, "rgba(255,255,255,0.72)")}
+            className="grid aspect-square w-full place-items-center rounded-[22px] bg-white text-[30px] shadow-[0_8px_20px_rgba(20,40,28,0.08),inset_0_0_0_1.5px_#2ECC71] transition-transform duration-200 group-hover:-translate-y-0.5 max-[380px]:text-[26px]"
           >
             <span aria-hidden="true">{category.emoji}</span>
           </span>
@@ -186,59 +165,6 @@ function PopularCategoryGrid({
   );
 }
 
-function CategoryList({
-  brand,
-  categories,
-  onSelect,
-}: {
-  brand: string;
-  categories: FoodCategory[];
-  onSelect: (category: FoodCategory) => void;
-}) {
-  const shouldReduceMotion = useReducedMotion();
-
-  if (categories.length === 0) {
-    return (
-      <EmptyState
-        title="Категорий нет"
-        text="Попробуйте другой режим или обновите справочник позже."
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {categories.map((category) => (
-        <motion.button
-          key={category.id}
-          type="button"
-          onClick={() => onSelect(category)}
-          className={cn(
-            "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-[18px] border border-transparent px-3.5 py-2 text-left text-[#15291C] outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
-            PRESS_CLASSES
-          )}
-          style={getReviewChromeStyle(brand, "rgba(255,255,255,0.72)")}
-          whileTap={canAnimate(shouldReduceMotion) ? { scale: 0.98 } : undefined}
-        >
-          <span
-            aria-hidden="true"
-            className="grid size-8 shrink-0 place-items-center rounded-[10px] text-[17px] leading-none"
-            style={{
-              background: `${brand}30`,
-              boxShadow: "0 4px 10px rgba(20,40,28,0.06)",
-            }}
-          >
-            {category.emoji}
-          </span>
-          <span className="min-w-0 flex-1 text-[15.5px] leading-snug font-bold tracking-[0px]">
-            {category.label}
-          </span>
-        </motion.button>
-      ))}
-    </div>
-  );
-}
-
 export function CategorySelectionScreen({
   brand,
   palette,
@@ -249,9 +175,10 @@ export function CategorySelectionScreen({
 }: CategorySelectionScreenProps) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
-  const [mode, setMode] = useState<CategoryMode>("dishes");
-  const [popularSlideDirection, setPopularSlideDirection] = useState(1);
-  const [hasSwitchedPopularMode, setHasSwitchedPopularMode] = useState(false);
+  // Только блюда (выбор кухни убран). mode фиксирован.
+  const [mode] = useState<CategoryMode>("dishes");
+  const [popularSlideDirection] = useState(1);
+  const [hasSwitchedPopularMode] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>({
     status: "loading",
     data: null,
@@ -394,20 +321,11 @@ export function CategorySelectionScreen({
     router.push("/new-review");
   }
 
-  function handleModeChange(nextMode: CategoryMode) {
-    if (nextMode === mode) return;
-
-    setHasSwitchedPopularMode(true);
-    setPopularSlideDirection(nextMode === "cuisines" ? 1 : -1);
-    setMode(nextMode);
-  }
-
   return (
     <ReviewScreen palette={palette}>
       <ReviewContentLayer>
         <ReviewScrollArea aria-label="Выбор категории">
           <ReviewScreenHeader
-            brand={brand}
             title="Выберите категорию"
             onBack={handleBack}
           />
@@ -494,7 +412,6 @@ export function CategorySelectionScreen({
                       }
                     >
                       <PopularCategoryGrid
-                        brand={brand}
                         categories={currentPopularCategories}
                         onSelect={handleSelectCategory}
                       />
@@ -504,30 +421,20 @@ export function CategorySelectionScreen({
               </div>
             </section>
 
-            <FeedSegmentedControl
-              aria-label="Тип категории"
-              items={MODE_TABS}
-              value={mode}
-              onValueChange={handleModeChange}
-              className="mx-auto h-[37px] max-w-[356px] flex-none bg-[rgba(20,40,28,0.10)]"
-              buttonClassName="h-[31px] text-[14px]"
-            />
-
             <section>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="text-[22px] leading-tight font-semibold tracking-[0px] text-[#15291C] max-[380px]:text-[20px]">
-                  Все категории
+                  Все блюда
                 </h2>
               </div>
 
               {loadState.status === "success" ? (
-                <CategoryList
-                  brand={brand}
+                <PopularCategoryGrid
                   categories={currentCategories}
                   onSelect={handleSelectCategory}
                 />
               ) : loadState.status === "loading" ? (
-                <CategoryListSkeleton />
+                <CategorySkeleton />
               ) : (
                 <EmptyState
                   title="Нет данных"

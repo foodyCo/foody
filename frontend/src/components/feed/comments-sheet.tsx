@@ -15,7 +15,7 @@ import {
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/feed/user-avatar";
 import {
   requestCommentLikeMutation,
   requestCommentLikes,
@@ -65,14 +65,6 @@ const SHEET_TRANSITION = {
 const OVERLAY_TRANSITION = { duration: 0.22, ease: "easeOut" } as const;
 // MVP: timestamps are hidden in the sheet, but can be restored by flipping this.
 const SHOW_COMMENT_TIMESTAMPS = false;
-const AVATAR_PALETTES: ReadonlyArray<readonly [string, string]> = [
-  ["#FFD6A5", "#FF8FAB"],
-  ["#A7C957", "#386641"],
-  ["#FFC25C", "#E76F51"],
-  ["#90DBF4", "#A78BFA"],
-  ["#F2CC8F", "#81B29A"],
-  ["#CDB4DB", "#FFAFCC"],
-];
 function makeCurrentUser(username?: string | null): PostComment {
   return {
     id: 0,
@@ -86,10 +78,6 @@ function makeCurrentUser(username?: string | null): PostComment {
 
 function getDisplayHandle(user: string) {
   return user.startsWith("@") ? user : `@${user}`;
-}
-
-function getAvatarInitial(name: string) {
-  return (name || "?").replace("@", "").slice(0, 1).toUpperCase();
 }
 
 function getCommentIdKey(id: PostComment["id"]) {
@@ -221,30 +209,14 @@ function CommentAvatar({
   size?: number;
   className?: string;
 }) {
-  const seed = comment.user.charCodeAt(1) || 7;
-  const [from, to] = AVATAR_PALETTES[seed % AVATAR_PALETTES.length];
-
+  // Единый дефолтный аватар (как в профиле и ленте): белый + зелёная обводка + инициал.
   return (
-    <Avatar
-      className={cn(
-        "shrink-0 shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.55)] after:hidden",
-        className
-      )}
-      style={{ width: size, height: size }}
-    >
-      {comment.avatarUrl && (
-        <AvatarImage src={comment.avatarUrl} alt={comment.realName} />
-      )}
-      <AvatarFallback
-        className="font-extrabold tracking-tight text-white"
-        style={{
-          backgroundImage: `linear-gradient(135deg, ${from}, ${to})`,
-          fontSize: size * 0.42,
-        }}
-      >
-        {getAvatarInitial(comment.user)}
-      </AvatarFallback>
-    </Avatar>
+    <UserAvatar
+      name={comment.realName}
+      size={size}
+      src={comment.avatarUrl}
+      className={className}
+    />
   );
 }
 
@@ -868,6 +840,9 @@ function CommentRow({
       <div className="min-w-0">
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="truncate text-[15.5px] leading-tight font-extrabold tracking-normal text-black">
+            {comment.realName}
+          </span>
+          <span className="shrink-0 text-[12.5px] leading-tight font-semibold text-[#99A1AB]">
             {getDisplayHandle(comment.user)}
           </span>
           {SHOW_COMMENT_TIMESTAMPS && (

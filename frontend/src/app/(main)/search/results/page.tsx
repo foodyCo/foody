@@ -79,7 +79,7 @@ export default async function SearchResultsPage({
   return (
     <main className="absolute inset-0 overflow-hidden">
       <SaveRecentSearchQuery query={query} />
-      <div className="absolute inset-0 flex flex-col pt-12.5">
+      <div className="absolute inset-0 flex flex-col pt-2">
         <SearchResultsHeader key={query.trim()} initialQuery={query.trim()} />
 
         <section

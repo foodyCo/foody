@@ -49,14 +49,14 @@ export default async function SavedPage() {
   if (posts.length === 0) {
     return (
       <main className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 flex flex-col px-4 pt-14 pb-25">
+        <div className="absolute inset-0 flex flex-col px-4 pt-2 pb-25">
           <div className="mb-4 flex items-center gap-2">
             <Bookmark className="size-6 text-[#15291C]" strokeWidth={2.2} />
             <h1 className="text-[24px] font-extrabold tracking-[-0.3px] text-[#15291C]">
-              Сохранённое
+              Избранное
             </h1>
           </div>
-          <GlassSurface className="flex flex-1 items-center justify-center rounded-[26px] border border-white/65 bg-white/45">
+          <GlassSurface className="flex flex-1 items-center justify-center rounded-[26px] border border-white/65 bg-white/45 shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
             <div className="max-w-[280px] px-6 text-center">
               <p className="text-[18px] font-extrabold text-[#15291C]">
                 Пока ничего не сохранено
@@ -79,6 +79,7 @@ export default async function SavedPage() {
       currentUser={myHandle}
       accessToken={token}
       initialTab="new"
+      title="Избранное"
     />
   );
 }

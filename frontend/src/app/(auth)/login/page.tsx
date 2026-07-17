@@ -15,7 +15,7 @@ const FIELD_SURFACE = cn(
   "focus-within:ring-2 focus-within:ring-[#15291C]/12",
 );
 const FIELD_INPUT =
-  "h-full border-0 bg-transparent pl-11 pr-3.5 py-0 text-[15.5px] leading-[50px] font-semibold text-[#15291C] shadow-none outline-none placeholder:text-[#8A958E] focus-visible:border-transparent focus-visible:ring-0";
+  "h-[50px] border-0 bg-transparent pl-11 pr-3.5 py-0 text-[15.5px] leading-[50px] font-semibold text-[#15291C] shadow-none outline-none placeholder:text-[#8A958E] focus-visible:border-transparent focus-visible:ring-0";
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -25,6 +25,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
 
   function submit(formData: FormData) {
+    if (!email.trim() || !password) {
+      setErrorMessage("Пожалуйста, введите почту и пароль");
+      return;
+    }
     setErrorMessage("");
     startTransition(() => {
       authenticate(undefined, formData)
@@ -34,7 +38,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(239,245,240,0.96))]">
+    <main className="absolute inset-0 overflow-hidden bg-[#F6F7F6]">
       <div className="absolute inset-0 flex flex-col px-5 pt-14 pb-10">
         <header className="mb-8 text-center">
           <h1 className="text-[40px] font-extrabold tracking-[-0.5px] text-[#15291C]">Foody</h1>
@@ -43,8 +47,8 @@ export default function LoginPage() {
           </p>
         </header>
 
-        <GlassSurface className="flex-1 rounded-[26px] border border-white/65 bg-white/45">
-          <form action={submit} className="flex h-full flex-col gap-3 px-5 pt-7 pb-5">
+        <GlassSurface className="flex-1 rounded-[26px] border border-white/65 bg-white/45 shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
+          <form noValidate action={submit} className="flex h-full flex-col gap-3 px-5 pt-7 pb-5">
             <GlassSurface className={FIELD_SURFACE}>
               <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-5 text-[#8A958E] z-10" />
               <Input

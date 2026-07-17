@@ -42,10 +42,6 @@ const COLLAPSED_SAVE_GLOW_ACTIVE_ANIMATION = {
   scale: [0.72, 1.15, 1.26],
 };
 const SAVE_GLOW_IDLE_ANIMATION = { opacity: 0, scale: 0.72 };
-const FULLSCREEN_PILL_STATE_TRANSITION = {
-  duration: 0.24,
-  ease: [0.22, 1, 0.36, 1],
-} as const;
 
 const FULLSCREEN_ACTION_BUTTON_CLASS =
   "relative inline-flex h-[50px] w-[92%] min-w-0 cursor-pointer items-center justify-center gap-2.5 overflow-hidden rounded-full border border-transparent px-2.5 text-[#0B2F1D] outline-none backdrop-blur-[18px] backdrop-saturate-[180%] focus-visible:ring-2 focus-visible:ring-[#15291C]/18 [-webkit-tap-highlight-color:transparent] [@media(max-width:430px)_and_(max-height:860px)]:h-11";
@@ -121,7 +117,8 @@ export function EngagementBar({
 
   if (fullscreen) {
     const pillStyle = {
-      boxShadow: `0 8px 18px ${brand}1F, inset 1px 1px 0 rgba(255,255,255,0.18), inset -1px -1px 0 rgba(11,47,29,0.05)`,
+      boxShadow:
+        "0 8px 18px rgba(20,40,28,0.12), inset 1px 1px 0 rgba(255,255,255,0.6), inset -1px -1px 0 rgba(11,47,29,0.05)",
     };
 
     return (
@@ -140,10 +137,7 @@ export function EngagementBar({
             style={pillStyle}
             whileTap={canAnimate(shouldReduceMotion) ? { scale: 0.94 } : undefined}
           >
-            <FullscreenPillChrome
-              brand={brand}
-              shouldReduceMotion={shouldReduceMotion}
-            />
+            <FullscreenPillChrome />
             <LikeActionContent
               fullscreen
               liked={liked}
@@ -160,10 +154,7 @@ export function EngagementBar({
             style={pillStyle}
             whileTap={canAnimate(shouldReduceMotion) ? { scale: 0.94 } : undefined}
           >
-            <FullscreenPillChrome
-              brand={brand}
-              shouldReduceMotion={shouldReduceMotion}
-            />
+            <FullscreenPillChrome />
             <span className="relative z-[1] grid size-[18px] shrink-0 place-items-center">
               <MessageCircle
                 className="size-[18px]"
@@ -191,11 +182,7 @@ export function EngagementBar({
             style={pillStyle}
             whileTap={canAnimate(shouldReduceMotion) ? { scale: 0.92 } : undefined}
           >
-            <FullscreenPillChrome
-              active={saved}
-              brand={brand}
-              shouldReduceMotion={shouldReduceMotion}
-            />
+            <FullscreenPillChrome />
             <SaveActionIcon
               fullscreen
               brand={brand}
@@ -281,66 +268,13 @@ export function EngagementBar({
   );
 }
 
-type FullscreenPillChromeProps = {
-  brand: string;
-  active?: boolean;
-  shouldReduceMotion: boolean | null;
-};
-
-function FullscreenPillChrome({
-  brand,
-  active = false,
-  shouldReduceMotion,
-}: FullscreenPillChromeProps) {
-  const transition = canAnimate(shouldReduceMotion)
-    ? FULLSCREEN_PILL_STATE_TRANSITION
-    : { duration: 0 };
-
+function FullscreenPillChrome() {
+  // Нейтральный белый «стеклянный» фрейм без зелёного градиента.
   return (
-    <>
-      <motion.span
-        aria-hidden="true"
-        className="absolute inset-0 rounded-full"
-        initial={false}
-        animate={{ opacity: active ? 0 : 1 }}
-        transition={transition}
-        style={{
-          background: `linear-gradient(140deg, color-mix(in srgb, ${brand} 70%, transparent), rgba(122,236,164,0.70), rgba(100,218,189,0.50), color-mix(in srgb, ${brand} 90%, transparent))`,
-        }}
-      />
-      <motion.span
-        aria-hidden="true"
-        className="absolute inset-0 rounded-full"
-        initial={false}
-        animate={{ opacity: active ? 1 : 0 }}
-        transition={transition}
-        style={{
-          background: `linear-gradient(220deg, color-mix(in srgb, ${brand} 92%, transparent), rgba(100,218,189,0.48), rgba(122,236,164,0.74), color-mix(in srgb, ${brand} 68%, transparent))`,
-        }}
-      />
-      <motion.span
-        aria-hidden="true"
-        className="absolute inset-px rounded-full"
-        initial={false}
-        animate={{ opacity: active ? 0 : 1 }}
-        transition={transition}
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.82), rgba(226,255,235,0.78))",
-        }}
-      />
-      <motion.span
-        aria-hidden="true"
-        className="absolute inset-px rounded-full"
-        initial={false}
-        animate={{ opacity: active ? 1 : 0 }}
-        transition={transition}
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(232,255,239,0.76), rgba(184,242,204,0.72))",
-        }}
-      />
-    </>
+    <span
+      aria-hidden="true"
+      className="absolute inset-0 rounded-full border-[0.5px] border-white/60 bg-white/72 shadow-[inset_1px_1px_0_rgba(255,255,255,0.85),inset_-1px_-1px_0_rgba(255,255,255,0.4)]"
+    />
   );
 }
 

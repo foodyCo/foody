@@ -5,14 +5,10 @@ import { ChevronRight, UtensilsCrossed } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-type CategoryPickerProps = {
-  brand: string;
-};
-
 const PRESS_CLASSES =
   "origin-center transition-transform duration-150 ease-out active:scale-[0.94] [-webkit-tap-highlight-color:transparent]";
 
-export function CategoryPicker({ brand }: CategoryPickerProps) {
+export function CategoryPicker() {
   const router = useRouter();
 
   return (
@@ -27,10 +23,9 @@ export function CategoryPicker({ brand }: CategoryPickerProps) {
       >
         <span
           aria-hidden="true"
-          className="grid size-8 place-items-center rounded-[10px] text-[17px] leading-none"
+          className="grid size-8 place-items-center rounded-[10px] bg-white text-[17px] leading-none"
           style={{
-            background: `${brand}66`,
-            boxShadow: `0 4px 12px ${brand}55`,
+            boxShadow: "0 4px 12px rgba(20,40,28,0.10), inset 0 0 0 1.5px #2ECC71",
           }}
         >
           <UtensilsCrossed size={17} strokeWidth={2.4} color="#15291C" />

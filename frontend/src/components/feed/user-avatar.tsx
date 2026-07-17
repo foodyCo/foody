@@ -1,16 +1,5 @@
-import * as React from "react";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-
-const PALETTES: ReadonlyArray<readonly [string, string]> = [
-  ["#FFD6A5", "#FF8FAB"],
-  ["#A7C957", "#386641"],
-  ["#FFC25C", "#E76F51"],
-  ["#90DBF4", "#A78BFA"],
-  ["#F2CC8F", "#81B29A"],
-  ["#CDB4DB", "#FFAFCC"],
-];
 
 type UserAvatarProps = {
   name: string;
@@ -19,26 +8,25 @@ type UserAvatarProps = {
   src?: string | null;
 };
 
+// Единый дефолтный аватар: белый фон, зелёная обводка #2ECC71, тёмный инициал.
+// Никакой генерации по имени — везде одинаково.
 export function UserAvatar({ name, size = 36, className, src }: UserAvatarProps) {
-  const seed = name.charCodeAt(1) || 7;
-  const [from, to] = PALETTES[seed % PALETTES.length];
   const initial = (name || "?").replace("@", "").slice(0, 1).toUpperCase();
 
   return (
     <Avatar
       className={cn(
-        "shrink-0 shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.55)] after:hidden",
+        "shrink-0 border-[1.5px] border-[#2ECC71] after:hidden",
         className
       )}
       style={{ width: size, height: size }}
     >
-      {src ? <AvatarImage src={src} alt={name} className="object-cover" /> : null}
+      {src ? (
+        <AvatarImage src={src} alt={name} className="object-cover" />
+      ) : null}
       <AvatarFallback
-        className="font-extrabold tracking-tight text-white"
-        style={{
-          backgroundImage: `linear-gradient(135deg, ${from}, ${to})`,
-          fontSize: size * 0.42,
-        }}
+        className="bg-white font-extrabold tracking-tight text-[#15291C]"
+        style={{ fontSize: size * 0.42 }}
       >
         {initial}
       </AvatarFallback>

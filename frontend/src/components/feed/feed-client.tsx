@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { Bookmark } from "lucide-react";
 
 import { FeedHeader, type FeedTab } from "@/components/feed/feed-header";
 import { GlassSurface } from "@/components/feed/glass-surface";
@@ -59,6 +60,8 @@ type FeedClientProps = {
   endpoint?: string;
   /** Стартовый набор подписанных handles вида "@username". */
   initialFollowingUsers?: string[];
+  /** Если задан — вместо шапки ленты (Новое/Подписки) показывается заголовок (напр. «Избранное»). */
+  title?: string;
 };
 
 export function FeedClient({
@@ -71,6 +74,7 @@ export function FeedClient({
   initialNextPage = null,
   endpoint = "/posts/",
   initialFollowingUsers = [],
+  title,
 }: FeedClientProps) {
   const router = useRouter();
   const [feedTab, setFeedTab] = useState<FeedTab>(initialTab);
@@ -293,13 +297,17 @@ export function FeedClient({
 
   return (
     <main className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 flex flex-col pt-12.5">
-        <FeedHeader
-          brand={TWEAKS.brand}
-          tab={feedTab}
-          onTabChange={onTabChange}
-          currentUser={currentUser}
-        />
+      <div className="absolute inset-0 flex flex-col pt-2">
+        {title ? (
+          <header className="flex items-center gap-2 px-5 pt-2 pb-3">
+            <Bookmark className="size-6 text-[#15291C]" strokeWidth={2.2} />
+            <h1 className="text-[24px] font-extrabold tracking-[-0.3px] text-[#15291C]">
+              {title}
+            </h1>
+          </header>
+        ) : (
+          <FeedHeader tab={feedTab} onTabChange={onTabChange} />
+        )}
 
         <section
           aria-label="Лента"

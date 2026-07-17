@@ -65,7 +65,8 @@ export default async function StaffPage() {
         price: p.price ? `${parseFloat(p.price).toFixed(0)} ₽` : null,
         restaurant: p.restaurant_name || "",
         tags: (p.tags || []).map((t: any) => t.name),
-        rating: p.statistics?.rating || 0,
+        // Бэкенд хранит 0–10 (звёзды ×2) — делим на 2 для показа в 0–5.
+        rating: (p.statistics?.rating || 0) / 2,
     }));
 
     return (

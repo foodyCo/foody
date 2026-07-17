@@ -22,12 +22,10 @@ export default async function MeEditPage() {
     console.error("Failed to load user profile for /me/edit", e);
   }
 
-  const defaultAvatar = "/default-avatar.svg";
-
   const initialData = {
     name: userProfile?.full_name || userProfile?.username || session.user.name || "",
     username: userProfile?.username || "",
-    avatar: fixMediaUrl(userProfile?.avatar) || session.user.image || defaultAvatar,
+    avatar: fixMediaUrl(userProfile?.avatar) || session.user.image || "",
     bio: userProfile?.bio_text || "",
     city: userProfile?.city || "",
   };

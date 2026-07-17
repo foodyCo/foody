@@ -28,7 +28,7 @@ export default async function DishPage({
     return (
       <main className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 flex flex-col px-4 pt-16 pb-25">
-          <GlassSurface className="flex flex-1 items-center justify-center rounded-[26px] border border-white/65 bg-white/45">
+          <GlassSurface className="flex flex-1 items-center justify-center rounded-[26px] border border-white/65 bg-white/45 shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
             <div className="max-w-[260px] px-6 text-center">
               <p className="text-[20px] font-extrabold text-[#15291C]">Пост не найден</p>
               <p className="mt-2 text-[14px] font-medium text-[#5C6B62]">

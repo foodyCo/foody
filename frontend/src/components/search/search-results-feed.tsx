@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 
 import { PostCard } from "@/components/feed/post-card";
 import { toggleLike, toggleSave, toggleFollow } from "@/lib/feed-client";
@@ -206,15 +204,6 @@ export function SearchResultsFeed({
             onLikeToggle={onLikeToggle}
             onSaveToggle={onSaveToggle}
           />
-          <div className="px-3.5 -mt-2 pb-4 flex justify-end">
-            <Link
-              href={`/dish/${post.id}`}
-              className="inline-flex items-center gap-1 rounded-full bg-white/82 px-3 py-1.5 text-[12px] font-bold text-[#15291C] shadow-[inset_1px_1px_0_rgba(255,255,255,0.85),0_6px_16px_rgba(20,40,28,0.08)] hover:bg-white"
-            >
-              Открыть пост
-              <ChevronRight className="size-3.5" strokeWidth={2.4} />
-            </Link>
-          </div>
         </div>
       ))}
 

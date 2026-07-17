@@ -24,10 +24,6 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { CategorySelectionScreen } from "@/components/categories/category-selection-screen";
 import { GlassSurface } from "@/components/feed/glass-surface";
-import {
-  FULLSCREEN_SUBSCRIBE_BUTTON,
-  SubscribeStyleButton,
-} from "@/components/feed/subscribe-style-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -192,7 +188,7 @@ function RatingControl({
       <div className="mb-3 grid grid-cols-[3.25rem_1fr_3.25rem] items-center gap-2">
         <span aria-hidden="true" />
         <h2 className="text-center text-[22px] leading-tight font-semibold text-[#15291C]">
-          Оцените блюдо
+          Оценка
         </h2>
         <span className="flex items-center justify-end gap-0.5 text-[18px] leading-none font-extrabold text-[#15291C]">
           <Star
@@ -221,11 +217,9 @@ function RatingControl({
 }
 
 function PhotoUpload({
-  brand,
   files,
   onFilesChange,
 }: {
-  brand: string;
   files: File[];
   onFilesChange: (files: File[]) => void;
 }) {
@@ -260,25 +254,64 @@ function PhotoUpload({
     onFilesChange(files.filter((_, index) => index !== indexToRemove));
   }
 
+  // Перетаскивание фото (мышь + тач через Pointer Events). Логика — в ref'ах,
+  // чтобы не ловить устаревшие замыкания; state — только для подсветки.
+  const dragIndexRef = useRef<number | null>(null);
+  const overIndexRef = useRef<number | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  function beginDrag(event: ReactPointerEvent<HTMLDivElement>, index: number) {
+    dragIndexRef.current = index;
+    overIndexRef.current = index;
+    setDragIndex(index);
+    setOverIndex(index);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (dragIndexRef.current === null) return;
+    const el = document.elementFromPoint(event.clientX, event.clientY);
+    const tile = el?.closest<HTMLElement>("[data-photo-idx]");
+    if (!tile) return;
+    const idx = Number(tile.dataset.photoIdx);
+    if (Number.isNaN(idx) || idx === overIndexRef.current) return;
+    overIndexRef.current = idx;
+    setOverIndex(idx);
+  }
+
+  function endDrag() {
+    const from = dragIndexRef.current;
+    const to = overIndexRef.current;
+    if (from !== null && to !== null && from !== to) {
+      const next = files.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      onFilesChange(next);
+    }
+    dragIndexRef.current = null;
+    overIndexRef.current = null;
+    setDragIndex(null);
+    setOverIndex(null);
+  }
+
   return (
     <section>
       <h2 className="text-[22px] leading-tight font-semibold tracking-[0px] text-[#15291C] max-[380px]:text-[20px]">
-        Загрузите фотографию блюда
+        Фотография блюда
       </h2>
       <p className="mt-1 mb-2 font-[family-name:var(--font-roboto)] text-[13px] leading-snug font-medium text-[#5C6B62]">
-        (мин. 1 шт.)
+        Мин. 1 фото. Перетаскивайте, чтобы менять порядок — первое станет главным (покажется в ленте первым).
       </p>
       {previews.length === 0 ? (
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           className={cn(
-            "flex min-h-[122px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-[26px] border border-transparent px-5 text-center text-[#15291C]",
-            "backdrop-blur-[18px] backdrop-saturate-[170%]",
+            "flex min-h-[122px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-[26px] border-[1.5px] border-[#2ECC71] bg-white px-5 text-center text-[#15291C]",
             "outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
             PRESS_CLASSES
           )}
-          style={getReviewChromeStyle(brand, "rgba(232,236,233,0.46)")}
         >
           <ImageUp className="size-9" strokeWidth={2.15} />
           <span className="font-[family-name:var(--font-roboto)] text-[14px] font-medium text-[#5C6B62]">
@@ -288,25 +321,42 @@ function PhotoUpload({
       ) : (
         <div className="grid grid-cols-3 gap-2">
           {previews.map((preview, index) => (
-            <button
+            <div
               key={`${preview.name}-${index}`}
-              type="button"
-              aria-label={`Удалить фото ${index + 1}`}
-              onClick={() => removePhoto(index)}
+              data-photo-idx={index}
+              onPointerDown={(event) => beginDrag(event, index)}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
               className={cn(
-                "relative h-[122px] w-full cursor-pointer overflow-hidden rounded-[26px] border border-transparent p-0",
-                "outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
-                PRESS_CLASSES
+                "relative h-[122px] w-full cursor-grab touch-none overflow-hidden rounded-[26px] border border-[rgba(20,40,28,0.08)] transition-[opacity,box-shadow] select-none active:cursor-grabbing",
+                index === 0 && "border-transparent ring-2 ring-[#2ECC71]",
+                overIndex === index && dragIndex !== index && "ring-2 ring-[#15291C]/45",
+                dragIndex === index && "opacity-40"
               )}
-              style={getReviewChromeStyle(brand, "rgba(255,255,255,0.72)")}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={preview.url}
                 alt={preview.name}
-                className="h-full w-full object-cover"
+                draggable={false}
+                className="pointer-events-none h-full w-full object-cover select-none"
               />
-            </button>
+              {index === 0 && (
+                <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-[#2ECC71] px-2 py-[3px] text-[10.5px] font-extrabold text-white shadow-[0_2px_8px_rgba(20,40,28,0.28)]">
+                  Главное
+                </span>
+              )}
+              <button
+                type="button"
+                aria-label={`Удалить фото ${index + 1}`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => removePhoto(index)}
+                className="absolute top-1.5 right-1.5 grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-black/45 text-white outline-none backdrop-blur-[2px]"
+              >
+                <X className="size-3.5" strokeWidth={2.6} />
+              </button>
+            </div>
           ))}
           {files.length < MAX_PHOTOS && (
             <button
@@ -314,12 +364,10 @@ function PhotoUpload({
               aria-label="Добавить фото"
               onClick={() => inputRef.current?.click()}
               className={cn(
-                "grid h-[122px] w-full cursor-pointer place-items-center rounded-[26px] border border-transparent text-[#15291C]",
-                "backdrop-blur-[18px] backdrop-saturate-[170%]",
+                "grid h-[122px] w-full cursor-pointer place-items-center rounded-[26px] border-[1.5px] border-[#2ECC71] bg-white text-[#15291C]",
                 "outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
                 PRESS_CLASSES
               )}
-              style={getReviewChromeStyle(brand, "rgba(232,236,233,0.46)")}
             >
               <Plus className="size-8" strokeWidth={2.25} />
             </button>
@@ -339,11 +387,9 @@ function PhotoUpload({
 }
 
 function CategoryButton({
-  brand,
   category,
   onClick,
 }: {
-  brand: string;
   category: FoodCategory | null;
   onClick: () => void;
 }) {
@@ -352,17 +398,15 @@ function CategoryButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex h-[52px] w-full cursor-pointer items-center gap-3 rounded-[18px] border border-transparent px-4 text-left text-[#15291C]",
+        "flex h-[52px] w-full cursor-pointer items-center gap-3 rounded-[18px] border border-[rgba(20,40,28,0.08)] bg-white/70 px-4 text-left text-[#15291C] shadow-[0_4px_14px_rgba(20,40,28,0.06)]",
         PRESS_CLASSES
       )}
-      style={getReviewChromeStyle(brand)}
     >
       <span
         aria-hidden="true"
-        className="grid size-8 place-items-center rounded-[10px] text-[17px] leading-none"
+        className="grid size-8 place-items-center rounded-[10px] bg-white text-[17px] leading-none"
         style={{
-          background: `${brand}42`,
-          boxShadow: "0 4px 10px rgba(20,40,28,0.06)",
+          boxShadow: "0 4px 10px rgba(20,40,28,0.06), inset 0 0 0 1.5px #2ECC71",
         }}
       >
         {category ? (
@@ -373,7 +417,7 @@ function CategoryButton({
       </span>
       <span className="flex flex-1 items-center">
         <span className="text-[16.5px] leading-snug font-bold tracking-[0px] text-[#15291C]">
-          {category ? category.label : "Выберите категорию"}
+          {category ? category.label : "Выберите блюдо"}
         </span>
       </span>
       <span className="ml-auto grid size-[26px] place-items-center rounded-full bg-[rgba(20,40,28,0.06)]">
@@ -412,10 +456,10 @@ function TagsInput({
   return (
     <section>
       <h2 className="text-[22px] leading-tight font-semibold text-[#15291C] max-[380px]:text-[20px]">
-        Напишите тэги
+        Теги
       </h2>
       <p className="mt-1 mb-2 font-[family-name:var(--font-roboto)] text-[13px] leading-snug font-medium text-[#5C6B62]">
-        Напишите тэг и добавьте его через ввод (мин 1 шт.)
+        Нажмите Enter для добавления
       </p>
       <GlassSurface
         className={cn(FIELD_SURFACE_CLASSES, "min-h-[52px] h-auto")}
@@ -431,7 +475,7 @@ function TagsInput({
               onClick={() => onRemoveTag(tag)}
               className={cn(
                 "origin-center cursor-pointer select-none border-0 outline-none",
-                "inline-flex h-[26px] items-center justify-center gap-1 rounded-full bg-[rgba(46,204,113,0.14)] px-2.5 text-[11.5px] font-bold tracking-[0px] text-[#0E8A4F]",
+                "inline-flex h-[26px] items-center justify-center gap-1 rounded-full bg-white px-2.5 text-[11.5px] font-bold tracking-[0px] text-[#5C6B62] shadow-[inset_0_0_0_1.4px_rgba(20,40,28,0.10)]",
                 "transition-transform duration-150 ease-out active:scale-[0.94] [-webkit-tap-highlight-color:transparent]",
                 "[@media(max-width:430px)_and_(max-height:860px)]:h-6 [@media(max-width:430px)_and_(max-height:860px)]:px-2 [@media(max-width:430px)_and_(max-height:860px)]:text-[11px]"
               )}
@@ -448,7 +492,7 @@ function TagsInput({
               maxLength={32}
               onChange={(event) => onTagDraftChange(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Введите тэг"
+              placeholder="Новый тег..."
               className={cn(FIELD_INPUT_CLASSES, "h-8 min-w-[120px] flex-1 px-1.5")}
             />
           )}
@@ -495,8 +539,7 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
     rating > 0 &&
     photos.length > 0 &&
     review.trim().length > 0 &&
-    category !== null &&
-    tags.length > 0;
+    category !== null;
 
   useEffect(() => {
     return () => {
@@ -677,34 +720,31 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
         </AlertDialogContent>
       </AlertDialog>
       <ReviewContentLayer>
-        <ReviewScrollArea aria-label="Новый отзыв">
+        <ReviewScrollArea aria-label="Новая публикация">
           <ReviewScreenHeader
-            brand={brand}
-            title="Новый отзыв"
+            title="Новая публикация"
             onBack={handleBackClick}
           />
 
           <div className="space-y-6">
+            <PhotoUpload files={photos} onFilesChange={setPhotos} />
+
             <ReviewField
               brand={brand}
-              label="Что вы ели?"
-              placeholder="Введите название блюда"
+              label="Название блюда"
+              placeholder="Например: Стейк Рибай"
               value={dish}
               onChange={setDish}
             />
 
-            <ReviewField
-              brand={brand}
-              label="Сколько стоило блюдо?"
-              placeholder="Например: 450"
-              value={price}
-              inputMode="decimal"
-              onChange={setPrice}
+            <CategoryButton
+              category={category}
+              onClick={() => setShowCategoryPicker(true)}
             />
 
             <section>
               <h2 className="mb-2 text-[22px] leading-tight font-semibold tracking-[0px] text-[#15291C] max-[380px]:text-[20px]">
-                В каком заведении?
+                Заведение
               </h2>
               <div className="space-y-1.5">
                 <GlassSurface
@@ -749,7 +789,7 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
                       aria-label="Адрес заведения"
                       value={address}
                       onChange={(event) => setAddress(event.target.value)}
-                      placeholder="Адрес заведения"
+                      placeholder="Адрес (необязательно)"
                       className={cn(FIELD_INPUT_CLASSES, "min-w-0 flex-1 pr-0")}
                     />
                     {address && (
@@ -770,18 +810,25 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
               </div>
             </section>
 
+            <ReviewField
+              brand={brand}
+              label="Цена (₽)"
+              placeholder="Например: 450"
+              value={price}
+              inputMode="decimal"
+              onChange={setPrice}
+            />
+
             <RatingControl
               rating={rating}
               shouldReduceMotion={shouldReduceMotion}
               onRate={setRating}
             />
 
-            <PhotoUpload brand={brand} files={photos} onFilesChange={setPhotos} />
-
             <section>
               <div className="mb-2 flex items-end justify-between gap-3">
                 <h2 className="text-[22px] leading-tight font-semibold text-[#15291C] max-[380px]:text-[20px]">
-                  Напишите отзыв
+                  Впечатления
                 </h2>
                 <span className="pb-0.5 text-[12px] font-bold text-[#5C6B62]">
                   {review.length}/{MAX_REVIEW_LENGTH}
@@ -803,12 +850,6 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
               </GlassSurface>
             </section>
 
-            <CategoryButton
-              brand={brand}
-              category={category}
-              onClick={() => setShowCategoryPicker(true)}
-            />
-
             <TagsInput
               brand={brand}
               tags={tags}
@@ -829,21 +870,21 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
             )}
 
             <div className="flex justify-center pt-5">
-              <SubscribeStyleButton
-                ariaLabel="Опубликовать"
-                brand={brand}
-                muted={!isPublishReady}
+              <button
+                type="button"
+                aria-label="Опубликовать"
                 onClick={handlePublishClick}
-                shouldReduceMotion={shouldReduceMotion}
+                disabled={isSubmitting}
                 className={cn(
-                  FULLSCREEN_SUBSCRIBE_BUTTON.regular,
-                  "h-12 min-w-[256px] px-7 text-[18px] font-semibold",
+                  "h-12 min-w-[256px] rounded-full px-7 text-[18px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#15291C]/18 active:scale-[0.97]",
+                  isPublishReady
+                    ? "bg-white text-[#17913F] shadow-[inset_0_0_0_1.6px_#2ECC71,0_6px_16px_rgba(20,40,28,0.08)]"
+                    : "bg-[rgba(20,40,28,0.06)] text-[#8A958E]",
                   isSubmitting && "pointer-events-none opacity-60"
                 )}
-                style={getReviewChromeStyle(brand, "transparent")}
               >
-                <span>{isSubmitting ? "Публикация..." : "Опубликовать"}</span>
-              </SubscribeStyleButton>
+                {isSubmitting ? "Публикация..." : "Опубликовать"}
+              </button>
             </div>
           </div>
         </ReviewScrollArea>

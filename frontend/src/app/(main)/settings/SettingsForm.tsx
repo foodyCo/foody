@@ -36,7 +36,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
       <p className="mb-2 px-2 text-[11px] font-bold tracking-[0.18em] text-[#8A958E] uppercase">
         {label}
       </p>
-      <GlassSurface className="rounded-[22px] border border-white/65 bg-white/50 overflow-hidden">
+      <GlassSurface className="rounded-[22px] border border-white/65 bg-white/50 overflow-hidden shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
         <div className="divide-y divide-white/40">{children}</div>
       </GlassSurface>
     </div>
@@ -110,7 +110,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
 
   return (
     <main className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 flex flex-col pt-12.5">
+      <div className="absolute inset-0 flex flex-col pt-2">
         <header className="mb-2 flex items-center gap-3 px-5">
           <button
             type="button"
@@ -131,8 +131,8 @@ export default function SettingsForm({ user }: SettingsFormProps) {
               <Row
                 icon={<UserIcon className="size-5 text-[#15291C]" strokeWidth={2} />}
                 title="Личные данные"
-                subtitle="Имя, email"
-                onClick={() => router.push("/me/edit")}
+                subtitle="Почта, пароль"
+                onClick={() => router.push("/settings/account")}
               />
             </Section>
 

@@ -49,7 +49,7 @@ async function fetchPostComments(postId: number): Promise<PostComment[]> {
     return rawComments.map((c: any) => ({
       id: c.id,
       user: c.user_detail?.username ? `@${c.user_detail.username}` : "@unknown",
-      realName: c.user_detail?.username || "Аноним",
+      realName: c.user_detail?.full_name || c.user_detail?.username || "Аноним",
       avatarUrl: c.user_detail?.avatar || undefined,
       when: c.created_at ? new Date(c.created_at).toLocaleDateString("ru-RU") : "",
       text: c.text || "",

@@ -101,7 +101,7 @@ export default async function UserProfile({
 
   return (
     <main className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 flex flex-col pt-12.5">
+      <div className="absolute inset-0 flex flex-col pt-2">
         <header className="flex items-center justify-between px-5 pb-3">
           <Link
             href="/"
@@ -117,11 +117,11 @@ export default async function UserProfile({
         </header>
 
         <section className="hide-scroll flex-1 overflow-y-auto px-4 pb-25">
-          <GlassSurface className="rounded-[26px] border border-white/65 bg-white/45 px-5 py-6">
+          <GlassSurface className="rounded-[26px] border border-white/65 bg-white/45 px-5 py-6 shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
             <div className="flex flex-col items-center text-center">
-              <Avatar className="size-22 border-2 border-white shadow-[0_10px_28px_rgba(20,40,28,0.18)]">
+              <Avatar className="size-22 border-2 border-[#2ECC71] shadow-[0_10px_28px_rgba(20,40,28,0.18)] after:hidden">
                 {avatar ? <AvatarImage src={avatar} alt={name} /> : null}
-                <AvatarFallback className="bg-[#2ECC71]/30 text-[24px] font-extrabold text-[#15291C]">
+                <AvatarFallback className="bg-white text-[24px] font-extrabold text-[#15291C]">
                   {name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>

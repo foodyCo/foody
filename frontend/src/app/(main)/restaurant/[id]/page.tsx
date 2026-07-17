@@ -42,7 +42,7 @@ export default async function RestaurantPage({
 
   return (
     <main className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 flex flex-col pt-12.5">
+      <div className="absolute inset-0 flex flex-col pt-2">
         <header className="mb-2 flex items-center gap-3 px-5">
           <Link
             href="/search"
@@ -57,7 +57,7 @@ export default async function RestaurantPage({
         </header>
 
         <div className="hide-scroll flex-1 overflow-y-auto px-4 pb-25 pt-2">
-          <GlassSurface className="rounded-[26px] border border-white/65 bg-white/45 px-5 py-6">
+          <GlassSurface className="rounded-[26px] border border-white/65 bg-white/45 px-5 py-6 shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
             <h2 className="text-[26px] font-extrabold tracking-[-0.3px] text-[#15291C]">
               {restaurant.name}
             </h2>

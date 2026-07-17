@@ -1,9 +1,14 @@
 import { Dish } from "./data";
 
 const isServer = typeof window === 'undefined';
+// Сервер (SSR / server actions) ходит на бэкенд по внутреннему docker-хосту.
+// Клиент (браузер) — ВСЕГДА относительным путём того же origin, чтобы не ловить
+// mixed-content: страница открыта по https, а абсолютный http-URL из
+// NEXT_PUBLIC_API_URL блокировался бы браузером ("Failed to fetch").
+// Caddy проксирует /api/* на backend. Так же делает и лента (fetch("/api/v1...")).
 const API_URL = isServer
     ? (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1")
-    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1");
+    : "/api/v1";
 
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     const url = `${API_URL}${endpoint}`;
@@ -64,8 +69,9 @@ export function fixMediaUrl(path: string | null | undefined): string | undefined
 
 export function mapDjangoPostToDish(post: any): Dish {
     const stats = post.statistics || {};
-    // Fallback to stats.rating if user_rating isn't provided or is 0
-    const userRating = post.user_rating || stats.rating || 0;
+    // Fallback to stats.rating if user_rating isn't provided or is 0.
+    // Бэкенд хранит оценку 0–10 (createPost умножает звёзды ×2) — делим на 2 для показа в 0–5.
+    const userRating = (post.user_rating || stats.rating || 0) / 2;
 
     return {
         id: post.id.toString(),

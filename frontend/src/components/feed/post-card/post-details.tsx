@@ -2,17 +2,16 @@ import { MapPin, Star } from "lucide-react";
 import Link from "next/link";
 
 import type { Post } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
 
 import { STAR_COLOR } from "./post-card-shared";
 
 type PostDetailsProps = {
   post: Post;
-  brand: string;
+  brand?: string;
   expanded?: boolean;
 };
 
-export function PostDetails({ post, brand, expanded = false }: PostDetailsProps) {
+export function PostDetails({ post, expanded = false }: PostDetailsProps) {
   return (
     <>
       <div className="px-4 pb-1 max-[390px]:pb-0.5 [@media(max-width:430px)_and_(max-height:860px)]:px-3.5">
@@ -43,33 +42,14 @@ export function PostDetails({ post, brand, expanded = false }: PostDetailsProps)
       </div>
 
       <div className="flex items-center justify-between gap-3 px-4 pt-1 pb-2.5 max-[390px]:pb-2 [@media(max-width:430px)_and_(max-height:860px)]:px-3.5 [@media(max-width:430px)_and_(max-height:860px)]:pb-1.5">
-        <div
-          className={cn(
-            "relative isolate inline-flex rounded-[9px] p-px",
-            "bg-[rgba(83,145,105,0.07)]",
-            "shadow-[inset_0_1px_0_rgba(255,255,255,1),0_10px_28px_rgba(20,40,28,0.012)]"
-          )}
-          style={{
-            boxShadow: `inset 0 1px 0 rgba(255,255,255,0), 0 10px 28px rgba(20,40,28,0.012), -4px 6px 24px ${brand}05`,
-          }}
-        >
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 [@media(max-width:430px)_and_(max-height:860px)]:px-2.5 [@media(max-width:430px)_and_(max-height:860px)]:py-1",
-              "border-0",
-              "bg-[linear-gradient(135deg,rgba(220,255,232,1),rgba(232,255,240,0.60))]",
-              "shadow-[inset_0_1px_0_rgba(255,255,255,0),inset_0_-1px_0_rgba(20,40,28,0)]",
-              "backdrop-blur-[14px] backdrop-saturate-[100%]"
-            )}
-          >
-            <span className="text-[10.5px] font-bold tracking-[0.38px] text-[#647268] uppercase">
-              Цена
-            </span>
-            <span className="text-[16.5px] leading-none font-extrabold tracking-[-0.18px] text-[#203829] tabular-nums">
-              {post.price}
-            </span>
+        <span className="inline-flex items-center gap-2 rounded-[11px] bg-[rgba(20,40,28,0.045)] px-3 py-1.5 [@media(max-width:430px)_and_(max-height:860px)]:px-2.5 [@media(max-width:430px)_and_(max-height:860px)]:py-1">
+          <span className="text-[10.5px] font-bold tracking-[0.38px] text-[#8A958E] uppercase">
+            Цена
           </span>
-        </div>
+          <span className="text-[16.5px] leading-none font-extrabold tracking-[-0.18px] text-[#17913F] tabular-nums">
+            {post.price}
+          </span>
+        </span>
         <div className="inline-flex items-baseline gap-1.5">
           <span className="text-[11px] font-bold tracking-[0.4px] text-[#5C6B62] uppercase">
             Оценка

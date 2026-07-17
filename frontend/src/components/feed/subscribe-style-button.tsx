@@ -19,15 +19,11 @@ const SUBSCRIBE_RETURN_TRANSITION = {
   stiffness: 520,
   type: "spring",
 } as const;
-const SUBSCRIBE_STATE_TRANSITION = {
-  duration: 0.24,
-  ease: [0.22, 1, 0.36, 1],
-} as const;
 export const SUBSCRIBE_STATE_SETTLE_MS = 240;
 
 export const FULLSCREEN_SUBSCRIBE_BUTTON = {
   base:
-    "relative h-7 shrink-0 cursor-pointer select-none overflow-hidden rounded-full border border-transparent pt-px leading-none font-extrabold tracking-[0px] text-[#0B2F1D] outline-none backdrop-blur-[18px] backdrop-saturate-[180%] focus-visible:ring-2 focus-visible:ring-[#15291C]/18 [-webkit-tap-highlight-color:transparent]",
+    "relative h-7 shrink-0 cursor-pointer select-none overflow-hidden rounded-full pt-px leading-none font-extrabold tracking-[0px] outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18 [-webkit-tap-highlight-color:transparent]",
   regular: "px-2.5 text-[10.5px]",
   compact: "px-2 text-[9.75px]",
   smallRegular: "max-[380px]:h-6 max-[380px]:px-1.5 max-[380px]:text-[8.75px]",
@@ -152,8 +148,9 @@ export function SubscribeStyleButton({
       title={title ?? ariaLabel}
       className={cn(
         FULLSCREEN_SUBSCRIBE_BUTTON.base,
-        "disabled:cursor-not-allowed disabled:opacity-70",
-        muted && "text-[#4F5A54]",
+        "bg-white disabled:cursor-not-allowed disabled:opacity-70",
+        active ? "text-[#5C6B62]" : "text-[#17913F]",
+        muted && "text-[#8A958E]",
         className
       )}
       animate={scaleControls}
@@ -166,52 +163,13 @@ export function SubscribeStyleButton({
       onPointerLeave={releaseButton}
       onPointerUp={releaseButton}
       style={{
-        boxShadow: `0 8px 18px ${brand}1F, inset 1px 1px 0 rgba(255,255,255,0.18), inset -1px -1px 0 rgba(11,47,29,0.05)`,
+        // Не подписан → зелёная обводка #2ECC71; подписан → нейтральная (хештег-стиль)
+        boxShadow: active
+          ? "inset 0 0 0 1.4px rgba(20,40,28,0.12)"
+          : `inset 0 0 0 1.6px ${brand}`,
         ...style,
       }}
     >
-      <motion.span
-        aria-hidden="true"
-        className="absolute inset-0 rounded-[inherit]"
-        initial={{ opacity: active && !muted ? 1 : 0 }}
-        animate={{ opacity: active && !muted ? 1 : 0 }}
-        transition={shouldAnimate ? SUBSCRIBE_STATE_TRANSITION : { duration: 0 }}
-        style={{
-          background: `linear-gradient(120deg, ${brand}E6, rgba(122,236,164,0.78), rgba(100,218,189,0.66), ${brand}A8)`,
-        }}
-      />
-      <motion.span
-        aria-hidden="true"
-        className="absolute inset-px rounded-[inherit]"
-        initial={{ opacity: !active && !muted ? 1 : 0 }}
-        animate={{ opacity: !active && !muted ? 1 : 0 }}
-        transition={shouldAnimate ? SUBSCRIBE_STATE_TRANSITION : { duration: 0 }}
-        style={{
-          background: `linear-gradient(135deg, ${brand}72 0%, rgba(189,247,208,0.68) 85%, ${brand}35 100%)`,
-        }}
-      />
-      <motion.span
-        aria-hidden="true"
-        className="absolute inset-px rounded-[inherit]"
-        initial={{ opacity: muted ? 1 : 0 }}
-        animate={{ opacity: muted ? 1 : 0 }}
-        transition={shouldAnimate ? SUBSCRIBE_STATE_TRANSITION : { duration: 0 }}
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(224,229,226,0.88) 0%, rgba(208,216,211,0.80) 85%, rgba(190,199,194,0.60) 100%)",
-        }}
-      />
-      <motion.span
-        aria-hidden="true"
-        className="absolute inset-px rounded-[inherit]"
-        initial={{ opacity: active && !muted ? 1 : 0 }}
-        animate={{ opacity: active && !muted ? 1 : 0 }}
-        transition={shouldAnimate ? SUBSCRIBE_STATE_TRANSITION : { duration: 0 }}
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.82), rgba(226,255,235,0.78))",
-        }}
-      />
       <span className="relative z-[1] grid place-items-center">{children}</span>
     </motion.button>
   );

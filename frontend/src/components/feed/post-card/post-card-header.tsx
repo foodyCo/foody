@@ -31,11 +31,11 @@ const FULLSCREEN_SMALL_COMPACT_AUTHOR_LENGTH = 10;
 
 const FULLSCREEN_HEADER_GLASS = {
   outer:
-    "shrink-0 px-3.5 pt-[calc(env(safe-area-inset-top)+3.625rem)] pb-3 max-[409px]:px-3",
+    "shrink-0 px-3.5 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 max-[409px]:px-3",
   surface:
     "rounded-[24px] shadow-[0_16px_28px_rgba(20,40,28,0.14),0_2px_8px_rgba(255,255,255,0.42)]",
   tint:
-    "before:bg-green-100/32 before:backdrop-blur-[30px] before:backdrop-saturate-[220%]",
+    "before:bg-white/60 before:backdrop-blur-[30px] before:backdrop-saturate-[220%]",
   highlight:
     "after:border-[0.5px] after:border-white/55 after:shadow-[inset_1px_1px_0_rgba(255,255,255,0.76),inset_-1px_-1px_0_rgba(255,255,255,0.98)]",
   content:
@@ -124,8 +124,8 @@ export function PostCardHeader({
   const shouldCompactAuthorOnSmallScreen =
     expanded && post.user.length >= FULLSCREEN_SMALL_COMPACT_AUTHOR_LENGTH;
   const authorMeta = expanded
-    ? formatFullscreenAuthorMeta(post.when)
-    : `${post.realName} · ${post.when}`;
+    ? `${post.user} · ${formatFullscreenAuthorMeta(post.when)}`
+    : `${post.user} · ${post.when}`;
   // R4-B4: показываем «Подписаться/Отписаться» и в свёрнутой карточке.
   // Прячем только для собственных постов. Для анонимов кнопка тоже видна —
   // её onClick на feed-client.tsx редиректит на /login.
@@ -153,7 +153,7 @@ export function PostCardHeader({
           <ArrowLeft className="size-[18px]" strokeWidth={2.35} />
         </motion.button>
       )}
-      <UserAvatar name={post.user} size={34} src={post.avatarUrl} />
+      <UserAvatar name={post.realName} size={34} src={post.avatarUrl} />
       <div className="flex min-w-0 flex-1 flex-col items-start text-left">
         <div
           className={cn(
@@ -168,9 +168,9 @@ export function PostCardHeader({
           )}
         >
           {post.userId !== undefined ? (
-            <Link href={`/users/${post.userId}`}>{post.user}</Link>
+            <Link href={`/users/${post.userId}`}>{post.realName}</Link>
           ) : (
-            <span>{post.user}</span>
+            <span>{post.realName}</span>
           )}
         </div>
         <div

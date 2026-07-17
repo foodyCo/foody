@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { User, Mail, Lock, MapPin, Eye, EyeOff } from "lucide-react";
 import { GlassSurface } from "@/components/feed/glass-surface";
+import { CitySelect, CITIES } from "@/components/ui/city-select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +17,7 @@ const FIELD_SURFACE = cn(
   "focus-within:ring-2 focus-within:ring-[#15291C]/12",
 );
 const FIELD_INPUT =
-  "h-full border-0 bg-transparent pl-11 pr-3.5 py-0 text-[15.5px] leading-[50px] font-semibold text-[#15291C] shadow-none outline-none placeholder:text-[#8A958E] focus-visible:border-transparent focus-visible:ring-0";
+  "h-[50px] border-0 bg-transparent pl-11 pr-3.5 py-0 text-[15.5px] leading-[50px] font-semibold text-[#15291C] shadow-none outline-none placeholder:text-[#8A958E] focus-visible:border-transparent focus-visible:ring-0";
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +31,18 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
 
   async function handleSubmit(formData: FormData) {
+    if (!name.trim() || !email.trim() || !city.trim() || !password) {
+      setError("Пожалуйста, заполните все поля");
+      return;
+    }
+    if (!CITIES.includes(city as (typeof CITIES)[number])) {
+      setError("Выберите город из списка");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Пароль должен содержать не менее 6 символов");
+      return;
+    }
     setIsPending(true);
     setError(null);
     const res = await registerUser(formData);
@@ -43,7 +56,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(239,245,240,0.96))]">
+    <main className="absolute inset-0 overflow-hidden bg-[#F6F7F6]">
       <div className="absolute inset-0 flex flex-col px-5 pt-14 pb-10">
         <header className="mb-8 text-center">
           <h1 className="text-[40px] font-extrabold tracking-[-0.5px] text-[#15291C]">Foody</h1>
@@ -52,8 +65,9 @@ export default function RegisterPage() {
           </p>
         </header>
 
-        <GlassSurface className="flex-1 rounded-[26px] border border-white/65 bg-white/45">
+        <GlassSurface className="flex-1 rounded-[26px] border border-white/65 bg-white/45 shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
           <form
+            noValidate
             onSubmit={(e) => {
               e.preventDefault();
               handleSubmit(new FormData(e.currentTarget));
@@ -86,17 +100,16 @@ export default function RegisterPage() {
               />
             </GlassSurface>
 
-            <GlassSurface className={FIELD_SURFACE}>
-              <MapPin className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-5 text-[#8A958E] z-10" />
-              <Input
-                name="city"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Город"
-                required
-                className={FIELD_INPUT}
-              />
-            </GlassSurface>
+            <CitySelect
+              name="city"
+              value={city}
+              onChange={setCity}
+              surfaceClassName={FIELD_SURFACE}
+              inputClassName={FIELD_INPUT}
+              icon={
+                <MapPin className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-5 text-[#8A958E] z-10" />
+              }
+            />
 
             <GlassSurface className={FIELD_SURFACE}>
               <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 size-5 text-[#8A958E] z-10" />

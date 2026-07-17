@@ -34,7 +34,7 @@ export function SearchHistory({ brand, popularTags }: SearchHistoryProps) {
         onQueryChange={setQuery}
         onSubmitQuery={handleSubmitQuery}
       />
-      <CategoryPicker brand={brand} />
+      <CategoryPicker />
       <RecentSearches
         items={recentQueries}
         onChange={handleChangeRecentQueries}

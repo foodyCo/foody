@@ -70,10 +70,9 @@ function PostThumb({ post }: { post: any }) {
 export default async function MePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; profileSaved?: string }>;
+  searchParams: Promise<{ profileSaved?: string }>;
 }) {
-  const { tab, profileSaved } = await searchParams;
-  const activeTab = tab === "saved" ? "saved" : "posts";
+  const { profileSaved } = await searchParams;
 
   const session = (await auth()) as any;
   if (!session?.user?.accessToken) {
@@ -83,19 +82,14 @@ export default async function MePage({
   const token = session.user.accessToken;
   let userProfile: any = null;
   let postsResult: any[] = [];
-  let savedResult: any[] = [];
 
   try {
-    const [posts, saved, me] = await Promise.all([
+    const [posts, me] = await Promise.all([
       apiRequest("/posts/my/", { headers: { Authorization: `Bearer ${token}` } }),
-      apiRequest("/posts/saved/", { headers: { Authorization: `Bearer ${token}` } }),
       apiRequest("/users/me/", { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
     ]);
     postsResult = Array.isArray(posts?.results || posts)
       ? (posts?.results || posts).map(mapDjangoPostToDish)
-      : [];
-    savedResult = Array.isArray(saved?.results || saved)
-      ? (saved?.results || saved).map(mapDjangoPostToDish)
       : [];
     userProfile = me;
   } catch (e: any) {
@@ -113,11 +107,9 @@ export default async function MePage({
     following: userProfile?.following_count ?? 0,
   };
 
-  const listToShow = activeTab === "saved" ? savedResult : postsResult;
-
   return (
     <main className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 flex flex-col pt-12.5">
+      <div className="absolute inset-0 flex flex-col pt-2">
         <header className="flex items-center justify-between px-5 pb-3">
           <h1 className="text-[20px] font-extrabold tracking-[-0.3px] text-[#15291C]">
             @{handle}
@@ -138,11 +130,11 @@ export default async function MePage({
             </div>
           )}
 
-          <GlassSurface className="rounded-[26px] border border-white/65 bg-white/45 px-5 py-6">
+          <GlassSurface className="rounded-[26px] border border-white/65 bg-white/45 px-5 py-6 shadow-[0_8px_24px_rgba(20,40,28,0.10),0_2px_6px_rgba(20,40,28,0.06)]">
             <div className="flex flex-col items-center text-center">
-              <Avatar className="size-22 border-2 border-white shadow-[0_10px_28px_rgba(20,40,28,0.18)]">
+              <Avatar className="size-22 border-2 border-[#2ECC71] shadow-[0_10px_28px_rgba(20,40,28,0.18)] after:hidden">
                 {avatar ? <AvatarImage src={avatar} alt={name} /> : null}
-                <AvatarFallback className="bg-[#2ECC71]/30 text-[24px] font-extrabold text-[#15291C]">
+                <AvatarFallback className="bg-white text-[24px] font-extrabold text-[#15291C]">
                   {name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -158,11 +150,9 @@ export default async function MePage({
                 </div>
               )}
 
-              {bio && (
-                <p className="mt-3 max-w-md text-[14px] leading-[1.45] font-medium text-[#5C6B62]">
-                  {bio}
-                </p>
-              )}
+              <p className="mt-3 max-w-md text-[14px] leading-[1.5] font-medium whitespace-pre-line text-[#5C6B62]">
+                {bio || "Пока нет описания"}
+              </p>
 
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                 <Link
@@ -199,40 +189,17 @@ export default async function MePage({
             </div>
           </GlassSurface>
 
-          <div className="mt-5 grid grid-cols-2 rounded-full border border-white/60 bg-white/40 p-1 shadow-[inset_1px_1px_0_rgba(255,255,255,0.7)]">
-            <Link
-              href="/me?tab=posts"
-              prefetch={false}
-              className={
-                "rounded-full py-2 text-center text-[13.5px] font-bold transition-colors " +
-                (activeTab === "posts"
-                  ? "bg-white text-[#15291C] shadow-[0_4px_12px_rgba(20,40,28,0.08)]"
-                  : "text-[#5C6B62]")
-              }
-            >
-              Посты
-            </Link>
-            <Link
-              href="/me?tab=saved"
-              prefetch={false}
-              className={
-                "rounded-full py-2 text-center text-[13.5px] font-bold transition-colors " +
-                (activeTab === "saved"
-                  ? "bg-white text-[#15291C] shadow-[0_4px_12px_rgba(20,40,28,0.08)]"
-                  : "text-[#5C6B62]")
-              }
-            >
-              Сохранённое
-            </Link>
-          </div>
+          <h2 className="mt-6 mb-1 px-1 text-[16px] font-extrabold tracking-[-0.2px] text-[#15291C]">
+            Мои посты
+          </h2>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {listToShow.length === 0 ? (
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {postsResult.length === 0 ? (
               <div className="col-span-full py-10 text-center text-[14px] font-medium text-[#5C6B62]">
-                {activeTab === "saved" ? "Нет сохранённых постов." : "У вас пока нет постов."}
+                У вас пока нет постов.
               </div>
             ) : (
-              listToShow.map((p: any) => <PostThumb key={p.id} post={p} />)
+              postsResult.map((p: any) => <PostThumb key={p.id} post={p} />)
             )}
           </div>
         </section>
