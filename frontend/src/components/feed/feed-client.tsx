@@ -311,7 +311,7 @@ export function FeedClient({
 
         <section
           aria-label="Лента"
-          className="hide-scroll flex-1 snap-y snap-mandatory overflow-y-auto pb-24"
+          className="hide-scroll flex-1 snap-y snap-mandatory overflow-y-auto pb-24 lg:pb-6"
         >
           {posts.length > 0 ? (
             <>

@@ -4,40 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
-import {
-  Bookmark,
-  Plus,
-  Rows3,
-  Search,
-  User,
-  type LucideIcon,
-} from "lucide-react";
 
 import { GlassSurface } from "@/components/feed/glass-surface";
+import { NAV_ITEMS, isNavItemActive } from "@/lib/nav";
 
-export type NavTab = "feed" | "search" | "add" | "saved" | "me";
-
-type TabItem = {
-  id: NavTab;
-  label: string;
-  icon: LucideIcon;
-  primary?: boolean;
-  href?: string;
-};
-
-const TABS: TabItem[] = [
-  { id: "feed", label: "Лента", icon: Rows3, href: "/" },
-  { id: "search", label: "Поиск", icon: Search, href: "/search" },
-  {
-    id: "add",
-    label: "Создать пост",
-    icon: Plus,
-    primary: true,
-    href: "/create",
-  },
-  { id: "saved", label: "Избранное", icon: Bookmark, href: "/saved" },
-  { id: "me", label: "Профиль", icon: User, href: "/me" },
-];
 const POST_CARD_EXPANDED_EVENT = "foody:post-card-expanded";
 
 type BottomTabBarProps = {
@@ -64,17 +34,6 @@ export function BottomTabBar({ brand }: BottomTabBarProps) {
     };
   }, []);
 
-  const isActiveTab = (t: TabItem) => {
-    if (t.href === undefined) return false;
-    if (t.href === "/") return pathname === "/";
-    // /me tab also matches /profile (redirect alias) and /me/edit
-    if (t.id === "me") {
-      return pathname === "/me" || pathname.startsWith("/me/") || pathname === "/profile" || pathname.startsWith("/profile/");
-    }
-
-    return pathname === t.href || pathname.startsWith(`${t.href}/`);
-  };
-
   if (
     isPostCardExpanded ||
     pathname === "/new-review" ||
@@ -87,12 +46,12 @@ export function BottomTabBar({ brand }: BottomTabBarProps) {
   return (
     <nav
       aria-label="Главная навигация"
-      className="absolute right-3.5 bottom-[18px] left-3.5 z-30 h-16 [@media(max-width:430px)_and_(max-height:860px)]:right-3 [@media(max-width:430px)_and_(max-height:860px)]:bottom-3 [@media(max-width:430px)_and_(max-height:860px)]:left-3 [@media(max-width:430px)_and_(max-height:860px)]:h-14"
+      className="absolute right-3.5 bottom-[18px] left-3.5 z-30 h-16 lg:hidden [@media(max-width:430px)_and_(max-height:860px)]:right-3 [@media(max-width:430px)_and_(max-height:860px)]:bottom-3 [@media(max-width:430px)_and_(max-height:860px)]:left-3 [@media(max-width:430px)_and_(max-height:860px)]:h-14"
     >
       <GlassSurface className="h-16 rounded-[28px] [@media(max-width:430px)_and_(max-height:860px)]:h-14 [@media(max-width:430px)_and_(max-height:860px)]:rounded-[24px]">
         <ul className="grid h-16 grid-cols-5 items-center px-2 [@media(max-width:430px)_and_(max-height:860px)]:h-14 [@media(max-width:430px)_and_(max-height:860px)]:px-1.5">
-          {TABS.map((t) => {
-            const isActive = isActiveTab(t);
+          {NAV_ITEMS.map((t) => {
+            const isActive = isNavItemActive(t, pathname);
 
             if (t.primary) {
               const primaryIcon = (

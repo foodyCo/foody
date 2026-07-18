@@ -41,8 +41,8 @@ export default function RootLayout({
           "relative mx-auto h-dvh w-full overflow-hidden font-sans antialiased",
           // нейтральный цвет «полей» по бокам рамки на десктопе
           "bg-[#E7E9E7]",
-          // рамка «телефона» на широких экранах: центр, ограниченная ширина
-          "md:max-w-[480px] md:shadow-[0_0_40px_rgba(0,0,0,0.12)]",
+          // рамка «телефона» на планшете; на десктопе (lg) — во всю ширину (под сайдбар)
+          "md:max-w-[480px] md:shadow-[0_0_40px_rgba(0,0,0,0.12)] lg:max-w-none lg:shadow-none",
           // создаёт containing block для fixed-модалок (портал в body) → держит их в рамке
           "transform-gpu",
         )}
