@@ -53,7 +53,7 @@ import {
 } from "@/components/review/review-screen-shell";
 import { createPost } from "@/app/actions/post";
 
-const MAX_REVIEW_LENGTH = 2500;
+const MAX_REVIEW_LENGTH = 2000;
 const MAX_TAGS = 3;
 const MAX_PHOTOS = 10;
 const REQUIRED_ALERT_MS = 2200;
@@ -70,6 +70,7 @@ type ReviewFieldProps = {
   placeholder: string;
   value: string;
   inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
   onChange: (value: string) => void;
 };
 
@@ -83,6 +84,7 @@ function ReviewField({
   placeholder,
   value,
   inputMode,
+  maxLength,
   onChange,
 }: ReviewFieldProps) {
   return (
@@ -101,6 +103,7 @@ function ReviewField({
           <Input
             value={value}
             inputMode={inputMode}
+            maxLength={maxLength}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
             className={cn(FIELD_INPUT_CLASSES, "min-w-0 flex-1 pr-0")}
@@ -734,6 +737,7 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
               label="Название блюда"
               placeholder="Например: Стейк Рибай"
               value={dish}
+              maxLength={50}
               onChange={setDish}
             />
 

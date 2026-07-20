@@ -184,7 +184,7 @@ export function PhotoCarousel({
   return (
     <div
       data-card-interactive
-      className="relative mx-3 overflow-hidden rounded-[18px] [@media(max-width:430px)_and_(max-height:860px)]:mx-2.5"
+      className="relative mx-3 flex min-h-0 flex-col justify-center overflow-hidden rounded-[18px] [@media(max-width:430px)_and_(max-height:860px)]:mx-2.5"
     >
       <AspectRatio
         ref={photoViewportRef}

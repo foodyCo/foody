@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { apiRequest } from "@/lib/api";
-import { FeedClient } from "@/components/feed/feed-client";
+import { SavedGrid } from "@/components/feed/saved-grid";
 import { mapApiPostToFeedPost, type ApiPost } from "@/lib/feed-adapter";
 import { GlassSurface } from "@/components/feed/glass-surface";
 import { Bookmark } from "lucide-react";
@@ -35,6 +35,13 @@ export default async function SavedPage() {
   const posts = apiPosts.map(mapApiPostToFeedPost);
   const likedIds = apiPosts.filter((p) => p.is_liked).map((p) => p.id);
   const savedIds = apiPosts.filter((p) => p.is_saved).map((p) => p.id);
+  const initialFollowingUsers: string[] = Array.from(
+    new Set(
+      apiPosts
+        .filter((p) => p.user?.is_following)
+        .map((p) => `@${p.user.username}`)
+    )
+  );
 
   let myHandle: string | null = null;
   try {
@@ -72,14 +79,13 @@ export default async function SavedPage() {
   }
 
   return (
-    <FeedClient
+    <SavedGrid
       initialPosts={posts}
       likedIds={likedIds}
       savedIds={savedIds}
       currentUser={myHandle}
       accessToken={token}
-      initialTab="new"
-      title="Избранное"
+      initialFollowingUsers={initialFollowingUsers}
     />
   );
 }

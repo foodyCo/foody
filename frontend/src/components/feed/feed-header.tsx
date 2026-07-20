@@ -23,7 +23,8 @@ export function FeedHeader({ tab, onTabChange }: FeedHeaderProps) {
     <header className="sticky top-0 z-20 px-3.5 pt-2 pb-0 max-[409px]:px-3">
       <GlassSurface className="h-13">
         <div className="flex h-13 items-center gap-2 pr-2 pl-3 max-[409px]:gap-1 max-[409px]:pr-1.5 max-[409px]:pl-2">
-          <div className="flex shrink-0 items-center gap-2 pr-0.5 max-[409px]:gap-1.5 max-[409px]:pr-0">
+          {/* Логотип/иконка — только на мобиле; на десктопе он есть в сайдбаре слева. */}
+          <div className="flex shrink-0 items-center gap-2 pr-0.5 max-[409px]:gap-1.5 max-[409px]:pr-0 lg:hidden">
             <img
               src="/logo.png"
               alt="Foody"

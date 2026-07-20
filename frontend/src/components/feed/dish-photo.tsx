@@ -36,7 +36,10 @@ export function DishPhoto({
         <img
           src={src}
           alt={alt || label || ""}
-          className="absolute inset-0 size-full object-cover"
+          // draggable=false — иначе на ПК зажатие мыши на картинке запускает
+          // нативный drag-and-drop изображения и перехватывает свайп карусели.
+          draggable={false}
+          className="absolute inset-0 size-full select-none object-cover [-webkit-user-drag:none]"
           loading="eager"
         />
         {label && (
