@@ -1,186 +1,181 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LayoutGrid, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 
-import { SearchHeader } from "@/components/search/search-header";
-import { SectionHeader } from "@/components/search/section-header";
+import { CategoryModeToggle } from "@/components/categories/category-mode-toggle";
+import { SearchInputGlass } from "@/components/search/search-input-glass";
 import { RecentSearches } from "@/components/search/recent-searches";
 import { PopularTags } from "@/components/search/popular-tags";
-import { SearchFilterSheet } from "@/components/search/search-filter-sheet";
-import { PRICE_MAX, PRICE_MIN } from "@/components/search/price-range-slider";
 import {
   saveRecentQueries,
   useRecentSearchQueries,
 } from "@/components/search/recent-search-store";
-import type { FoodCategory } from "@/lib/categories";
+import type {
+  CategoryChip,
+  CategoryGroups,
+} from "@/components/search/results-category-control";
 import { cn } from "@/lib/utils";
 
 const PRESS_CLASSES =
   "origin-center transition-transform duration-150 ease-out active:scale-[0.94] [-webkit-tap-highlight-color:transparent]";
 
+type Tab = "dishes" | "cuisines" | "formats";
+
+const TABS: readonly { id: Tab; label: string }[] = [
+  { id: "dishes", label: "Блюда" },
+  { id: "cuisines", label: "Кухни" },
+  { id: "formats", label: "Формат" },
+];
+
 type SearchComposerProps = {
   brand: string;
   popularTags: string[];
-  popularCategories: FoodCategory[];
+  categoryGroups: CategoryGroups;
 };
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Назад"
+      onClick={onClick}
+      className={cn(
+        "grid size-[50px] shrink-0 place-items-center rounded-[18px] border-[0.5px] border-white/70 bg-white/60 text-[#15291C] shadow-[0_4px_14px_rgba(20,40,28,0.08),inset_1px_1px_0_rgba(255,255,255,0.7)] backdrop-blur-[20px] backdrop-saturate-[180%]",
+        PRESS_CLASSES
+      )}
+    >
+      <ArrowLeft size={20} strokeWidth={2.3} />
+    </button>
+  );
+}
 
 export function SearchComposer({
   brand,
   popularTags,
-  popularCategories,
+  categoryGroups,
 }: SearchComposerProps) {
   const router = useRouter();
   const recentQueries = useRecentSearchQueries();
 
+  const [mode, setMode] = useState<"browse" | "input">("browse");
+  const [tab, setTab] = useState<Tab>("dishes");
   const [query, setQuery] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [price, setPrice] = useState({ from: PRICE_MIN, to: PRICE_MAX });
-  const [showFilters, setShowFilters] = useState(false);
 
-  const selectedCategory = useMemo(
-    () => popularCategories.find((c) => c.id === selectedCategoryId) ?? null,
-    [popularCategories, selectedCategoryId]
-  );
-
-  const priceTouched = price.from > PRICE_MIN || price.to < PRICE_MAX;
-  const hasSelection =
-    query.trim().length > 0 || selectedCategory !== null || priceTouched;
-
-  const showResults = useCallback(
-    (overrideQuery?: string) => {
-      // Категория пока представлена текстовым запросом q (заглушка).
-      // Приоритет: явный запрос из строки поиска, иначе выбранная категория.
-      const q = (overrideQuery ?? query).trim() || selectedCategory?.label || "";
-      const params = new URLSearchParams();
-      if (q) params.set("q", q);
-      if (price.from > PRICE_MIN) params.set("price_min", String(price.from));
-      if (price.to < PRICE_MAX) params.set("price_max", String(price.to));
-
-      // Сохраняем текстовый запрос в недавние (категорию — нет).
-      const typed = (overrideQuery ?? query).trim();
-      if (typed) {
-        const next = [typed, ...recentQueries.filter((r) => r !== typed)].slice(0, 12);
-        saveRecentQueries(next);
-      }
-
-      const qs = params.toString();
-      router.push(qs ? `/search/results?${qs}` : "/search/results");
+  const goToResults = useCallback(
+    (rawQuery: string) => {
+      const q = rawQuery.trim();
+      if (!q) return;
+      const next = [q, ...recentQueries.filter((r) => r !== q)].slice(0, 12);
+      saveRecentQueries(next);
+      router.push(`/search/results?q=${encodeURIComponent(q)}`);
     },
-    [price, query, recentQueries, router, selectedCategory]
+    [recentQueries, router]
   );
+
+  const goToCategory = useCallback(
+    (chip: CategoryChip) => {
+      // Категория пока — текстовый запрос q (заглушка).
+      router.push(`/search/results?q=${encodeURIComponent(chip.label)}`);
+    },
+    [router]
+  );
+
+  function leaveSearch() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/");
+  }
+
+  // ---------- Экран поиска (ввод) ----------
+  if (mode === "input") {
+    return (
+      <div className="absolute inset-0 flex flex-col pt-2">
+        <div className="flex items-center gap-2.5 px-[18px] pt-1 pb-2.5">
+          <BackButton onClick={() => setMode("browse")} />
+          <SearchInputGlass
+            query={query}
+            onQueryChange={setQuery}
+            onSubmitQuery={goToResults}
+            placeholder="Найти блюдо"
+            surfaceClassName="min-w-0 flex-1"
+            autoFocus
+          />
+        </div>
+
+        <div className="hide-scroll flex-1 overflow-y-auto pb-24 pt-2">
+          <RecentSearches
+            title="История"
+            items={recentQueries}
+            onChange={saveRecentQueries}
+            onSubmitQuery={goToResults}
+          />
+          <PopularTags
+            tags={popularTags}
+            brand={brand}
+            onSubmitQuery={goToResults}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Браузинг категорий ----------
+  const tiles = categoryGroups[tab];
 
   return (
     <div className="absolute inset-0 flex flex-col pt-2">
-      <div className="hide-scroll flex-1 overflow-y-auto pb-[104px]">
-        <SearchHeader
-          query={query}
-          onQueryChange={setQuery}
-          onSubmitQuery={(q) => showResults(q)}
-          placeholder="Найти блюдо"
-          rightSlot={
-            <button
-              type="button"
-              aria-label="Фильтры"
-              onClick={() => setShowFilters(true)}
-              className={cn(
-                "relative grid size-[50px] shrink-0 place-items-center rounded-[18px] border-[0.5px] border-white/70 bg-white/60 text-[#15291C] shadow-[inset_1px_1px_0_rgba(255,255,255,0.7),0_4px_14px_rgba(20,40,28,0.06)] backdrop-blur-[20px]",
-                PRESS_CLASSES
-              )}
-            >
-              <SlidersHorizontal size={20} strokeWidth={2.1} />
-              {priceTouched && (
-                <span className="absolute top-2 right-2 size-2.5 rounded-full border-2 border-white bg-[#2ECC71]" />
-              )}
-            </button>
-          }
-        />
-
-        {/* Популярные категории — плиткой */}
-        <div className="px-[18px] pt-3.5 pb-1">
-          <SectionHeader
-            icon={<LayoutGrid size={17} strokeWidth={2.25} color={brand} />}
-            title="Популярные категории"
-          />
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {popularCategories.map((category) => {
-              const isActive = category.id === selectedCategoryId;
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() =>
-                    setSelectedCategoryId(isActive ? null : category.id)
-                  }
-                  aria-pressed={isActive}
-                  className={cn(
-                    "inline-flex h-[36px] items-center gap-1.5 rounded-full border-[0.5px] px-3.5 text-[13.5px] font-semibold shadow-[0_4px_12px_rgba(20,40,28,0.09),inset_1px_1px_0_rgba(255,255,255,0.72)] backdrop-blur-[20px] backdrop-saturate-[180%] transition-colors",
-                    isActive
-                      ? "border-transparent bg-[#2ECC71] text-white"
-                      : "border-white/70 bg-neutral-100/69 text-[#15291C]",
-                    PRESS_CLASSES
-                  )}
-                >
-                  <span aria-hidden="true" className="text-[15px] leading-none">
-                    {category.emoji}
-                  </span>
-                  {category.label}
-                </button>
-              );
-            })}
-
-            {/* Все категории → страница Блюда/Кухни/Формат */}
-            <button
-              type="button"
-              onClick={() => router.push("/categories?source=search")}
-              className={cn(
-                "inline-flex h-[36px] items-center gap-1.5 rounded-full border-[1.5px] border-[#2ECC71] bg-white px-3.5 text-[13.5px] font-bold text-[#17913F]",
-                PRESS_CLASSES
-              )}
-            >
-              <LayoutGrid size={15} strokeWidth={2.4} />
-              Все категории
-            </button>
-          </div>
-        </div>
-
-        <RecentSearches
-          items={recentQueries}
-          onChange={saveRecentQueries}
-          onSubmitQuery={(q) => showResults(q)}
-        />
-        <PopularTags
-          tags={popularTags}
-          brand={brand}
-          onSubmitQuery={(q) => showResults(q)}
-        />
-      </div>
-
-      {/* Закреплённая кнопка «Показать» над нижней навигацией */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 px-4">
+      <div className="flex items-center gap-2.5 px-[18px] pt-1 pb-2.5">
+        <BackButton onClick={leaveSearch} />
         <button
           type="button"
-          onClick={() => showResults()}
-          disabled={!hasSelection}
+          onClick={() => setMode("input")}
           className={cn(
-            "pointer-events-auto flex h-[54px] w-full items-center justify-center rounded-[16px] text-[16px] font-extrabold transition-colors",
-            hasSelection
-              ? "bg-[#2ECC71] text-white shadow-[0_10px_24px_rgba(46,204,113,0.36)]"
-              : "cursor-not-allowed border border-[rgba(20,40,28,0.10)] bg-white/70 text-[#AAB4AE] backdrop-blur-[20px]",
+            "flex h-[50px] min-w-0 flex-1 items-center gap-2.5 rounded-[18px] border-[0.5px] border-white/70 bg-white/60 px-3.5 text-left shadow-[0_4px_14px_rgba(20,40,28,0.06),inset_1px_1px_0_rgba(255,255,255,0.7)] backdrop-blur-[20px] backdrop-saturate-[180%]",
             PRESS_CLASSES
           )}
         >
-          Показать
+          <Search size={20} strokeWidth={2} color="#5C6B62" />
+          <span className="text-[15.5px] font-medium text-[#5C6B62]">
+            Искать на Foody
+          </span>
         </button>
       </div>
 
-      <SearchFilterSheet
-        open={showFilters}
-        price={price}
-        onPriceChange={setPrice}
-        onClose={() => setShowFilters(false)}
-      />
+      <div className="px-[18px] pb-3">
+        <CategoryModeToggle
+          aria-label="Тип категории"
+          items={TABS}
+          value={tab}
+          onValueChange={setTab}
+        />
+      </div>
+
+      <div className="hide-scroll flex-1 overflow-y-auto px-[18px] pb-28">
+        <div className="grid grid-cols-4 gap-x-2.5 gap-y-3.5">
+          {tiles.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => goToCategory(chip)}
+              className={cn(
+                "flex min-w-0 flex-col items-center gap-1.5 outline-none",
+                PRESS_CLASSES
+              )}
+            >
+              <span className="grid aspect-square w-full place-items-center rounded-[18px] bg-white text-[24px] shadow-[0_6px_16px_rgba(20,40,28,0.07),inset_0_0_0_1.5px_#2ECC71] max-[380px]:text-[22px]">
+                <span aria-hidden="true">{chip.emoji}</span>
+              </span>
+              <span className="line-clamp-2 w-full text-center text-[10.5px] leading-[1.15] font-bold text-[#15291C] [overflow-wrap:anywhere] max-[380px]:text-[10px]">
+                {chip.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

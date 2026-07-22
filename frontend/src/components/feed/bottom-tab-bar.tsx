@@ -39,7 +39,6 @@ export function BottomTabBar({ brand }: BottomTabBarProps) {
     pathname === "/new-review" ||
     pathname === "/create" ||
     pathname === "/categories" ||
-    pathname === "/search" ||
     pathname === "/search/results"
   ) {
     return null;

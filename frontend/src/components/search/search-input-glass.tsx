@@ -18,6 +18,7 @@ type SearchInputGlassProps = {
   surfaceClassName?: string;
   contentClassName?: string;
   inputClassName?: string;
+  autoFocus?: boolean;
 };
 
 export function SearchInputGlass({
@@ -28,6 +29,7 @@ export function SearchInputGlass({
   surfaceClassName,
   contentClassName,
   inputClassName,
+  autoFocus,
 }: SearchInputGlassProps) {
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key !== "Enter") return;
@@ -61,6 +63,7 @@ export function SearchInputGlass({
         <Search size={20} strokeWidth={2} color="#5C6B62" />
         <Input
           aria-label="Поисковый запрос"
+          autoFocus={autoFocus}
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
