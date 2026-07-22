@@ -1,17 +1,23 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 
+import { ResultsPriceControl } from "./results-price-control";
+import {
+  ResultsCategoryControl,
+  type CategoryGroups,
+} from "./results-category-control";
 import { SearchInputGlass } from "./search-input-glass";
 import { useSearchSubmit } from "./use-search-submit";
 
 type SearchResultsHeaderProps = {
   initialQuery: string;
+  categoryGroups: CategoryGroups;
 };
 
 function canAnimate(shouldReduceMotion: boolean | null) {
@@ -20,6 +26,7 @@ function canAnimate(shouldReduceMotion: boolean | null) {
 
 export function SearchResultsHeader({
   initialQuery,
+  categoryGroups,
 }: SearchResultsHeaderProps) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
@@ -67,6 +74,13 @@ export function SearchResultsHeader({
           inputClassName="text-[15px] md:text-[15px]"
         />
       </div>
+
+      <Suspense fallback={null}>
+        <div className="hide-scroll flex items-center gap-2 overflow-x-auto px-3.5 pt-2.5 pb-1 max-[409px]:px-3">
+          <ResultsPriceControl />
+          <ResultsCategoryControl groups={categoryGroups} />
+        </div>
+      </Suspense>
     </header>
   );
 }

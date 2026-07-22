@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
+import { Wallet } from "lucide-react";
 
 import { CategoryPicker } from "@/components/search/category-picker";
+import { PriceFilter } from "@/components/search/price-filter";
+import { SectionHeader } from "@/components/search/section-header";
 import { PopularTags } from "@/components/search/popular-tags";
 import {
   saveRecentQueries,
@@ -35,6 +38,17 @@ export function SearchHistory({ brand, popularTags }: SearchHistoryProps) {
         onSubmitQuery={handleSubmitQuery}
       />
       <CategoryPicker />
+      <div className="px-[18px] pt-1 pb-3">
+        <SectionHeader
+          icon={<Wallet size={17} strokeWidth={2.25} color={brand} />}
+          title="Цена"
+        />
+        <div className="mt-2 -mx-[18px]">
+          <Suspense fallback={null}>
+            <PriceFilter targetPath="/search/results" className="px-[18px]" />
+          </Suspense>
+        </div>
+      </div>
       <RecentSearches
         items={recentQueries}
         onChange={handleChangeRecentQueries}

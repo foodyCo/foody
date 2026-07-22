@@ -20,21 +20,39 @@ import {
   ReviewScrollArea,
   getReviewChromeStyle,
 } from "@/components/review/review-screen-shell";
+import { CategoryModeToggle } from "@/components/categories/category-mode-toggle";
 import {
   getCuisineCategories,
   getDishCategories,
+  getPlaceCategories,
   getPopularCuisineCategories,
   getPopularDishCategories,
   matchCategoryByName,
   type ApiCategory,
-  type CategoryMode,
   type FoodCategory,
+  type PlaceCategory,
 } from "@/lib/categories";
 import type { Palette } from "@/lib/mock-data";
 import { getSearchResultsHref } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
 type CategorySelectionSource = "review" | "search";
+
+type CategoryTab = "dishes" | "cuisines" | "formats";
+
+const MODE_ORDER: CategoryTab[] = ["dishes", "cuisines", "formats"];
+
+const CATEGORY_TABS: readonly { id: CategoryTab; label: string }[] = [
+  { id: "dishes", label: "Блюда" },
+  { id: "cuisines", label: "Кухни" },
+  { id: "formats", label: "Формат" },
+];
+
+const ALL_SECTION_TITLE: Record<CategoryTab, string> = {
+  dishes: "Все блюда",
+  cuisines: "Все кухни",
+  formats: "Все форматы",
+};
 
 type CategorySelectionScreenProps = {
   brand: string;
@@ -53,6 +71,8 @@ type CategoryData = {
   cuisines: FoodCategory[];
   popularDishes: FoodCategory[];
   popularCuisines: FoodCategory[];
+  // Форматы заведений (фастфуд, десерты, кофе…) — заглушка на фронте.
+  placeCategories: PlaceCategory[];
 };
 
 type LoadState =
@@ -175,10 +195,20 @@ export function CategorySelectionScreen({
 }: CategorySelectionScreenProps) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
-  // Только блюда (выбор кухни убран). mode фиксирован.
-  const [mode] = useState<CategoryMode>("dishes");
-  const [popularSlideDirection] = useState(1);
-  const [hasSwitchedPopularMode] = useState(false);
+  // Режим сетки: Блюда / Кухни / Форматы. Переключатель показываем только в
+  // поиске; в создании отзыва mode фиксирован на "dishes".
+  const [mode, setMode] = useState<CategoryTab>("dishes");
+  const [popularSlideDirection, setPopularSlideDirection] = useState(1);
+  const [hasSwitchedPopularMode, setHasSwitchedPopularMode] = useState(false);
+
+  function handleModeChange(next: CategoryTab) {
+    if (next === mode) return;
+    setPopularSlideDirection(
+      MODE_ORDER.indexOf(next) > MODE_ORDER.indexOf(mode) ? 1 : -1
+    );
+    setHasSwitchedPopularMode(true);
+    setMode(next);
+  }
   const [loadState, setLoadState] = useState<LoadState>({
     status: "loading",
     data: null,
@@ -199,7 +229,13 @@ export function CategorySelectionScreen({
 
       setLoadState({
         status: "success",
-        data: { dishes, cuisines, popularDishes, popularCuisines },
+        data: {
+          dishes,
+          cuisines,
+          popularDishes,
+          popularCuisines,
+          placeCategories: getPlaceCategories(),
+        },
         error: null,
       });
     } catch {
@@ -237,7 +273,9 @@ export function CategorySelectionScreen({
             })
           : await getDishCategories();
 
-        const cuisines = useApi ? [] : await getCuisineCategories();
+        // Кухни — всегда из статического справочника (заглушка), даже если
+        // блюда пришли с бэка: справочника кухонь на беке пока нет.
+        const cuisines = await getCuisineCategories();
         const popularDishes = useApi
           ? dishesFromApi.slice(0, 4)
           : await getPopularDishCategories();
@@ -247,7 +285,13 @@ export function CategorySelectionScreen({
 
         setLoadState({
           status: "success",
-          data: { dishes: dishesFromApi, cuisines, popularDishes, popularCuisines },
+          data: {
+            dishes: dishesFromApi,
+            cuisines,
+            popularDishes,
+            popularCuisines,
+            placeCategories: getPlaceCategories(),
+          },
           error: null,
         });
       } catch {
@@ -270,16 +314,20 @@ export function CategorySelectionScreen({
 
   const currentCategories = useMemo(() => {
     if (loadState.status !== "success") return [];
-
-    return mode === "dishes" ? loadState.data.dishes : loadState.data.cuisines;
+    if (mode === "dishes") return loadState.data.dishes;
+    if (mode === "cuisines") return loadState.data.cuisines;
+    // Форматы: PlaceCategory → FoodCategory (mode влияет только на размер подписи).
+    return loadState.data.placeCategories.map(
+      (category): FoodCategory => ({ ...category, mode: "dishes" })
+    );
   }, [loadState, mode]);
 
   const currentPopularCategories = useMemo(() => {
     if (loadState.status !== "success") return [];
-
-    return mode === "dishes"
-      ? loadState.data.popularDishes
-      : loadState.data.popularCuisines;
+    if (mode === "dishes") return loadState.data.popularDishes;
+    if (mode === "cuisines") return loadState.data.popularCuisines;
+    // У форматов «популярных» нет — секцию не показываем.
+    return [];
   }, [loadState, mode]);
 
   function handleBack() {
@@ -330,7 +378,20 @@ export function CategorySelectionScreen({
             onBack={handleBack}
           />
 
+          {source === "search" && (
+            <div className="mb-6">
+              <CategoryModeToggle
+                aria-label="Тип категории"
+                items={CATEGORY_TABS}
+                value={mode}
+                onValueChange={handleModeChange}
+              />
+            </div>
+          )}
+
           <div className="space-y-7">
+            {(loadState.status !== "success" ||
+              currentPopularCategories.length > 0) && (
             <section>
               <h2 className="mb-3 text-[22px] leading-tight font-semibold tracking-[0px] text-[#15291C] max-[380px]:text-[20px]">
                 Популярные категории
@@ -420,11 +481,12 @@ export function CategorySelectionScreen({
                 </AnimatePresence>
               </div>
             </section>
+            )}
 
             <section>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="text-[22px] leading-tight font-semibold tracking-[0px] text-[#15291C] max-[380px]:text-[20px]">
-                  Все блюда
+                  {ALL_SECTION_TITLE[mode]}
                 </h2>
               </div>
 

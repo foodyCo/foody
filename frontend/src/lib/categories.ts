@@ -97,6 +97,33 @@ export async function getPopularCuisineCategories() {
   return pickCategoriesById(CUISINE_CATEGORIES, POPULAR_CUISINE_CATEGORY_IDS);
 }
 
+/** Категория заведения (тип точки: фастфуд, кафе и т.п.). */
+export type PlaceCategory = {
+  id: string;
+  label: string;
+  emoji: string;
+};
+
+// Заглушка на фронте. TODO: заменить на справочник категорий заведений с бэка.
+const PLACE_CATEGORIES: PlaceCategory[] = [
+  { id: "fastfood", label: "Фастфуд", emoji: "🍟" },
+  { id: "cafe", label: "Кафе", emoji: "☕" },
+  { id: "restaurant", label: "Ресторан", emoji: "🍽️" },
+  { id: "coffee", label: "Кофейня", emoji: "🥐" },
+  { id: "bakery", label: "Пекарня", emoji: "🥖" },
+  { id: "bar", label: "Бар", emoji: "🍺" },
+  { id: "pizzeria", label: "Пиццерия", emoji: "🍕" },
+  { id: "sushi-bar", label: "Суши-бар", emoji: "🍣" },
+  { id: "canteen", label: "Столовая", emoji: "🥘" },
+  { id: "street-food", label: "Стритфуд", emoji: "🌭" },
+  { id: "dessert", label: "Десерты", emoji: "🍰" },
+  { id: "pub", label: "Паб", emoji: "🍻" },
+];
+
+export function getPlaceCategories(): PlaceCategory[] {
+  return PLACE_CATEGORIES.map((category) => ({ ...category }));
+}
+
 /**
  * Match a Django category name (e.g. "Пицца") to a FoodCategory entry.
  * Used to enrich backend category data with emoji/icon metadata.
