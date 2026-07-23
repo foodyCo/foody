@@ -517,7 +517,7 @@ export function PostCard({
   };
 
   return (
-    <div className="flex h-[calc(100%+5.125rem)] min-h-0 snap-start snap-always flex-col px-3.5 pt-2 pb-[5.75rem] [scroll-snap-stop:always] [@media(max-width:430px)_and_(max-height:860px)]:h-[calc(100%+4.25rem)] [@media(max-width:430px)_and_(max-height:860px)]:px-3 [@media(max-width:430px)_and_(max-height:860px)]:pb-[5rem]">
+    <div className="flex h-full min-h-0 snap-start snap-always flex-col px-3.5 pt-2 pb-[0.625rem] [scroll-snap-stop:always] [@media(max-width:430px)_and_(max-height:860px)]:px-3 [@media(max-width:430px)_and_(max-height:860px)]:pb-[0.75rem]">
       <CollapsedPostCardView
         brand={brand}
         engagement={engagement}

@@ -186,6 +186,11 @@ export function PhotoCarousel({
       data-card-interactive
       className="relative mx-3 flex min-h-0 flex-col justify-center overflow-hidden rounded-[18px] [@media(max-width:430px)_and_(max-height:860px)]:mx-2.5"
     >
+      {post.price && (
+        <div className="pointer-events-none absolute top-2.5 right-2.5 z-10 rounded-full bg-black/45 px-2.5 py-1 text-[13px] font-extrabold text-white shadow-[0_4px_14px_rgba(0,0,0,0.28)] backdrop-blur-[8px] tabular-nums">
+          {post.price.replace(/^₽/, "₽ ")}
+        </div>
+      )}
       <AspectRatio
         ref={photoViewportRef}
         ratio={photoRatio}

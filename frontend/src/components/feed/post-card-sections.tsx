@@ -115,54 +115,67 @@ export function ExpandedPostCardView({
   onTagClick,
 }: ExpandedPostCardViewProps) {
   return (
-    <motion.article
-      role="dialog"
-      aria-modal="true"
-      aria-label={post.dish}
-      className={cn(
-        "fixed inset-0 z-50 flex h-[100dvh] flex-col overflow-hidden",
-        "border-0 bg-white/82 text-[#15291C]",
-        "shadow-[0_18px_42px_rgba(20,40,28,0.22),inset_0_1px_0_rgba(255,255,255,0.88)]",
-        "backdrop-blur-[30px] backdrop-saturate-[190%]"
-      )}
-      initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 18, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.985 }}
-      transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <PostCardHeader
-        {...headerActions}
-        {...follow}
-        expanded
-        brand={brand}
-        onBackClick={onBackClick}
-        post={post}
-        shouldReduceMotion={shouldReduceMotion}
+    <>
+      {/* Затемнение фона — только на ПК (на мобиле пост занимает весь фрейм). */}
+      <motion.div
+        aria-hidden="true"
+        onClick={onBackClick}
+        className="fixed inset-0 z-40 hidden bg-[rgba(20,40,28,0.45)] backdrop-blur-[2px] lg:block"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
       />
+      <motion.article
+        role="dialog"
+        aria-modal="true"
+        aria-label={post.dish}
+        className={cn(
+          "fixed inset-0 z-50 flex h-[100dvh] flex-col overflow-hidden",
+          "border-0 bg-white/82 text-[#15291C]",
+          "shadow-[0_18px_42px_rgba(20,40,28,0.22),inset_0_1px_0_rgba(255,255,255,0.88)]",
+          "backdrop-blur-[30px] backdrop-saturate-[190%]",
+          // ПК: не во весь экран, а центрированная карточка.
+          "lg:m-auto lg:h-[min(86vh,860px)] lg:w-[560px] lg:rounded-[28px] lg:border lg:border-black/5"
+        )}
+        initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.985 }}
+        transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {/* Всё листается вместе (шапка/лайки/детали — часть поста, не закреплены),
+            как в ленте/Instagram. */}
+        <div className="hide-scroll min-h-0 flex-1 overflow-y-auto pb-3">
+          <PostCardHeader
+            {...headerActions}
+            {...follow}
+            expanded
+            brand={brand}
+            onBackClick={onBackClick}
+            post={post}
+            shouldReduceMotion={shouldReduceMotion}
+          />
 
-      <div className="hide-scroll min-h-0 flex-1 overflow-y-auto px-3.5 pb-3 [@media(max-width:430px)_and_(max-height:860px)]:px-3">
-        <PhotoCarousel {...photoCarousel} post={post} />
+          <PhotoCarousel {...photoCarousel} post={post} />
 
-        <div className="pt-2.5 [@media(max-width:430px)_and_(max-height:860px)]:pt-1.5">
+          <EngagementBar
+            {...engagement}
+            brand={brand}
+            post={post}
+            shouldReduceMotion={shouldReduceMotion}
+          />
+
           <PostDetails expanded brand={brand} post={post} />
+
+          <PostTags
+            brand={brand}
+            mainTag={mainTag}
+            onTagClick={onTagClick}
+            restTags={restTags}
+            shouldReduceMotion={shouldReduceMotion}
+          />
         </div>
-
-        <PostTags
-          brand={brand}
-          mainTag={mainTag}
-          onTagClick={onTagClick}
-          restTags={restTags}
-          shouldReduceMotion={shouldReduceMotion}
-        />
-      </div>
-
-      <EngagementBar
-        {...engagement}
-        fullscreen
-        brand={brand}
-        post={post}
-        shouldReduceMotion={shouldReduceMotion}
-      />
-    </motion.article>
+      </motion.article>
+    </>
   );
 }
