@@ -2,7 +2,10 @@ import bleach
 from django.db import transaction, IntegrityError
 from django.conf import settings
 from rest_framework import serializers
-from .models import Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, CommentLike, Restaurant, Dish, Category
+from .models import (
+    Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, CommentLike,
+    Restaurant, Dish, Cuisine, Format, Position,
+)
 from users.serializers import UserSerializer, FeedPostAuthorSerializer
 
 # Разрешённые HTML-теги для комментариев: никаких (только plain text)
@@ -42,34 +45,56 @@ class PostImageSerializer(serializers.ModelSerializer):
             return None
         return obj.image.url
 
+
 class PostStatisticsSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostStatistics
         fields = ['likes_count', 'saves_count', 'comments_count', 'rating']
+
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ['id', 'name']
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ['id', 'name']
 
-class RestaurantSerializer(serializers.ModelSerializer):
-    categories = CategorySerializer(many=True, read_only=True)
+# ─── Каталог ─────────────────────────────────────────────────────────────────
 
+class CuisineSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Restaurant
-        fields = ['id', 'name', 'address', 'categories']
+        model = Cuisine
+        fields = ['id', 'name', 'slug', 'emoji', 'is_popular']
+
+
+class FormatSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Format
+        fields = ['id', 'name', 'slug', 'emoji', 'is_popular']
+
 
 class DishSerializer(serializers.ModelSerializer):
-    categories = CategorySerializer(many=True, read_only=True)
+    """Каталожное блюдо с привязанными кухнями и форматами."""
+    cuisines = CuisineSerializer(many=True, read_only=True)
+    formats = FormatSerializer(many=True, read_only=True)
 
     class Meta:
         model = Dish
-        fields = ['id', 'name', 'restaurant', 'categories']
+        fields = ['id', 'name', 'slug', 'emoji', 'is_popular', 'cuisines', 'formats']
+
+
+class RestaurantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Restaurant
+        fields = ['id', 'name', 'address', 'latitude', 'longitude', 'yandex_place_id']
+
+
+class PositionSerializer(serializers.ModelSerializer):
+    dish = DishSerializer(read_only=True)
+
+    class Meta:
+        model = Position
+        fields = ['id', 'name', 'restaurant', 'dish', 'avg_rating', 'reviews_count']
+
 
 class CommentSerializer(serializers.ModelSerializer):
     user_detail = FeedPostAuthorSerializer(source='user', read_only=True)
@@ -110,6 +135,7 @@ class CommentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Текст комментария не может быть пустым.")
         return cleaned
 
+
 class PostListSerializer(serializers.ModelSerializer):
     """
     Сериализатор для выдачи постов в ленте.
@@ -120,11 +146,21 @@ class PostListSerializer(serializers.ModelSerializer):
     statistics = PostStatisticsSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
-    dish_name = serializers.CharField(source='dish.name', read_only=True)
-    # Категории для UI «Категория: Азия». Объединяем категории dish и restaurant
-    # (одна и та же категория может быть привязана к обеим — на фронте OK дедуп
-    # сам через id).
-    categories = serializers.SerializerMethodField()
+    restaurant_address = serializers.CharField(source='restaurant.address', read_only=True)
+    restaurant_latitude = serializers.DecimalField(
+        source='restaurant.latitude', max_digits=9, decimal_places=6, read_only=True
+    )
+    restaurant_longitude = serializers.DecimalField(
+        source='restaurant.longitude', max_digits=9, decimal_places=6, read_only=True
+    )
+    # `dish_name` для обратной совместимости с фронтом = полное название позиции,
+    # которое ввёл пользователь (например «Чизбургер Делюкс»).
+    dish_name = serializers.CharField(source='position.name', read_only=True)
+    # Каталожное блюдо (Бургеры) + производные кухни/форматы (через блюдо).
+    dish = DishSerializer(read_only=True)
+    cuisines = serializers.SerializerMethodField()
+    formats = serializers.SerializerMethodField()
+    position = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
     status = serializers.CharField(read_only=True)
@@ -133,26 +169,38 @@ class PostListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'user', 'restaurant', 'restaurant_name', 'dish', 'dish_name',
+            'id', 'user', 'restaurant', 'restaurant_name', 'restaurant_address',
+            'restaurant_latitude', 'restaurant_longitude',
+            'position', 'dish', 'dish_name', 'cuisines', 'formats',
             'description', 'price', 'created_at', 'images', 'statistics',
-            'tags', 'categories', 'is_liked', 'is_saved', 'status', 'rejection_reason'
+            'tags', 'is_liked', 'is_saved', 'status', 'rejection_reason'
         ]
 
-    def get_categories(self, obj):
-        cats = {}
-        if obj.dish_id:
-            for c in obj.dish.categories.all():
-                cats[c.id] = {'id': c.id, 'name': c.name}
-        if obj.restaurant_id:
-            for c in obj.restaurant.categories.all():
-                cats.setdefault(c.id, {'id': c.id, 'name': c.name})
-        return list(cats.values())
+    def get_cuisines(self, obj):
+        if not obj.dish_id:
+            return []
+        return [{'id': c.id, 'name': c.name, 'emoji': c.emoji} for c in obj.dish.cuisines.all()]
+
+    def get_formats(self, obj):
+        if not obj.dish_id:
+            return []
+        return [{'id': f.id, 'name': f.name, 'emoji': f.emoji} for f in obj.dish.formats.all()]
+
+    def get_position(self, obj):
+        if not obj.position_id:
+            return None
+        return {
+            'id': obj.position.id,
+            'name': obj.position.name,
+            'avg_rating': obj.position.avg_rating,
+            'reviews_count': obj.position.reviews_count,
+        }
 
     def get_is_liked(self, obj):
         user = self.context.get('request').user if self.context.get('request') else None
         if user and user.is_authenticated:
             if hasattr(obj, 'prefetched_likes'):
-                return any(like.user_id == user.id for like in obj.prefetched_likes) 
+                return any(like.user_id == user.id for like in obj.prefetched_likes)
             return obj.likes.filter(user=user).exists()
         return False
 
@@ -160,7 +208,7 @@ class PostListSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user if self.context.get('request') else None
         if user and user.is_authenticated:
             if hasattr(obj, 'prefetched_saves'):
-                return any(save.user_id == user.id for save in obj.prefetched_saves) 
+                return any(save.user_id == user.id for save in obj.prefetched_saves)
             return obj.saves.filter(user=user).exists()
         return False
 
@@ -225,12 +273,16 @@ class PostUpdateSerializer(serializers.ModelSerializer):
 
 class PostCreateSerializer(serializers.ModelSerializer):
     """
-    Сериализатор только для валидации данных при СОЗДАНИИ поста.
+    Валидация и создание поста (новый структурный контракт).
+
+    Пользователь выбирает блюдо из каталога (`dish_id`) и вводит полное название
+    позиции (`position_name`). Заведение — существующее (`restaurant_id`) или новое
+    (`restaurant_name` + опц. адрес/координаты/яндекс-id). Кухни/форматы поста НЕ
+    хранятся — они выводятся через выбранное блюдо на чтении.
     """
     description = serializers.CharField(
         max_length=2000, required=False, allow_blank=True, trim_whitespace=True
     )
-    # Картинки передаются списком файлов (в form-data)
     uploaded_images = serializers.ListField(
         child=serializers.ImageField(allow_empty_file=False, use_url=False),
         write_only=True,
@@ -241,20 +293,37 @@ class PostCreateSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    rating = serializers.FloatField(write_only=True, min_value=0.0, max_value=settings.MAX_REVIEW_RATING, required=True)
+    rating = serializers.FloatField(
+        write_only=True, min_value=0.0, max_value=settings.MAX_REVIEW_RATING, required=True
+    )
 
-    # Новые поля для динамического создания ресторанов и блюд
-    dish_name = serializers.CharField(write_only=True, max_length=50)
+    # Каталожное блюдо + название позиции
+    dish_id = serializers.IntegerField(write_only=True)
+    position_name = serializers.CharField(write_only=True, max_length=255)
+
+    # Заведение: существующее или новое (+ геопривязка к Яндекс-картам)
     restaurant_id = serializers.IntegerField(write_only=True, required=False)
     restaurant_name = serializers.CharField(write_only=True, required=False, max_length=255)
-    restaurant_address = serializers.CharField(write_only=True, required=False, max_length=100)
+    restaurant_address = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, max_length=255
+    )
+    restaurant_lat = serializers.DecimalField(
+        write_only=True, required=False, allow_null=True, max_digits=9, decimal_places=6
+    )
+    restaurant_lng = serializers.DecimalField(
+        write_only=True, required=False, allow_null=True, max_digits=9, decimal_places=6
+    )
+    restaurant_place_id = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, max_length=64
+    )
 
     class Meta:
         model = Post
         fields = [
-            'id', 'dish_name', 'description', 'price', 'uploaded_images',
-            'tags_list', 'rating',
-            'restaurant_id', 'restaurant_name', 'restaurant_address'
+            'id', 'dish_id', 'position_name', 'description', 'price',
+            'uploaded_images', 'tags_list', 'rating',
+            'restaurant_id', 'restaurant_name', 'restaurant_address',
+            'restaurant_lat', 'restaurant_lng', 'restaurant_place_id',
         ]
 
     def validate_price(self, value):
@@ -269,58 +338,107 @@ class PostCreateSerializer(serializers.ModelSerializer):
         for image in value:
             _validate_uploaded_image_size(image)
         return value
-        
+
+    def validate_position_name(self, value):
+        cleaned = value.strip()
+        if not cleaned:
+            raise serializers.ValidationError("Название позиции не может быть пустым.")
+        return cleaned
+
+    def validate_dish_id(self, value):
+        if not Dish.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Блюдо с таким ID не существует.")
+        return value
+
+    # ── Резолверы заведения / позиции ──
+
+    def _resolve_restaurant(self, validated_data):
+        restaurant_id = validated_data.pop('restaurant_id', None)
+        restaurant_name = validated_data.pop('restaurant_name', None)
+        restaurant_address = validated_data.pop('restaurant_address', '') or ''
+        restaurant_lat = validated_data.pop('restaurant_lat', None)
+        restaurant_lng = validated_data.pop('restaurant_lng', None)
+        restaurant_place_id = (validated_data.pop('restaurant_place_id', '') or '').strip()
+
+        if restaurant_id:
+            try:
+                return Restaurant.objects.get(id=restaurant_id)
+            except Restaurant.DoesNotExist:
+                raise serializers.ValidationError({"restaurant_id": "Заведение с таким ID не существует."})
+
+        # Привязка к Яндекс-карте по внешнему id — самый надёжный ключ дедупликации.
+        if restaurant_place_id:
+            defaults = {
+                'name': (restaurant_name or '').strip() or 'Без названия',
+                'address': restaurant_address.strip(),
+                'latitude': restaurant_lat,
+                'longitude': restaurant_lng,
+            }
+            try:
+                with transaction.atomic():
+                    restaurant, _ = Restaurant.objects.get_or_create(
+                        yandex_place_id=restaurant_place_id, defaults=defaults
+                    )
+            except IntegrityError:
+                restaurant = Restaurant.objects.get(yandex_place_id=restaurant_place_id)
+            return restaurant
+
+        if restaurant_name:
+            clean_name = restaurant_name.strip()
+            defaults = {
+                'address': restaurant_address.strip(),
+                'latitude': restaurant_lat,
+                'longitude': restaurant_lng,
+            }
+            try:
+                with transaction.atomic():
+                    restaurant, _ = Restaurant.objects.get_or_create(
+                        name=clean_name, address=restaurant_address.strip(),
+                        defaults=defaults,
+                    )
+            except IntegrityError:
+                restaurant = Restaurant.objects.filter(
+                    name=clean_name, address=restaurant_address.strip()
+                ).first()
+            return restaurant
+
+        raise serializers.ValidationError(
+            {"restaurant": "Передайте restaurant_id, либо restaurant_name/restaurant_place_id."}
+        )
+
+    def _resolve_position(self, restaurant, dish, position_name):
+        """
+        Позиция уникальна в рамках заведения по имени. При гонке двух параллельных
+        POST с одинаковым (restaurant, name) ловим IntegrityError из unique_together.
+        """
+        position = Position.objects.filter(
+            restaurant=restaurant, name__iexact=position_name
+        ).first()
+        if position:
+            return position
+        try:
+            with transaction.atomic():
+                return Position.objects.create(
+                    restaurant=restaurant, dish=dish, name=position_name
+                )
+        except IntegrityError:
+            position = Position.objects.filter(
+                restaurant=restaurant, name__iexact=position_name
+            ).first()
+            if position is None:
+                raise
+            return position
+
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
         tags_list = validated_data.pop('tags_list', [])
         rating = validated_data.pop('rating')
+        dish_id = validated_data.pop('dish_id')
+        position_name = validated_data.pop('position_name')
 
-        # Данные ресторана и блюда
-        restaurant_id = validated_data.pop('restaurant_id', None)
-        restaurant_name = validated_data.pop('restaurant_name', None)
-        restaurant_address = validated_data.pop('restaurant_address', '')
-        dish_name = validated_data.pop('dish_name', None)
-
-        if not dish_name:
-            raise serializers.ValidationError({"dish_name": "Необходимо указать название блюда."})
-
-        restaurant = None
-        if restaurant_id:
-            try:
-                restaurant = Restaurant.objects.get(id=restaurant_id)
-            except Restaurant.DoesNotExist:
-                raise serializers.ValidationError({"restaurant_id": "Ресторан с таким ID не существует."})
-        elif restaurant_name:
-            # Нормализуем имя (strip) перед поиском/созданием, чтобы избежать дублей из-за пробелов
-            clean_restaurant_name = restaurant_name.strip()
-            # Идемпотентное создание: при конкурентных запросах с одинаковым именем
-            # ловим IntegrityError из unique-constraint и делаем fetch повторно.
-            try:
-                with transaction.atomic():
-                    restaurant, _ = Restaurant.objects.get_or_create(
-                        name=clean_restaurant_name,
-                        defaults={'address': restaurant_address}
-                    )
-            except IntegrityError:
-                restaurant = Restaurant.objects.get(name=clean_restaurant_name)
-        else:
-            raise serializers.ValidationError({"restaurant": "Необходимо передать restaurant_id или restaurant_name."})
-
-        # Ищем блюдо без учёта регистра (iexact), сохраняем оригинальный регистр при создании.
-        # При гонке двух параллельных POST с одинаковым (restaurant, name) ловим IntegrityError
-        # из unique_together и делаем повторный fetch.
-        clean_dish_name = dish_name.strip()
-        dish = Dish.objects.filter(restaurant=restaurant, name__iexact=clean_dish_name).first()
-        if not dish:
-            try:
-                with transaction.atomic():
-                    dish = Dish.objects.create(name=clean_dish_name, restaurant=restaurant)
-            except IntegrityError:
-                dish = Dish.objects.filter(
-                    restaurant=restaurant, name__iexact=clean_dish_name
-                ).first()
-                if dish is None:
-                    raise
+        dish = Dish.objects.get(id=dish_id)
+        restaurant = self._resolve_restaurant(validated_data)
+        position = self._resolve_position(restaurant, dish, position_name)
 
         user = self.context['request'].user
 
@@ -330,7 +448,8 @@ class PostCreateSerializer(serializers.ModelSerializer):
             post = Post.objects.create(
                 user=user,
                 restaurant=restaurant,
-                dish=dish,
+                position=position,
+                dish=position.dish,
                 **validated_data
             )
 
@@ -340,7 +459,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
             for tag_name in tags_list:
                 tag_name = tag_name.strip().lower()
                 if tag_name:
-                    # Защита от гонок при создании тегов: то же самое — savepoint + fetch.
+                    # Защита от гонок при создании тегов: savepoint + fetch.
                     try:
                         with transaction.atomic():
                             tag, _ = Tag.objects.get_or_create(name=tag_name)
@@ -355,4 +474,3 @@ class PostCreateSerializer(serializers.ModelSerializer):
             )
 
         return post
-

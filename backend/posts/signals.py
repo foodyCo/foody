@@ -2,8 +2,11 @@ import os
 
 from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
-from django.db.models import F
-from .models import Post, PostImage, PostLike, PostSave, PostStatistics, Comment, Tag, PostTag, RestaurantTag, DishTag
+from django.db.models import F, Avg, Count
+from .models import (
+    Post, PostImage, PostLike, PostSave, PostStatistics, PostReview,
+    Comment, Tag, PostTag, Position,
+)
 
 
 @receiver(post_save, sender=Post)
@@ -83,14 +86,35 @@ def atomic_update_tag_usage(tag_id, increment=True):
         Tag.objects.filter(id=tag_id, usage_count__gt=0).update(usage_count=F('usage_count') - 1)
 
 @receiver(post_save, sender=PostTag)
-@receiver(post_save, sender=RestaurantTag)
-@receiver(post_save, sender=DishTag)
 def on_tag_added(sender, instance, created, **kwargs):
     if created:
         atomic_update_tag_usage(instance.tag_id, increment=True)
 
 @receiver(pre_delete, sender=PostTag)
-@receiver(pre_delete, sender=RestaurantTag)
-@receiver(pre_delete, sender=DishTag)
 def on_tag_removed(sender, instance, **kwargs):
     atomic_update_tag_usage(instance.tag_id, increment=False)
+
+
+# Средняя оценка позиции в заведении: пересчитываем при изменении отзывов.
+def recompute_position_rating(position_id):
+    if not position_id:
+        return
+    agg = PostReview.objects.filter(post__position_id=position_id).aggregate(
+        avg=Avg('rating'), cnt=Count('id')
+    )
+    Position.objects.filter(id=position_id).update(
+        avg_rating=agg['avg'] or 0.0,
+        reviews_count=agg['cnt'] or 0,
+    )
+
+
+@receiver(post_save, sender=PostReview)
+def on_review_saved(sender, instance, **kwargs):
+    position_id = Post.objects.filter(id=instance.post_id).values_list('position_id', flat=True).first()
+    recompute_position_rating(position_id)
+
+
+@receiver(post_delete, sender=PostReview)
+def on_review_deleted(sender, instance, **kwargs):
+    position_id = Post.objects.filter(id=instance.post_id).values_list('position_id', flat=True).first()
+    recompute_position_rating(position_id)

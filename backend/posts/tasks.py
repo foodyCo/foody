@@ -1,11 +1,41 @@
 import logging
 
 from celery import shared_task
-from django.db.models import Avg
+from django.db.models import Avg, Count
 from django.db import transaction
-from .models import PostReview, PostStatistics
+from .models import PostReview, PostStatistics, Position
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task
+def update_position_ratings():
+    """
+    Пересчитывает среднюю оценку и число отзывов для всех позиций
+    (средняя оценка позиции в конкретном заведении).
+    """
+    aggregates = (
+        PostReview.objects
+        .exclude(post__position__isnull=True)
+        .values('post__position')
+        .annotate(avg_rating=Avg('rating'), cnt=Count('id'))
+    )
+
+    positions_to_update = []
+    with transaction.atomic():
+        position_ids = [item['post__position'] for item in aggregates]
+        existing = {p.id: p for p in Position.objects.filter(id__in=position_ids)}
+        for item in aggregates:
+            pos = existing.get(item['post__position'])
+            if pos:
+                pos.avg_rating = item['avg_rating'] or 0.0
+                pos.reviews_count = item['cnt'] or 0
+                positions_to_update.append(pos)
+        if positions_to_update:
+            Position.objects.bulk_update(positions_to_update, ['avg_rating', 'reviews_count'])
+
+    logger.info('update_position_ratings: updated %d positions', len(positions_to_update))
+    return f"Updated {len(positions_to_update)} position ratings."
 
 @shared_task
 def update_post_ratings():

@@ -7,88 +7,147 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from PIL import Image
 
+
 class Tag(models.Model):
+    """Свободный хэштег (пользовательский). Ортогонален каталогу блюд/кухонь/форматов."""
     name = models.CharField(max_length=50, unique=True, verbose_name='Название тега')
     usage_count = models.PositiveIntegerField(default=0, db_index=True, verbose_name='Количество использований')
 
     def __str__(self):
         return self.name
 
-class Category(models.Model):
-    name = models.CharField(max_length=100, unique=True, db_index=True, verbose_name='Название категории')
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Каталог (управляется из админки, глобальный)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Cuisine(models.Model):
+    """Кухня: Американская, Итальянская, Японская… Задаётся админом."""
+    name = models.CharField(max_length=100, unique=True, verbose_name='Название кухни')
+    slug = models.SlugField(max_length=120, unique=True, blank=True, verbose_name='Slug')
+    emoji = models.CharField(max_length=8, blank=True, verbose_name='Эмодзи')
+    is_popular = models.BooleanField(default=False, db_index=True, verbose_name='Популярная')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
 
     class Meta:
-        verbose_name = 'Категория'
-        verbose_name_plural = 'Категории'
-        ordering = ['name']
+        verbose_name = 'Кухня'
+        verbose_name_plural = 'Кухни'
+        ordering = ['order', 'name']
 
     def __str__(self):
         return self.name
 
-class Restaurant(models.Model):
-    name = models.CharField(max_length=255, db_index=True, verbose_name='Название ресторана')
-    address = models.CharField(max_length=100, verbose_name='Адрес')
-    tags = models.ManyToManyField(Tag, through='RestaurantTag', related_name='restaurants', verbose_name='Теги ресторана')
-    categories = models.ManyToManyField('Category', through='RestaurantCategory', related_name='restaurants', blank=True, verbose_name='Категории ресторана')
+
+class Format(models.Model):
+    """Формат заведения/подачи: Фастфуд, Ресторан, Кофейня… Задаётся админом."""
+    name = models.CharField(max_length=100, unique=True, verbose_name='Название формата')
+    slug = models.SlugField(max_length=120, unique=True, blank=True, verbose_name='Slug')
+    emoji = models.CharField(max_length=8, blank=True, verbose_name='Эмодзи')
+    is_popular = models.BooleanField(default=False, db_index=True, verbose_name='Популярный')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
 
     class Meta:
-        verbose_name = 'Ресторан'
-        verbose_name_plural = 'Рестораны'
-        ordering = ['name']
+        verbose_name = 'Формат'
+        verbose_name_plural = 'Форматы'
+        ordering = ['order', 'name']
 
     def __str__(self):
-        return f"{self.name} ({self.address})"
+        return self.name
 
-class RestaurantCategory(models.Model):
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ('restaurant', 'category')
-
-class RestaurantTag(models.Model):
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ('restaurant', 'tag')
-        indexes = [
-            models.Index(fields=['-created_at']),
-        ]
 
 class Dish(models.Model):
-    name = models.CharField(max_length=50, db_index=True, verbose_name='Название блюда')
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='dishes', verbose_name='Ресторан')
-    tags = models.ManyToManyField(Tag, through='DishTag', related_name='dishes', verbose_name='Теги блюда')
-    categories = models.ManyToManyField('Category', through='DishCategory', related_name='dishes', blank=True, verbose_name='Категории блюда')
+    """
+    Блюдо (каталог): Бургеры, Пицца, Суши… Задаётся админом.
+    Привязка блюдо→кухни/форматы настраивается здесь же. При создании поста
+    пользователь выбирает блюдо, а кухни/форматы поста берутся из этой привязки.
+    """
+    name = models.CharField(max_length=100, unique=True, verbose_name='Название блюда')
+    slug = models.SlugField(max_length=120, unique=True, blank=True, verbose_name='Slug')
+    emoji = models.CharField(max_length=8, blank=True, verbose_name='Эмодзи')
+    is_popular = models.BooleanField(default=False, db_index=True, verbose_name='Популярное')
+    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
+    cuisines = models.ManyToManyField(
+        Cuisine, blank=True, related_name='dishes', verbose_name='Кухни'
+    )
+    formats = models.ManyToManyField(
+        Format, blank=True, related_name='dishes', verbose_name='Форматы'
+    )
 
     class Meta:
-        verbose_name = 'Блюдо'
+        verbose_name = 'Блюдо (каталог)'
+        verbose_name_plural = 'Блюда (каталог)'
+        ordering = ['order', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Заведение
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Restaurant(models.Model):
+    """Заведение. Привязано к картам (Яндекс): координаты + внешний id организации."""
+    name = models.CharField(max_length=255, db_index=True, verbose_name='Название заведения')
+    address = models.CharField(max_length=255, blank=True, verbose_name='Адрес')
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True, verbose_name='Широта'
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True, verbose_name='Долгота'
+    )
+    yandex_place_id = models.CharField(
+        max_length=64, blank=True, db_index=True, verbose_name='ID организации в Яндексе'
+    )
+
+    class Meta:
+        verbose_name = 'Заведение'
+        verbose_name_plural = 'Заведения'
+        ordering = ['name']
+        constraints = [
+            # Один yandex_place_id — одно заведение. Пустая строка не участвует
+            # в ограничении (заведения без привязки к карте дублировать можно).
+            models.UniqueConstraint(
+                fields=['yandex_place_id'],
+                condition=~models.Q(yandex_place_id=''),
+                name='uniq_yandex_place',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.address})" if self.address else self.name
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Позиция: конкретное блюдо в конкретном заведении (полное название от юзера)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Position(models.Model):
+    """
+    Позиция — полное название блюда, которое ввёл пользователь при создании поста
+    (например «Чизбургер Делюкс»), в контексте конкретного заведения. К одной позиции
+    привязываются все посты с этим блюдом в этом заведении — это позволяет считать
+    среднюю оценку позиции в заведении.
+    """
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.CASCADE, related_name='positions', verbose_name='Заведение'
+    )
+    dish = models.ForeignKey(
+        Dish, on_delete=models.PROTECT, related_name='positions', verbose_name='Блюдо (каталог)'
+    )
+    name = models.CharField(max_length=255, db_index=True, verbose_name='Название позиции')
+    avg_rating = models.FloatField(default=0.0, verbose_name='Средняя оценка позиции')
+    reviews_count = models.PositiveIntegerField(default=0, verbose_name='Количество отзывов')
+
+    class Meta:
+        verbose_name = 'Позиция'
+        verbose_name_plural = 'Позиции'
         unique_together = ('restaurant', 'name')
-        verbose_name_plural = 'Блюда'
         ordering = ['name']
 
     def __str__(self):
-        return f"{self.name} ({self.restaurant.name})"
+        return f"{self.name} — {self.restaurant.name}"
 
-class DishCategory(models.Model):
-    dish = models.ForeignKey(Dish, on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ('dish', 'category')
-
-class DishTag(models.Model):
-    dish = models.ForeignKey(Dish, on_delete=models.CASCADE)
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ('dish', 'tag')
-        indexes = [
-            models.Index(fields=['-created_at']),
-        ]
 
 class Post(models.Model):
     STATUS_PENDING = 'pending'
@@ -101,8 +160,20 @@ class Post(models.Model):
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='posts')
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts', verbose_name='Ресторан')
-    dish = models.ForeignKey(Dish, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts', verbose_name='Блюдо')
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='posts', verbose_name='Заведение'
+    )
+    position = models.ForeignKey(
+        Position, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='posts', verbose_name='Позиция'
+    )
+    # Денормализация: post.dish == position.dish. Держим на посте, чтобы фильтры
+    # поиска (кухня/формат/блюдо) шли на один join мельче.
+    dish = models.ForeignKey(
+        Dish, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='posts', verbose_name='Блюдо (каталог)'
+    )
 
     description = models.TextField(verbose_name='Текст поста')
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Цена', null=True, blank=True)
@@ -128,6 +199,7 @@ class Post(models.Model):
         verbose_name = 'Пост'
         verbose_name_plural = 'Посты'
 
+
 class PostTag(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
@@ -138,6 +210,7 @@ class PostTag(models.Model):
         indexes = [
             models.Index(fields=['-created_at']),
         ]
+
 
 class PostImage(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='images')
@@ -181,14 +254,16 @@ class PostImage(models.Model):
                 pass  # не падаем на битых/неподдерживаемых файлах
         super().save(*args, **kwargs)
 
+
 class PostStatistics(models.Model):
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='statistics')
-    
+
     rating = models.FloatField(default=0.0, verbose_name='Средняя оценка')
-    
+
     likes_count = models.PositiveIntegerField(default=0, verbose_name='Количество лайков')
     saves_count = models.PositiveIntegerField(default=0, verbose_name='Количество сохранений')
     comments_count = models.PositiveIntegerField(default=0, verbose_name='Количество комментариев')
+
 
 class PostLike(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='likes')
@@ -203,6 +278,7 @@ class PostLike(models.Model):
             models.Index(fields=['-created_at']),
         ]
 
+
 class PostSave(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='saves')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='saved_posts')
@@ -214,16 +290,17 @@ class PostSave(models.Model):
             models.Index(fields=['-created_at']),
         ]
 
+
 class PostReview(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reviews')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='post_reviews')
-    
+
     rating = models.FloatField(
         validators=[MinValueValidator(0.0), MaxValueValidator(settings.MAX_REVIEW_RATING)],
         verbose_name='Оценка',
         default=0.0
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -231,6 +308,7 @@ class PostReview(models.Model):
         indexes = [
             models.Index(fields=['-created_at']),
         ]
+
 
 class Comment(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments', verbose_name='Пост')

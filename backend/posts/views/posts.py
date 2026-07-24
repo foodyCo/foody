@@ -29,9 +29,9 @@ class BasePostViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = PostFilterSet
     search_fields = [
-        'dish__name', 'restaurant__name',
-        'dish__categories__name', 'restaurant__categories__name',
-        'tags__name',  # S11: поиск по тегам
+        'position__name', 'restaurant__name', 'dish__name',
+        'dish__cuisines__name', 'dish__formats__name',
+        'tags__name',  # S11: поиск по тегам-хэштегам
     ]
     ordering_fields = ['created_at', 'statistics__rating', 'statistics__likes_count', 'price']
     ordering = ['-created_at', '-id']  # S7: tie-breaker по id
@@ -46,8 +46,8 @@ class BasePostViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         posts_queryset = Post.objects.select_related(
-            'user', 'statistics', 'restaurant', 'dish'
-        ).prefetch_related('images', 'tags')
+            'user', 'statistics', 'restaurant', 'position', 'dish'
+        ).prefetch_related('images', 'tags', 'dish__cuisines', 'dish__formats')
         if user.is_authenticated:
             posts_queryset = posts_queryset.prefetch_related(
                 Prefetch('likes', queryset=PostLike.objects.filter(user=user), to_attr='prefetched_likes'),
@@ -80,8 +80,8 @@ class BasePostViewSet(viewsets.ModelViewSet):
         user = self.request.user
         # Строим queryset с учётом прав: approved для всех + свои любого статуса
         qs = Post.objects.select_related(
-            'user', 'statistics', 'restaurant', 'dish'
-        ).prefetch_related('images', 'tags')
+            'user', 'statistics', 'restaurant', 'position', 'dish'
+        ).prefetch_related('images', 'tags', 'dish__cuisines', 'dish__formats')
         if user.is_authenticated:
             qs = qs.prefetch_related(
                 Prefetch('likes', queryset=PostLike.objects.filter(user=user), to_attr='prefetched_likes'),

@@ -2,7 +2,7 @@
 Пересчёт Tag.usage_count из реальных M2M-связей.
 
 Нужен после миграций или если signals не успели отработать на исторических данных.
-Считаем: каждый Tag.usage_count = posts + restaurants + dishes, где он привязан.
+Считаем: каждый Tag.usage_count = число постов, где он привязан.
 
 Запуск: docker compose exec backend python manage.py recalc_tag_usage
 """
@@ -18,12 +18,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         tags = Tag.objects.annotate(
             posts_cnt=Count("posts", distinct=True),
-            restaurants_cnt=Count("restaurants", distinct=True),
-            dishes_cnt=Count("dishes", distinct=True),
         )
         updated = 0
         for tag in tags:
-            new_value = tag.posts_cnt + tag.restaurants_cnt + tag.dishes_cnt
+            new_value = tag.posts_cnt
             if tag.usage_count != new_value:
                 Tag.objects.filter(pk=tag.pk).update(usage_count=new_value)
                 self.stdout.write(

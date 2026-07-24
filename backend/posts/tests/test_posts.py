@@ -1,13 +1,18 @@
 import pytest
 from django.urls import reverse
-from posts.models import Post, PostLike, PostSave, PostStatistics, PostReview, Restaurant, Dish, Comment
+from posts.models import (
+    Post, PostLike, PostSave, PostStatistics, PostReview,
+    Restaurant, Dish, Position, Comment,
+)
 from posts.tasks import update_post_ratings
 from users.models import User
 from rest_framework.test import APIClient
 
+
 @pytest.fixture
 def api_client():
     return APIClient()
+
 
 @pytest.fixture
 def auth_client(api_client):
@@ -17,228 +22,232 @@ def auth_client(api_client):
     api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
     return api_client, user
 
+
+def get_dish(name="Бургеры"):
+    """Каталожное блюдо: берём из засеянного каталога или создаём."""
+    return Dish.objects.filter(name=name).first() or Dish.objects.create(name=name)
+
+
+def make_post(user, *, restaurant=None, dish=None, position_name="Позиция",
+              status=Post.STATUS_APPROVED, **kwargs):
+    """Хелпер: создаёт заведение(опц.)+позицию+пост по новой схеме."""
+    restaurant = restaurant or Restaurant.objects.create(name="R", address="A")
+    dish = dish or get_dish()
+    position, _ = Position.objects.get_or_create(
+        restaurant=restaurant, name=position_name, defaults={'dish': dish}
+    )
+    return Post.objects.create(
+        user=user, restaurant=restaurant, position=position, dish=position.dish,
+        status=status, **kwargs
+    )
+
+
 @pytest.mark.django_db
 class TestPostViews:
-    
+
     def test_list_posts_pagination_and_search(self, api_client, auth_client):
         """
         Тест: Получение ленты постов (GET /api/v1/posts/) анонимным пользователем и проверка поиска.
-        Проверяет: Доступность на чтение без токена, базовая структура ответа с пагинацией (наличие 'next', 'results'), работу ?search=.
+        Проверяет: чтение без токена, структуру ответа с пагинацией, работу ?search=.
         """
         _, user = auth_client
         res = Restaurant.objects.create(name="Italiano", address="Rome")
-        d1 = Dish.objects.create(name="Pizza Margherita", restaurant=res)
-        d2 = Dish.objects.create(name="Pasta Carbonara", restaurant=res)
-        
-        Post.objects.create(user=user, dish=d1, description="Tidy", price="100.00", status=Post.STATUS_APPROVED)
-        Post.objects.create(user=user, dish=d2, description="Creamy", price="150.00", status=Post.STATUS_APPROVED)
-        
-        # Получение ленты
+        make_post(user, restaurant=res, dish=get_dish("Пицца"),
+                  position_name="Pizza Margherita", description="Tidy", price="100.00")
+        make_post(user, restaurant=res, dish=get_dish("Паста"),
+                  position_name="Pasta Carbonara", description="Creamy", price="150.00")
+
         url = reverse('post-list')
         response = api_client.get(url)  # Without auth string
         assert response.status_code == 200
-        assert 'next' in response.data # CursorPagination has 'next' instead of 'count'
+        assert 'next' in response.data
         assert len(response.data['results']) == 2
-        
-        # Поиск по названию
+
+        # Поиск по названию позиции
         response = api_client.get(f"{url}?search=Pizza")
         assert response.status_code == 200
         assert len(response.data['results']) == 1
         assert response.data['results'][0]['dish_name'] == "Pizza Margherita"
-        assert 'statistics' in response.data['results'][0] # Check nested serializer presence
+        assert 'statistics' in response.data['results'][0]
 
-    def test_cursor_pagination_navigation(self, api_client, auth_client):
+    def test_filter_by_cuisine_format_dish(self, api_client, auth_client):
         """
-        Тест: Навигация по страницам с помощью CursorPagination.
-        Проверяет: Если в базе больше постов, чем page_size (20), лента корректно разбивается на страницы. Запрос по ссылке 'next' возвращает следующие посты, а не дубликаты.
+        Ключевая фича: пост, созданный с блюдом «Бургеры», находится по кухне
+        «Американская» и формату «Фастфуд» (через привязку каталога), а также по dish_id.
         """
         _, user = auth_client
-        res = Restaurant.objects.create(name="Pagination Res", address="Addr")
-        # Создаем 25 постов (лимит страницы 20)
-        posts = []
-        for i in range(25):
-            d = Dish.objects.create(name=f"Dish {i}", restaurant=res)
-            posts.append(Post(user=user, dish=d, status=Post.STATUS_APPROVED))
-            
-        Post.objects.bulk_create(posts)
-        
+        burgers = get_dish("Бургеры")          # → Американская / Фастфуд (из сида)
+        american = burgers.cuisines.get(name="Американская")
+        fastfood = burgers.formats.get(name="Фастфуд")
+
+        res = Restaurant.objects.create(name="Burger Place", address="NYC")
+        make_post(user, restaurant=res, dish=burgers, position_name="Чизбургер Делюкс")
+        make_post(user, restaurant=res, dish=get_dish("Паста"), position_name="Карбонара")
+
         url = reverse('post-list')
-        
-        # Страница 1
+
+        r_cuisine = api_client.get(f"{url}?cuisine_id={american.id}")
+        assert r_cuisine.status_code == 200
+        assert len(r_cuisine.data['results']) == 1
+        assert r_cuisine.data['results'][0]['dish_name'] == "Чизбургер Делюкс"
+
+        r_format = api_client.get(f"{url}?format_id={fastfood.id}")
+        assert len(r_format.data['results']) == 1
+        assert r_format.data['results'][0]['dish_name'] == "Чизбургер Делюкс"
+
+        r_dish = api_client.get(f"{url}?dish_id={burgers.id}")
+        assert len(r_dish.data['results']) == 1
+
+        # Кухни/форматы отдаются в посте (выводятся через блюдо)
+        cuisines = [c['name'] for c in r_cuisine.data['results'][0]['cuisines']]
+        assert "Американская" in cuisines
+
+    def test_cursor_pagination_navigation(self, api_client, auth_client):
+        _, user = auth_client
+        res = Restaurant.objects.create(name="Pagination Res", address="Addr")
+        for i in range(25):
+            make_post(user, restaurant=res, position_name=f"Позиция {i}")
+
+        url = reverse('post-list')
         response_page1 = api_client.get(url)
         assert response_page1.status_code == 200
         assert len(response_page1.data['results']) == 20
-        assert response_page1.data['next'] is not None # Ссылка на следующую страницу обязана быть
-        
-        # Достаем cursor URL из ответа (DRF присылает абсолютный URL, но тест-клиенту нужен относительный запроса)
+        assert response_page1.data['next'] is not None
+
         next_url = response_page1.data['next']
-        # Страница 2
         response_page2 = api_client.get(next_url)
         assert response_page2.status_code == 200
-        assert len(response_page2.data['results']) == 5 # Оставшиеся 5 постов
-        assert response_page2.data['next'] is None # Дальше постов нет
+        assert len(response_page2.data['results']) == 5
+        assert response_page2.data['next'] is None
 
     def test_create_post_requires_auth(self, api_client):
-        """
-        Тест: Попытка создания поста анонимным пользователем.
-        Проверяет: Неавторизованный POST запрос на API постов блокируется статусом 401 Unauthorized.
-        """
         url = reverse('post-list')
         response = api_client.post(url, {
-            "dish_name": "Test",
+            "dish_id": 1,
+            "position_name": "Test",
             "description": "Test",
             "rating": 5
         })
         assert response.status_code == 401
-        
-    def test_create_post_existing_restaurant_new_dish(self, auth_client):
-        """
-        TDD Тест 1: Ресторан есть в БД, а блюда нет.
-        Передаем restaurant_id и dish_name. Должно создаться новое блюдо для этого ресторана.
-        """
+
+    def test_create_post_existing_restaurant_new_position(self, auth_client):
+        """Заведение есть, позиции нет: передаём restaurant_id + dish_id + position_name."""
         client, user = auth_client
         res = Restaurant.objects.create(name="Existing Res", address="Test Addr")
+        dish = get_dish("Бургеры")
         url = reverse('post-list')
-        
+
         data = {
             "restaurant_id": res.id,
-            "dish_name": "New Awesome Dish",
+            "dish_id": dish.id,
+            "position_name": "New Awesome Position",
             "description": "Tasty",
             "rating": 9.0,
         }
-        
         response = client.post(url, data)
         assert response.status_code == 201
-        
-        # Проверяем БД
+
         assert Post.objects.count() == 1
         post = Post.objects.first()
         assert post.restaurant == res
-        
-        # Блюдо должно появиться; CR2-фикс: имя сохраняется в исходном регистре
-        assert Dish.objects.filter(name="New Awesome Dish", restaurant=res).exists()
-        dish = Dish.objects.get(name="New Awesome Dish", restaurant=res)
         assert post.dish == dish
+        assert Position.objects.filter(name="New Awesome Position", restaurant=res).exists()
+        assert post.position.name == "New Awesome Position"
 
-    def test_create_post_existing_restaurant_existing_dish(self, auth_client):
-        """
-        TDD Тест 2: Блюдо и ресторан уже есть в БД (разные юзеры об одном и том же).
-        Блюдо не должно дублироваться.
-        """
+    def test_create_post_existing_position_dedup(self, auth_client):
+        """Позиция уже есть (тот же restaurant+имя без учёта регистра/пробелов) — не дублируется."""
         client, user1 = auth_client
         res = Restaurant.objects.create(name="Old Res", address="Test Addr 2")
-        Dish.objects.create(name="old dish", restaurant=res)
-        
+        dish = get_dish("Бургеры")
+        Position.objects.create(restaurant=res, dish=dish, name="old position")
+
         url = reverse('post-list')
         data = {
             "restaurant_id": res.id,
-            "dish_name": " Old Dish ", # Специально с пробелами и разным регистром
+            "dish_id": dish.id,
+            "position_name": " Old Position ",  # пробелы и регистр
             "description": "Tasty",
             "rating": 9.0,
         }
-        
         response = client.post(url, data)
         assert response.status_code == 201
-        
-        # Проверяем БД на дубликаты блюд
-        assert Dish.objects.filter(name="old dish").count() == 1
-        post = Post.objects.first()
-        assert post.dish.name == "old dish"
 
-    def test_create_post_new_restaurant_and_dish(self, auth_client):
-        """
-        TDD Тест 3: Ресторана нет в БД, блюда нет.
-        Передаем имена ресторана, адреса и блюда.
-        """
+        assert Position.objects.filter(restaurant=res).count() == 1
+        post = Post.objects.first()
+        assert post.position.name == "old position"
+
+    def test_create_post_new_restaurant_with_geo(self, auth_client):
+        """Заведения нет: создаём по имени + адрес + координаты + yandex_place_id."""
         client, user = auth_client
+        dish = get_dish("Бургеры")
         url = reverse('post-list')
-        
+
         data = {
             "restaurant_name": "Brand New Rest",
             "restaurant_address": "New York",
-            "dish_name": "Fresh Burger",
+            "restaurant_lat": "40.712776",
+            "restaurant_lng": "-74.005974",
+            "restaurant_place_id": "yandex-123",
+            "dish_id": dish.id,
+            "position_name": "Fresh Burger",
             "description": "Tasty",
             "rating": 9.0,
         }
-        
         response = client.post(url, data)
         assert response.status_code == 201
-        
-        # Проверяем, что ресторан и блюдо создались
+
         assert Restaurant.objects.filter(name="Brand New Rest").exists()
         res = Restaurant.objects.get(name="Brand New Rest")
         assert res.address == "New York"
-        
-        # CR2-фикс: имя сохраняется в исходном регистре
-        assert Dish.objects.filter(name="Fresh Burger", restaurant=res).exists()
-        
+        assert str(res.latitude) == "40.712776"
+        assert res.yandex_place_id == "yandex-123"
+        assert Position.objects.filter(name="Fresh Burger", restaurant=res).exists()
         post = Post.objects.first()
         assert post.restaurant == res
 
     def test_create_post_missing_data(self, auth_client):
-        """
-        TDD Тест 4: Отправка без ресторана или без блюда (400)
-        """
         client, _ = auth_client
+        dish = get_dish("Бургеры")
         url = reverse('post-list')
-        
-        # 1. Нет ни restaurant_id, ни restaurant_name
-        data1 = {
-            "dish_name": "Burger",
-            "description": "Tasty", "rating": 9.0
-        }
+
+        # 1. Нет ни restaurant_id, ни restaurant_name/place_id
+        data1 = {"dish_id": dish.id, "position_name": "Burger", "description": "Tasty", "rating": 9.0}
         res1 = client.post(url, data1)
         assert res1.status_code == 400
         assert "restaurant" in str(res1.data)
 
-        # 2. Нет dish_name
+        # 2. Нет dish_id
         res = Restaurant.objects.create(name="Res", address="Addr")
-        data2 = {
-            "restaurant_id": res.id,
-            "description": "Tasty", "rating": 9.0
-        }
+        data2 = {"restaurant_id": res.id, "position_name": "X", "description": "Tasty", "rating": 9.0}
         res2 = client.post(url, data2)
         assert res2.status_code == 400
-        assert "dish_name" in res2.data
-        
+        assert "dish_id" in res2.data
+
     def test_like_post_toggles(self, auth_client):
-        """
-        Тест: Работа механизма лайков (Toggle-режим: добавить/убрать лайк одним endpoint'ом).
-        Проверяет: Первый вызов POST-запроса создает лайк (liked: True), повторный вызов удаляет его (liked: False).
-        """
         client, user = auth_client
-        res = Restaurant.objects.create(name="Test Res", address="Test Addr")
-        dish = Dish.objects.create(name="Pizza", restaurant=res)
-        post = Post.objects.create(user=user, dish=dish, description="Tidy", status=Post.STATUS_APPROVED)
+        post = make_post(user, position_name="Pizza")
 
         url = reverse('post-like', kwargs={'pk': post.id})
-        
-        # Ставим лайк
+
         response = client.post(url)
         assert response.status_code == 200
         assert response.data['liked'] is True
         assert PostLike.objects.filter(post=post, user=user).exists()
-        
-        # Убираем лайк (Toggle)
+
         response = client.post(url)
         assert response.status_code == 200
         assert response.data['liked'] is False
         assert not PostLike.objects.filter(post=post, user=user).exists()
 
     def test_post_creation_returns_tags_and_flags(self, auth_client):
-        """
-        Тест: Интеграционная проверка получения собственных постов со связями.
-        Проверяет: Пост, который мы создали, лайкнули и сохранили, будет возвращаться в ленте 
-        со сгенерированными тегами массивом, а флаги is_liked и is_saved будут True.
-        """
         client, user = auth_client
-        
-        # 1. Создаем пост с тегами
+
         res_obj = Restaurant.objects.create(name="Sushi Bar", address="Tokyo")
-        dish_obj = Dish.objects.create(name="Premium Sushi", restaurant=res_obj)
+        dish = get_dish("Суши и роллы")
         data = {
             "restaurant_id": res_obj.id,
-            "dish_name": dish_obj.name,
+            "dish_id": dish.id,
+            "position_name": "Premium Sushi",
             "description": "Amazing",
             "price": "1000.00",
             "rating": 9.0,
@@ -248,140 +257,112 @@ class TestPostViews:
         assert res_create.status_code == 201
         post_id = res_create.data['id']
 
-        # Одобряем пост вручную (обходим модерацию в тесте)
         Post.objects.filter(id=post_id).update(status=Post.STATUS_APPROVED)
 
-        # 2. Ставим лайк и сохраняем в избранное
         client.post(reverse('post-like', kwargs={'pk': post_id}))
         client.post(reverse('post-save-post', kwargs={'pk': post_id}))
 
-        # 3. Запрашиваем ленту
         res_list = client.get(reverse('post-list'))
         assert res_list.status_code == 200
-
         post_in_feed = res_list.data['results'][0]
-        
-        # 4. Проверяем теги
+
         assert len(post_in_feed['tags']) == 3
         tags_names = [t['name'] for t in post_in_feed['tags']]
         assert "sushi" in tags_names
         assert "premium" in tags_names
-        
-        # 5. Проверяем флаги
+
         assert post_in_feed['is_liked'] is True
         assert post_in_feed['is_saved'] is True
-        
+
     def test_user_feed_endpoints(self, auth_client):
-        """
-        Тест: Кастомные экшены ленты (/my/, /saved/, /user_posts/).
-        Проверяет: Каждый экшен возвращает правильную выборку (только свои посты, 
-        только сохраненные посты, посты конкретного пользователя), и использует CursorPagination.
-        """
         client, user1 = auth_client
         user2 = User.objects.create_user(username="u2", email="u2@mail.com", password="pwd")
 
         res = Restaurant.objects.create(name="Food Park", address="Central")
-        d1 = Dish.objects.create(name="P1", restaurant=res)
-        d2 = Dish.objects.create(name="P2", restaurant=res)
 
         client2 = client.__class__()
         auth_res = client2.post(reverse('token_obtain_pair'), {"email": "u2@mail.com", "password": "pwd"})
         client2.credentials(HTTP_AUTHORIZATION=f"Bearer {auth_res.data['access']}")
-        
-        p1 = Post.objects.create(user=user1, dish=d1, status=Post.STATUS_APPROVED)
-        p2 = Post.objects.create(user=user2, dish=d2, status=Post.STATUS_APPROVED)
-        
-        # user1 saves p2
+
+        p1 = make_post(user1, restaurant=res, position_name="P1")
+        p2 = make_post(user2, restaurant=res, position_name="P2")
+
         client.post(reverse('post-save-post', kwargs={'pk': p2.id}))
-        
-        # 1. /my/
+
         res_my = client.get(reverse('post-my'))
         assert res_my.status_code == 200
-        assert len(res_my.data['results']) == 1  # Теперь с пагинацией
+        assert len(res_my.data['results']) == 1
         assert res_my.data['results'][0]['id'] == p1.id
-        
-        # 2. /saved/
+
         res_saved = client.get(reverse('post-saved'))
         assert res_saved.status_code == 200
-        assert len(res_saved.data['results']) == 1 # Теперь с пагинацией
+        assert len(res_saved.data['results']) == 1
         assert res_saved.data['results'][0]['id'] == p2.id
-        
-        # 3. /user_posts/?user_id=
+
         res_user = client.get(f"{reverse('post-user-posts')}?user_id={user2.id}")
         assert res_user.status_code == 200
-        assert len(res_user.data['results']) == 1 # Теперь с пагинацией
+        assert len(res_user.data['results']) == 1
         assert res_user.data['results'][0]['id'] == p2.id
 
     def test_user_posts_negative(self, auth_client):
-        """
-        Тест: Ошибочные и нежелательные сценарии для профильных лент.
-        Проверяет: Вызов /user_posts/ без обязательного ?user_id_ возвращает 400 Bad Request. 
-        Обращение к /my/ без авторизации возвращает 401.
-        """
         client, user = auth_client
-        
-        # Без параметра user_id
+
         res_user_missing = client.get(reverse('post-user-posts'))
         assert res_user_missing.status_code == 400
         assert "error" in res_user_missing.data
-        
-        # Без авторизации на my_posts
+
         client.logout()
         res_my_unauth = client.get(reverse('post-my'))
         assert res_my_unauth.status_code == 401
 
     def test_post_statistics_celery_task(self, auth_client):
-        """
-        Тест: Асинхронное обновление рейтинга поста.
-        Проверяет: Работу логики суммирования оценок вкуса, внешнего вида и сытности от отзывов разных пользователей
-        и сохранения финальных средних значений в модель PostStatistics.
-        """
         client, user1 = auth_client
-        
         user2 = User.objects.create_user(username="u2", email="u2@mail.com", password="pwd")
         user3 = User.objects.create_user(username="u3", email="u3@mail.com", password="pwd")
-        
-        res = Restaurant.objects.create(name="Steak House", address="Main St")
-        dish = Dish.objects.create(name="Steak", restaurant=res)
-        post = Post.objects.create(user=user1, dish=dish, description="Juicy", status=Post.STATUS_APPROVED)
-        # Initialize stats, this usually happens on post creation implicitly if we use the API, but here we bypassed it.
-        # So we manually create the reviews to mimic API behavior:
+
+        post = make_post(user1, position_name="Steak")
         PostReview.objects.create(post=post, user=user1, rating=10)
         PostReview.objects.create(post=post, user=user2, rating=6)
         PostReview.objects.create(post=post, user=user3, rating=8)
 
-        # Вызываем Celery задачу напрямую
         update_post_ratings()
 
         stats = PostStatistics.objects.get(post=post)
-        # (10 + 6 + 8) / 3 = 8.0
         assert stats.rating == pytest.approx(8.0)
 
+    def test_position_avg_rating_updates(self, auth_client):
+        """Средняя оценка позиции пересчитывается сигналом при добавлении отзывов."""
+        client, user1 = auth_client
+        user2 = User.objects.create_user(username="u2", email="u2@mail.com", password="pwd")
+        res = Restaurant.objects.create(name="Steak House", address="Main St")
+        dish = get_dish("Стейки")
+
+        p1 = make_post(user1, restaurant=res, dish=dish, position_name="Рибай")
+        p2 = make_post(user2, restaurant=res, dish=dish, position_name="Рибай")
+        assert p1.position_id == p2.position_id  # одна позиция в заведении
+
+        PostReview.objects.create(post=p1, user=user1, rating=8)
+        PostReview.objects.create(post=p2, user=user2, rating=10)
+
+        p1.position.refresh_from_db()
+        assert p1.position.avg_rating == pytest.approx(9.0)
+        assert p1.position.reviews_count == 2
+
     def test_post_comments_endpoint(self, auth_client):
-        """
-        Тест: Endpoint добавления и чтения комментариев (/api/v1/posts/<id>/comments/).
-        Проверяет: GET пустой список, POST создает коммент с привязкой к юзеру и посту, 
-        последующий GET возвращает пагинированный массив с созданным комментарием.
-        """
         client, user = auth_client
-        res = Restaurant.objects.create(name="Bakery", address="Corner")
-        dish = Dish.objects.create(name="Cake", restaurant=res)
-        post = Post.objects.create(user=user, dish=dish, status=Post.STATUS_APPROVED)
-        
+        post = make_post(user, position_name="Cake")
+
         url = reverse('post-comments', kwargs={'pk': post.id})
-        
-        # Чтение (пустой список)
+
         res_get = client.get(url)
         assert res_get.status_code == 200
         assert len(res_get.data['results']) == 0
-        
-        # Создание комментария
+
         res_post = client.post(url, {"text": "Very tasty!"})
         assert res_post.status_code == 201
         assert res_post.data['text'] == "Very tasty!"
         assert res_post.data['user_detail']['username'] == user.username
-        
-        # Чтение (1 комментарий)
+
         res_get_after = client.get(url)
         assert len(res_get_after.data['results']) == 1
         assert res_get_after.data['results'][0]['text'] == "Very tasty!"
@@ -393,9 +374,7 @@ class TestDeleteComment:
     @pytest.fixture
     def setup(self, auth_client):
         client, user = auth_client
-        res = Restaurant.objects.create(name="R", address="A")
-        dish = Dish.objects.create(name="D", restaurant=res)
-        post = Post.objects.create(user=user, dish=dish, status=Post.STATUS_APPROVED)
+        post = make_post(user, position_name="D")
         PostStatistics.objects.get_or_create(post=post)
         comment = Comment.objects.create(post=post, user=user, text="My comment")
         return client, user, post, comment
@@ -443,7 +422,6 @@ class TestDeleteComment:
         assert response.status_code == 401
 
     def test_comments_count_decremented_after_delete(self, setup):
-        """После удаления комментария сигнал уменьшает comments_count."""
         client, user, post, comment = setup
         PostStatistics.objects.filter(post=post).update(comments_count=1)
         url = reverse('post-delete-comment', kwargs={'pk': post.pk, 'comment_pk': comment.pk})
@@ -461,8 +439,7 @@ class TestPriceFilter:
         res = Restaurant.objects.create(name="Price Res", address="Addr")
         prices = [100, 300, 500, 700, None]
         for i, price in enumerate(prices):
-            dish = Dish.objects.create(name=f"Dish {i}", restaurant=res)
-            Post.objects.create(user=user, dish=dish, description="d", price=price, status=Post.STATUS_APPROVED)
+            make_post(user, restaurant=res, position_name=f"Позиция {i}", description="d", price=price)
         return auth_client
 
     def test_price_min(self, api_client, posts_with_prices):
@@ -471,7 +448,7 @@ class TestPriceFilter:
         assert response.status_code == 200
         prices = [p['price'] for p in response.data['results']]
         assert all(float(p) >= 400 for p in prices)
-        assert len(prices) == 2  # 500, 700
+        assert len(prices) == 2
 
     def test_price_max(self, api_client, posts_with_prices):
         url = reverse('post-list')
@@ -479,7 +456,7 @@ class TestPriceFilter:
         assert response.status_code == 200
         prices = [p['price'] for p in response.data['results']]
         assert all(float(p) <= 400 for p in prices)
-        assert len(prices) == 2  # 100, 300
+        assert len(prices) == 2
 
     def test_price_range(self, api_client, posts_with_prices):
         url = reverse('post-list')
@@ -487,10 +464,9 @@ class TestPriceFilter:
         assert response.status_code == 200
         prices = [p['price'] for p in response.data['results']]
         assert all(200 <= float(p) <= 600 for p in prices)
-        assert len(prices) == 2  # 300, 500
+        assert len(prices) == 2
 
     def test_price_min_zero(self, api_client, posts_with_prices):
-        """price_min=0 не должен фильтровать — 0 это валидное значение."""
         url = reverse('post-list')
         response = api_client.get(f"{url}?price_min=0")
         assert response.status_code == 200

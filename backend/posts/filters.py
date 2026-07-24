@@ -1,20 +1,29 @@
 import django_filters
-from django.db.models import Q
 from .models import Post
 
 
 class PostFilterSet(django_filters.FilterSet):
     """
     FilterSet для постов. Поддерживает фильтрацию по:
-    - тегам (tag_id — числовой, можно несколько через запятую; tag_name — точное совпадение)
-    - автору (author или user_id)
-    - ресторану (restaurant_id)
-    - категории (category_id — ищет по dish.categories и restaurant.categories)
-    - городу / адресу (city — icontains)
+    - блюду (dish_id — каталожное блюдо, можно несколько через запятую)
+    - кухне (cuisine_id — через блюдо: dish.cuisines)
+    - формату (format_id — через блюдо: dish.formats)
+    - тегам-хэштегам (tag_id — числовой; tag_name — точное совпадение)
+    - автору (author / user_id)
+    - заведению (restaurant_id) и городу/адресу (city — icontains)
     - цене (price_min / price_max)
     """
 
-    # ?tag_id=1 или ?tag_id=1,2,3  — OR-фильтрация по нескольким тегам
+    # ?dish_id=1 или ?dish_id=1,2,3 — OR-фильтрация по каталожным блюдам
+    dish_id = django_filters.BaseInFilter(field_name='dish_id', lookup_expr='in')
+
+    # ?cuisine_id=5 или ?cuisine_id=5,6 — через выбранное блюдо
+    cuisine_id = django_filters.BaseInFilter(field_name='dish__cuisines__id', lookup_expr='in')
+
+    # ?format_id=2 — через выбранное блюдо
+    format_id = django_filters.BaseInFilter(field_name='dish__formats__id', lookup_expr='in')
+
+    # ?tag_id=1 или ?tag_id=1,2,3 — OR-фильтрация по нескольким тегам
     tag_id = django_filters.BaseInFilter(field_name='tags__id', lookup_expr='in')
 
     # ?tags=1 — алиас для обратной совместимости (одиночный тег)
@@ -28,13 +37,10 @@ class PostFilterSet(django_filters.FilterSet):
     user_id = django_filters.NumberFilter(field_name='user_id')
     user = django_filters.NumberFilter(field_name='user_id')
 
-    # ?restaurant_id=1 — по ресторану
+    # ?restaurant_id=1 — по заведению
     restaurant_id = django_filters.NumberFilter(field_name='restaurant_id')
 
-    # ?category_id=5 — ищет по dish.categories ИЛИ restaurant.categories
-    category_id = django_filters.NumberFilter(method='filter_by_category')
-
-    # ?city=Москва — по адресу ресторана (icontains)
+    # ?city=Москва — по адресу заведения (icontains)
     city = django_filters.CharFilter(field_name='restaurant__address', lookup_expr='icontains')
 
     # ?price_min=100&price_max=500 — диапазон цен.
@@ -49,14 +55,17 @@ class PostFilterSet(django_filters.FilterSet):
     class Meta:
         model = Post
         fields = [
+            'dish_id', 'cuisine_id', 'format_id',
             'tag_id', 'tags', 'tag_name',
             'author', 'user_id', 'user',
-            'restaurant_id', 'category_id',
-            'city', 'price_min', 'price_max',
+            'restaurant_id', 'city', 'price_min', 'price_max',
         ]
 
-    def filter_by_category(self, queryset, name, value):
-        """Фильтрация по категории через dish или restaurant (OR-логика с distinct)."""
-        return queryset.filter(
-            Q(dish__categories__id=value) | Q(restaurant__categories__id=value)
-        ).distinct()
+    @property
+    def qs(self):
+        # cuisine_id / format_id идут через M2M и могут давать дубли постов —
+        # применяем distinct, только если такие фильтры реально заданы.
+        parent = super().qs
+        if self.form.cleaned_data.get('cuisine_id') or self.form.cleaned_data.get('format_id'):
+            return parent.distinct()
+        return parent

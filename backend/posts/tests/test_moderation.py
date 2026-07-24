@@ -1,6 +1,6 @@
 import pytest
 from django.urls import reverse
-from posts.models import Post, Restaurant, Dish
+from posts.models import Post, Restaurant, Dish, Position
 from users.models import User
 from rest_framework.test import APIClient
 
@@ -35,18 +35,24 @@ def staff_client(api_client, staff_user):
 
 
 def create_post(user, post_status=Post.STATUS_PENDING, with_restaurant=False):
-    """Создаёт пост с опциональным рестораном и блюдом."""
+    """Создаёт пост с опциональным заведением, позицией и блюдом."""
     restaurant = None
+    position = None
     dish = None
     if with_restaurant:
         restaurant, _ = Restaurant.objects.get_or_create(name="Test Restaurant", defaults={'address': 'Test Addr'})
-        dish, _ = Dish.objects.get_or_create(name="test dish", restaurant=restaurant)
+        dish = Dish.objects.filter(name="Бургеры").first() or Dish.objects.create(name="Бургеры")
+        position, _ = Position.objects.get_or_create(
+            restaurant=restaurant, name="test position", defaults={'dish': dish}
+        )
+        dish = position.dish
     return Post.objects.create(
         user=user,
         description="test description",
         price="250.00",
         status=post_status,
         restaurant=restaurant,
+        position=position,
         dish=dish,
     )
 
@@ -120,7 +126,7 @@ class TestModerationFeedFilter:
         assert 'images' in post_data
         # Конкретные значения
         assert post_data['description'] == "test description"
-        assert post_data['dish_name'] == "test dish"
+        assert post_data['dish_name'] == "test position"
 
     def test_status_field_visible_to_everyone(self, auth_client):
         """Поле status доступно всем — незнакомые юзеры всё равно видят только approved посты."""

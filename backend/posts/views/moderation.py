@@ -24,7 +24,9 @@ class ModerationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     def get_queryset(self):
         return Post.objects.filter(
             status=Post.STATUS_PENDING
-        ).select_related('user', 'statistics', 'restaurant', 'dish').prefetch_related('images', 'tags').order_by('created_at')
+        ).select_related(
+            'user', 'statistics', 'restaurant', 'position', 'dish'
+        ).prefetch_related('images', 'tags', 'dish__cuisines', 'dish__formats').order_by('created_at')
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):

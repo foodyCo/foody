@@ -1,110 +1,118 @@
-from django.db.models import Count
+from django.db.models import Count, Q
 from rest_framework import viewsets, mixins
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from ..models import Restaurant, Dish, Category, Tag
-from ..serializers import RestaurantSerializer, DishSerializer, CategorySerializer, TagSerializer
+from ..models import Restaurant, Dish, Cuisine, Format, Position, Tag
+from ..serializers import (
+    RestaurantSerializer, DishSerializer, CuisineSerializer, FormatSerializer,
+    PositionSerializer, TagSerializer,
+)
 
 
 class TagViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
-    S1: Вьюсет для тегов — список и детальный просмотр (только чтение).
-    Отдаётся без пагинации (тегов обычно мало — десятки, удобно забирать одним запросом).
+    Справочник свободных тегов (хэштегов) — список и детальный просмотр (только чтение).
+    Отдаётся без пагинации (тегов обычно десятки).
     """
     queryset = Tag.objects.all().order_by('-usage_count', 'name')
     serializer_class = TagSerializer
-    # Справочник тегов публичный — anon должен видеть теги для /search.
     permission_classes = [AllowAny]
-    pagination_class = None  # справочник целиком — фронт сам решает сколько показать
+    pagination_class = None
     filter_backends = [SearchFilter]
     search_fields = ['name']
 
 
 class RestaurantViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    """
-    Вьюсет для поиска и просмотра ресторанов (только чтение).
-    S2: Добавлен RetrieveModelMixin — теперь GET /restaurants/{id}/ возвращает 200.
-    """
-    queryset = Restaurant.objects.prefetch_related('categories', 'tags').all()
+    """Поиск и просмотр заведений (только чтение)."""
+    queryset = Restaurant.objects.all()
     serializer_class = RestaurantSerializer
-    # Каталог ресторанов публичный — без anon /restaurant/{id} страница пустая.
     permission_classes = [AllowAny]
 
     filter_backends = [SearchFilter]
-    search_fields = ['name']
+    search_fields = ['name', 'address']
     ordering = ['name']
 
-class CategoryViewSet(viewsets.ModelViewSet):
-    """
-    Категории для ресторанов и блюд.
-    Чтение — для всех авторизованных. Создание/изменение/удаление — только стаф.
-    """
-    queryset = Category.objects.all().order_by('name')
-    serializer_class = CategorySerializer
-    filter_backends = [SearchFilter]
-    search_fields = ['name']
 
-    def get_permissions(self):
-        # Чтение справочника категорий публично, изменение — только staff.
-        if self.action in ['list', 'retrieve', 'popular']:
-            return [AllowAny()]
-        return [IsAdminUser()]
+class _PopularMixin:
+    """Общая ручка /popular/ для справочников каталога (кухни/форматы/блюда)."""
+    popular_default_limit = 12
 
-    @action(detail=False, methods=['get'], url_path='popular')
-    def popular(self, request):
-        """
-        GET /api/v1/categories/popular/?limit=8
-        Возвращает категории, отсортированные по количеству **approved постов**,
-        связанных с категорией (через dish.categories ИЛИ restaurant.categories).
-        Раньше формула считала просто привязки блюд+ресторанов — категория с
-        одним заброшенным блюдом без активных постов могла обгонять активную.
-        """
+    def _limit(self, request):
         try:
-            limit = int(request.query_params.get('limit', 8))
+            limit = int(request.query_params.get('limit', self.popular_default_limit))
         except (TypeError, ValueError):
-            limit = 8
-        limit = max(1, min(limit, 50))
+            limit = self.popular_default_limit
+        return max(1, min(limit, 50))
 
-        from django.db.models import Q
-        # Approved посты, чьи dish ИЛИ restaurant привязаны к категории.
-        # Считаем через distinct posts чтобы один пост с категорийным dish
-        # И категорийным restaurant не считался дважды.
-        qs = (
-            Category.objects.annotate(
-                usage=Count(
-                    'dishes__posts',
-                    filter=Q(dishes__posts__status='approved'),
-                    distinct=True,
-                ) + Count(
-                    'restaurants__posts',
-                    filter=Q(restaurants__posts__status='approved'),
-                    distinct=True,
-                )
-            )
-            .order_by('-usage', 'name')[:limit]
-        )
+    @action(detail=False, methods=['get'], url_path='popular', permission_classes=[AllowAny])
+    def popular(self, request):
+        qs = self.filter_queryset(self.get_queryset()).filter(is_popular=True)[: self._limit(request)]
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
 
-class DishViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+class CuisineViewSet(_PopularMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """Справочник кухонь (только чтение). Управляется из админки."""
+    queryset = Cuisine.objects.all()
+    serializer_class = CuisineSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
+
+
+class FormatViewSet(_PopularMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """Справочник форматов (только чтение). Управляется из админки."""
+    queryset = Format.objects.all()
+    serializer_class = FormatSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
+
+
+class DishViewSet(_PopularMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
-    Вьюсет для подгрузки списка блюд ресторана (только чтение).
+    Каталог блюд (только чтение). Каждое блюдо несёт привязанные кухни/форматы.
+    Управляется из админки; используется на форме создания поста и в поиске.
     """
     serializer_class = DishSerializer
-    # Каталог блюд публичный (нужен для страницы ресторана anon-юзеру).
     permission_classes = [AllowAny]
-    
+    pagination_class = None
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
+    ordering = ['order', 'name']
+
+    def get_queryset(self):
+        qs = Dish.objects.prefetch_related('cuisines', 'formats').all()
+        is_popular = self.request.query_params.get('is_popular')
+        if is_popular in ('1', 'true', 'True'):
+            qs = qs.filter(is_popular=True)
+        return qs
+
+
+class PositionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """
+    Позиции (конкретные блюда в конкретных заведениях). Только чтение.
+    Обычно запрашивается с ?restaurant_id= для страницы заведения.
+    """
+    serializer_class = PositionSerializer
+    permission_classes = [AllowAny]
     filter_backends = [SearchFilter]
     search_fields = ['name']
     ordering = ['name']
 
     def get_queryset(self):
-        queryset = Dish.objects.all()
+        qs = Position.objects.select_related('dish', 'restaurant').prefetch_related(
+            'dish__cuisines', 'dish__formats'
+        )
         restaurant_id = self.request.query_params.get('restaurant_id')
         if restaurant_id:
-            queryset = queryset.filter(restaurant_id=restaurant_id)
-        return queryset
+            qs = qs.filter(restaurant_id=restaurant_id)
+        dish_id = self.request.query_params.get('dish_id')
+        if dish_id:
+            qs = qs.filter(dish_id=dish_id)
+        return qs
