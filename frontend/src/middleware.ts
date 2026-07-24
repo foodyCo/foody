@@ -12,8 +12,8 @@ const PROTECTED = [
 ];
 
 // Content-Security-Policy: защита в глубину от XSS.
-// - script-src: только 'self' + текущий nonce + скрипты Яндекс.Карт + WASM.
-//   Инлайновый инъектированный скрипт без nonce НЕ выполнится.
+// - script-src: только 'self' + текущий nonce. Инъектированный инлайн-скрипт
+//   без nonce НЕ выполнится, чужие хосты скриптов заблокированы.
 // - object-src 'none', base-uri 'self', frame-ancestors 'none', form-action 'self'.
 function buildCsp(nonce: string) {
   return [
@@ -22,14 +22,13 @@ function buildCsp(nonce: string) {
     `object-src 'none'`,
     `frame-ancestors 'none'`,
     `form-action 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'wasm-unsafe-eval' https://api-maps.yandex.ru https://*.maps.yandex.net https://yastatic.net`,
+    `script-src 'self' 'nonce-${nonce}'`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
-    `connect-src 'self' https:`,
-    `worker-src 'self' blob: https:`,
+    `connect-src 'self'`,
+    `worker-src 'self' blob:`,
     `media-src 'self' blob: data:`,
-    `frame-src 'self' https://api-maps.yandex.ru`,
   ].join("; ");
 }
 
