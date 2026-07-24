@@ -32,6 +32,7 @@ import {
 } from "@/components/feed/post-card/photo-carousel";
 import { PhotoViewerModal } from "@/components/feed/post-card/photo-viewer-modal";
 import { CopyLinkAlert } from "@/components/shared/copy-link-alert";
+import { sharePost } from "@/lib/share";
 import { useRouter } from "next/navigation";
 
 import { getTagSearchHref } from "@/lib/search";
@@ -290,34 +291,6 @@ export function PostCard({
     };
   }, [isExpanded]);
 
-  async function copyPostLink() {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const postUrl = new URL("/", window.location.origin);
-    postUrl.searchParams.set("post", String(post.id));
-    const postLink = postUrl.toString();
-
-    try {
-      await navigator.clipboard.writeText(postLink);
-      setCopyLinkAlertKey((currentKey) => currentKey + 1);
-      return;
-    } catch {
-      const fallbackField = document.createElement("textarea");
-      fallbackField.value = postLink;
-      fallbackField.setAttribute("readonly", "");
-      fallbackField.style.position = "fixed";
-      fallbackField.style.top = "-999px";
-      fallbackField.style.left = "-999px";
-      document.body.appendChild(fallbackField);
-      fallbackField.select();
-      document.execCommand("copy");
-      fallbackField.remove();
-      setCopyLinkAlertKey((currentKey) => currentKey + 1);
-    }
-  }
-
   function handleCardClick(event: ReactMouseEvent<HTMLElement>) {
     if (isExpanded || isPhotoViewerOpen || suppressOpenAfterPhotoDragRef.current) {
       return;
@@ -351,7 +324,15 @@ export function PostCard({
 
   function handleShareClick() {
     triggerSharePulse();
-    void copyPostLink();
+    // Нативное меню «Поделиться» (телефон), иначе — копирование ссылки.
+    void sharePost(post.id, {
+      title: post.dish,
+      text: post.place ? `${post.dish} — ${post.place}` : post.dish,
+    }).then((result) => {
+      if (result === "copied") {
+        setCopyLinkAlertKey((currentKey) => currentKey + 1);
+      }
+    });
   }
 
   function handleMoreClick() {

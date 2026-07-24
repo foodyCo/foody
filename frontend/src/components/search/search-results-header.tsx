@@ -12,6 +12,7 @@ import {
   ResultsCategoryControl,
   type CategoryGroups,
 } from "./results-category-control";
+import { ResultsDesktopFilters } from "./results-desktop-filters";
 import { SearchInputGlass } from "./search-input-glass";
 import { useSearchSubmit } from "./use-search-submit";
 
@@ -76,10 +77,12 @@ export function SearchResultsHeader({
       </div>
 
       <Suspense fallback={null}>
-        <div className="hide-scroll flex items-center gap-2 overflow-x-auto px-3.5 pt-2.5 pb-1 max-[409px]:px-3">
+        {/* Кнопки-шторки — мобила/узкие экраны; на xl+ вместо них панель справа. */}
+        <div className="hide-scroll flex items-center gap-2 overflow-x-auto px-3.5 pt-2.5 pb-1 max-[409px]:px-3 xl:hidden">
           <ResultsPriceControl />
           <ResultsCategoryControl groups={categoryGroups} />
         </div>
+        <ResultsDesktopFilters groups={categoryGroups} />
       </Suspense>
     </header>
   );

@@ -67,6 +67,20 @@ export function fixMediaUrl(path: string | null | undefined): string | undefined
     return path.startsWith("/") ? path : `/${path}`;
 }
 
+// Аватар лежит по СТАБИЛЬНОМУ URL (/media/avatars/uXX/avatar.webp) — при замене
+// бэк перезаписывает тот же файл, поэтому браузер отдаёт старую картинку из кеша.
+// Добавляем cache-busting ?v=... чтобы новый аватар показывался сразу.
+// version: передавай стабильный токен (напр. дату), иначе — метка времени рендера.
+export function fixAvatarUrl(
+    path: string | null | undefined,
+    version?: string | number,
+): string | undefined {
+    const url = fixMediaUrl(path);
+    if (!url) return url;
+    const v = version ?? Date.now();
+    return url.includes("?") ? `${url}&v=${v}` : `${url}?v=${v}`;
+}
+
 export function mapDjangoPostToDish(post: any): Dish {
     const stats = post.statistics || {};
     // Fallback to stats.rating if user_rating isn't provided or is 0.
