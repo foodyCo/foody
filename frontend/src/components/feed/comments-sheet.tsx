@@ -13,7 +13,6 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { useSession } from "next-auth/react";
 
 import { UserAvatar } from "@/components/feed/user-avatar";
 import {
@@ -233,8 +232,10 @@ export function CommentsSheet({
   postId,
 }: CommentsSheetProps) {
   const CURRENT_USER = makeCurrentUser(currentUsername);
-  const { data: session } = useSession();
-  const accessToken: string | null = (session?.user as any)?.accessToken ?? null;
+  // Аутентификацию для лайков комментов определяет факт входа (currentUsername).
+  // Сам запрос идёт через BFF-прокси /backend — токен подставляет сервер из куки,
+  // поэтому реальный accessToken на клиенте больше не нужен (маркер «authed»).
+  const accessToken: string | null = currentUsername ? "authed" : null;
   const [draft, setDraft] = useState("");
   const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
   const [commentLikesLoaded, setCommentLikesLoaded] = useState(false);
