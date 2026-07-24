@@ -76,7 +76,7 @@ export default async function Home(props: {
       likedIds={likedIds}
       savedIds={savedIds}
       currentUser={myHandle}
-      accessToken={accessToken}
+      accessToken={accessToken ? "authed" : null}
       initialTab={initialTab}
       initialNextPage={initialHasMore ? 2 : null}
       endpoint={endpoint}

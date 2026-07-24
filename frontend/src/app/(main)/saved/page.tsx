@@ -84,7 +84,7 @@ export default async function SavedPage() {
       likedIds={likedIds}
       savedIds={savedIds}
       currentUser={myHandle}
-      accessToken={token}
+      accessToken="authed"
       initialFollowingUsers={initialFollowingUsers}
     />
   );

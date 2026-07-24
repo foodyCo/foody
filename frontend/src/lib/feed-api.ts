@@ -2,7 +2,6 @@
 // Раньше был stub-слой (см. backend-gaps §4) — сейчас бэк имеет CommentLike модель.
 
 import type { Post } from "@/lib/mock-data";
-import { apiRequest } from "@/lib/api";
 
 export type FeedScope = "new" | "subs";
 
@@ -53,9 +52,13 @@ export async function requestCommentLikes(
   }
   try {
     const ids = commentIds.join(",");
-    const data = await apiRequest(`/comments/likes/?ids=${encodeURIComponent(ids)}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    // BFF-прокси /backend подставит токен из сессии на сервере.
+    const res = await fetch(
+      `/backend/comments/likes?ids=${encodeURIComponent(ids)}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return { likedCommentIds: [] as string[] };
+    const data = await res.json().catch(() => ({}));
     return { likedCommentIds: (data?.liked_comment_ids ?? []) as string[] };
   } catch {
     return { likedCommentIds: [] as string[] };
@@ -80,10 +83,12 @@ export async function requestCommentLikeMutation(
     };
   }
   try {
-    const data = await apiRequest(`/comments/${commentId}/like/`, {
+    const res = await fetch(`/backend/comments/${commentId}/like`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
     });
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const data = await res.json().catch(() => ({}));
     return {
       commentId,
       liked: Boolean(data?.liked ?? nextLiked),

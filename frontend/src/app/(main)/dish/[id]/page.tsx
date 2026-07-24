@@ -83,7 +83,7 @@ export default async function DishPage({
         initialLiked={initialLiked}
         initialSaved={initialSaved}
         currentUser={currentUserHandle}
-        accessToken={accessToken}
+        accessToken={accessToken ? "authed" : null}
       />
     </>
   );

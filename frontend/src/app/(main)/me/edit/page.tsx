@@ -30,5 +30,5 @@ export default async function MeEditPage() {
     city: userProfile?.city || "",
   };
 
-  return <EditProfileForm initialData={initialData} accessToken={session.user.accessToken} />;
+  return <EditProfileForm initialData={initialData} accessToken="authed" />;
 }

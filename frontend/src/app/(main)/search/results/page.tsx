@@ -112,7 +112,7 @@ export default async function SearchResultsPage({
             <SearchResultsFeed
               brand={DEFAULT_TWEAKS.brand}
               currentUser={currentUserHandle}
-              accessToken={accessToken}
+              accessToken={accessToken ? "authed" : null}
               density={DEFAULT_TWEAKS.density}
               initialFollowingUsers={[]}
               initialLikedPostIds={likedPostIds}
