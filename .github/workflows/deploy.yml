@@ -1,27 +1,120 @@
-name: Deploy to Server
+name: CI/CD
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег для деплоя (sha коммита или latest)'
+        default: 'latest'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_BACKEND: ghcr.io/petrushaa/foodymvp-backend
+  IMAGE_FRONTEND: ghcr.io/petrushaa/foodymvp-frontend
 
 jobs:
-  deploy:
+  # Сборка образов, pytest внутри боевого backend-образа, пуш в GHCR.
+  # При ручном запуске (workflow_dispatch) пропускается — образы уже в registry.
+  test-build-push:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: foody
+          POSTGRES_USER: foody
+          POSTGRES_PASSWORD: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U foody"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
     steps:
-      - name: Deploy using SSH
-        uses: appleboy/ssh-action@master
+      - uses: actions/checkout@v4
+
+      - name: Build backend
+        run: |
+          docker build \
+            --label org.opencontainers.image.source=https://github.com/Petrushaa/foodyMVP \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -t "$IMAGE_BACKEND:${{ github.sha }}" ./backend
+
+      - name: Pytest inside built image
+        run: |
+          docker run --rm --network host \
+            -e POSTGRES_HOST=127.0.0.1 -e POSTGRES_PORT=5432 \
+            -e POSTGRES_DB=foody -e POSTGRES_USER=foody -e POSTGRES_PASSWORD=test \
+            -e REDIS_URL=redis://127.0.0.1:6379/0 \
+            -e DJANGO_SECRET_KEY=ci-test-secret \
+            --entrypoint pytest \
+            "$IMAGE_BACKEND:${{ github.sha }}" -q
+
+      - name: Build frontend
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL='${{ vars.NEXT_PUBLIC_API_URL }}' \
+            --label org.opencontainers.image.source=https://github.com/Petrushaa/foodyMVP \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -t "$IMAGE_FRONTEND:${{ github.sha }}" ./frontend
+
+      - name: Login to GHCR
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push images (sha + latest)
+        run: |
+          for img in "$IMAGE_BACKEND" "$IMAGE_FRONTEND"; do
+            docker tag "$img:${{ github.sha }}" "$img:latest"
+            docker push "$img:${{ github.sha }}"
+            docker push "$img:latest"
+          done
+
+  deploy:
+    needs: [test-build-push]
+    # workflow_dispatch пропускает сборку, а needs при skip блокирует джобу — разрешаем явно
+    if: always() && (needs.test-build-push.result == 'success' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 30m
           script: |
-            # Переходим в директорию проекта
-            cd /path/to/your/project/foody
-            
-            # Делаем скрипт исполняемым
-            chmod +x infra/deploy.sh
-            
-            # Запускаем Safe Deploy скрипт
-            ./infra/deploy.sh
+            cd /home/maks/foodyMVP
+            # Обновить рабочее дерево целиком (compose, Caddyfile, deploy.sh) до запуска
+            # скрипта. -f затирает ручные правки tracked-файлов — прод воспроизводим из
+            # репы; .environments/ не в git и не пострадает.
+            git fetch origin master
+            git checkout -f FETCH_HEAD
+            bash infra/deploy.sh deploy "${{ github.event.inputs.tag || github.sha }}"
+
+  cleanup-registry:
+    needs: [deploy]
+    if: needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: foodymvp-backend
+          package-type: container
+          min-versions-to-keep: ${{ vars.KEEP_IMAGES }}
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: foodymvp-frontend
+          package-type: container
+          min-versions-to-keep: ${{ vars.KEEP_IMAGES }}

@@ -10,7 +10,11 @@ venv/
 
 # Environment variables (секреты — не коммитить; шаблоны в infra/environments.example/)
 infra/.env
+infra/.env.previous
 infra/.environments/
+
+# Локальный override compose (волюм с кодом для разработки; прод живёт без него)
+infra/docker-compose.override.yml
 
 # Django
 db.sqlite3
