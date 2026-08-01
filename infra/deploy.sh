@@ -7,7 +7,7 @@ ENV_FILE=".env"                        # compose сам читает IMAGE_TAG �
 PREV_FILE=".env.previous"              # тег предыдущего успешного деплоя
 KEEP_IMAGES="${DEPLOY_KEEP_IMAGES:-3}" # сколько старых образов держать на диске
 ROLLING_SERVICES=("backend" "frontend")
-IMAGES=("ghcr.io/petrushaa/foodymvp-backend" "ghcr.io/petrushaa/foodymvp-frontend")
+IMAGES=("ghcr.io/foodyco/foody-backend" "ghcr.io/foodyco/foody-frontend")
 
 current_tag() { grep -E '^IMAGE_TAG=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 || true; }
 

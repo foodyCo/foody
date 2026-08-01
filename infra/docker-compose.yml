@@ -26,7 +26,7 @@ services:
   backend:
     # image + build вместе: локально `compose build` собирает под этим именем,
     # сервер делает только pull. Тег приходит из infra/.env (пишет deploy.sh).
-    image: ghcr.io/petrushaa/foodymvp-backend:${IMAGE_TAG:-latest}
+    image: ghcr.io/foodyco/foody-backend:${IMAGE_TAG:-latest}
     build: ../backend
     restart: unless-stopped
     env_file:
@@ -51,7 +51,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ghcr.io/petrushaa/foodymvp-frontend:${IMAGE_TAG:-latest}
+    image: ghcr.io/foodyco/foody-frontend:${IMAGE_TAG:-latest}
     build:
       context: ../frontend
       dockerfile: Dockerfile
@@ -72,7 +72,7 @@ services:
         condition: service_healthy
 
   celery_worker:
-    image: ghcr.io/petrushaa/foodymvp-backend:${IMAGE_TAG:-latest}
+    image: ghcr.io/foodyco/foody-backend:${IMAGE_TAG:-latest}
     build: ../backend
     command: celery -A config worker -l info
     env_file:
@@ -87,7 +87,7 @@ services:
         condition: service_healthy
 
   celery_beat:
-    image: ghcr.io/petrushaa/foodymvp-backend:${IMAGE_TAG:-latest}
+    image: ghcr.io/foodyco/foody-backend:${IMAGE_TAG:-latest}
     build: ../backend
     command: celery -A config beat -l info
     env_file:

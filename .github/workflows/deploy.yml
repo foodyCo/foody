@@ -18,8 +18,8 @@ permissions:
   packages: write
 
 env:
-  IMAGE_BACKEND: ghcr.io/petrushaa/foodymvp-backend
-  IMAGE_FRONTEND: ghcr.io/petrushaa/foodymvp-frontend
+  IMAGE_BACKEND: ghcr.io/foodyco/foody-backend
+  IMAGE_FRONTEND: ghcr.io/foodyco/foody-frontend
 
 jobs:
   # Сборка образов, pytest внутри боевого backend-образа, пуш в GHCR.
@@ -47,7 +47,7 @@ jobs:
       - name: Build backend
         run: |
           docker build \
-            --label org.opencontainers.image.source=https://github.com/Petrushaa/foodyMVP \
+            --label org.opencontainers.image.source=https://github.com/foodyCo/foody \
             --label org.opencontainers.image.revision=${{ github.sha }} \
             -t "$IMAGE_BACKEND:${{ github.sha }}" ./backend
 
@@ -65,7 +65,7 @@ jobs:
         run: |
           docker build \
             --build-arg NEXT_PUBLIC_API_URL='${{ vars.NEXT_PUBLIC_API_URL }}' \
-            --label org.opencontainers.image.source=https://github.com/Petrushaa/foodyMVP \
+            --label org.opencontainers.image.source=https://github.com/foodyCo/foody \
             --label org.opencontainers.image.revision=${{ github.sha }} \
             -t "$IMAGE_FRONTEND:${{ github.sha }}" ./frontend
 
@@ -95,7 +95,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
           script: |
-            cd /home/maks/foodyMVP
+            cd /home/maks/foody
             # Обновить рабочее дерево целиком (compose, Caddyfile, deploy.sh) до запуска
             # скрипта. -f затирает ручные правки tracked-файлов — прод воспроизводим из
             # репы; .environments/ не в git и не пострадает.
@@ -110,11 +110,11 @@ jobs:
     steps:
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: foodymvp-backend
+          package-name: foody-backend
           package-type: container
           min-versions-to-keep: ${{ vars.KEEP_IMAGES }}
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: foodymvp-frontend
+          package-name: foody-frontend
           package-type: container
           min-versions-to-keep: ${{ vars.KEEP_IMAGES }}
