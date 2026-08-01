@@ -273,13 +273,16 @@ class PostCreateSerializer(serializers.ModelSerializer):
     restaurant_name = serializers.CharField(write_only=True, required=False, max_length=255)
     restaurant_address = serializers.CharField(write_only=True, required=False, max_length=100)
 
-    # Классификация: пользователь выбирает только блюдо из справочника,
+    # Классификация: пользователь выбирает блюдо из справочника,
     # кухня и категория выводятся из него на бэке автоматически.
+    # required=False — обратная совместимость: текущий фронт dish_type_id
+    # не отправляет, посты без классификации допустимы.
     dish_type_id = serializers.PrimaryKeyRelatedField(
         queryset=DishType.objects.all(),
         source='dish_type',
         write_only=True,
-        required=True,
+        required=False,
+        allow_null=True,
         error_messages={
             'required': 'Выберите блюдо из справочника.',
             'does_not_exist': 'Блюдо с id={pk_value} не найдено в справочнике.',

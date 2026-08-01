@@ -3,7 +3,7 @@
 Покрывают критерии приёмки ТЗ:
 - /dish-types/ отдаёт блюда с вложенными cuisine и category
 - создание поста с dish_type_id → кухня/категория выводятся автоматически, в тегах их нет
-- POST без dish_type_id → 400
+- POST без dish_type_id → 201, пост без классификации (обратная совместимость со старым фронтом)
 - фильтры ?dish_type_id / ?cuisine_id / ?category_id (и их комбинация)
 - свободные теги работают отдельно от справочников
 - запись в справочники — только staff
@@ -140,12 +140,14 @@ class TestPostAutoClassification:
         tag_names = {tag.name for tag in post.tags.all()}
         assert tag_names == {"сочно"}
 
-    def test_create_post_without_dish_type_returns_400(self, auth_client):
-        client, _ = auth_client
+    def test_create_post_without_dish_type_succeeds(self, auth_client):
+        """Обратная совместимость: текущий фронт не шлёт dish_type_id —
+        пост создаётся без классификации (dish_type=None)."""
+        client, user = auth_client
         response = client.post(reverse('post-list'), self._post_payload(), format='json')
-        assert response.status_code == 400
-        assert 'dish_type_id' in response.data
-        assert Post.objects.count() == 0
+        assert response.status_code == 201, response.data
+        post = Post.objects.get(user=user)
+        assert post.dish_type_id is None
 
     def test_create_post_with_unknown_dish_type_returns_400(self, auth_client):
         client, _ = auth_client

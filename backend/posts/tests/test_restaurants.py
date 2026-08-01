@@ -99,7 +99,10 @@ class TestCategoryViews:
         Category.objects.create(name="Паста")
         response = api_client.get(reverse('category-list'))
         assert response.status_code == 200
-        assert len(response.data['results']) == 2
+        # Сид-миграция 0019 добавляет базовые категории, поэтому проверяем
+        # вхождение созданных, а не точное количество.
+        names = {c['name'] for c in response.data['results']}
+        assert {"Суши", "Паста"} <= names
 
     def test_retrieve_category(self, auth_client):
         """Авторизованный пользователь может получить категорию по id."""
