@@ -1,6 +1,6 @@
 import pytest
 from django.urls import reverse
-from posts.models import Post, PostLike, PostSave, PostStatistics, PostReview, Restaurant, Dish, Comment
+from posts.models import Post, PostLike, PostSave, PostStatistics, PostReview, Restaurant, Dish, Comment, DishType
 from posts.tasks import update_post_ratings
 from users.models import User
 from rest_framework.test import APIClient
@@ -103,6 +103,7 @@ class TestPostViews:
         data = {
             "restaurant_id": res.id,
             "dish_name": "New Awesome Dish",
+            "dish_type_id": DishType.objects.get(name='Бургер').id,
             "description": "Tasty",
             "rating": 9.0,
         }
@@ -133,6 +134,7 @@ class TestPostViews:
         data = {
             "restaurant_id": res.id,
             "dish_name": " Old Dish ", # Специально с пробелами и разным регистром
+            "dish_type_id": DishType.objects.get(name='Бургер').id,
             "description": "Tasty",
             "rating": 9.0,
         }
@@ -157,6 +159,7 @@ class TestPostViews:
             "restaurant_name": "Brand New Rest",
             "restaurant_address": "New York",
             "dish_name": "Fresh Burger",
+            "dish_type_id": DishType.objects.get(name='Бургер').id,
             "description": "Tasty",
             "rating": 9.0,
         }
@@ -185,6 +188,7 @@ class TestPostViews:
         # 1. Нет ни restaurant_id, ни restaurant_name
         data1 = {
             "dish_name": "Burger",
+            "dish_type_id": DishType.objects.get(name='Бургер').id,
             "description": "Tasty", "rating": 9.0
         }
         res1 = client.post(url, data1)
@@ -195,6 +199,7 @@ class TestPostViews:
         res = Restaurant.objects.create(name="Res", address="Addr")
         data2 = {
             "restaurant_id": res.id,
+            "dish_type_id": DishType.objects.get(name='Бургер').id,
             "description": "Tasty", "rating": 9.0
         }
         res2 = client.post(url, data2)
@@ -239,6 +244,7 @@ class TestPostViews:
         data = {
             "restaurant_id": res_obj.id,
             "dish_name": dish_obj.name,
+            "dish_type_id": DishType.objects.get(name='Суши и роллы').id,
             "description": "Amazing",
             "price": "1000.00",
             "rating": 9.0,

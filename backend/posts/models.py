@@ -25,6 +25,41 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+class Cuisine(models.Model):
+    """Справочник кухонь (Американская, Итальянская…). Ведут только админы."""
+    name = models.CharField(max_length=100, unique=True, db_index=True, verbose_name='Название кухни')
+
+    class Meta:
+        verbose_name = 'Кухня'
+        verbose_name_plural = 'Кухни'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+class DishType(models.Model):
+    """
+    Справочник блюд (Бургер, Пицца…) с маппингом на кухню и категорию.
+    Пользователь выбирает блюдо при создании поста, кухня/категория выводятся отсюда.
+    """
+    name = models.CharField(max_length=100, unique=True, db_index=True, verbose_name='Название блюда')
+    cuisine = models.ForeignKey(
+        Cuisine, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='dish_types', verbose_name='Кухня'
+    )
+    category = models.ForeignKey(
+        Category, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='dish_types', verbose_name='Категория'
+    )
+
+    class Meta:
+        verbose_name = 'Тип блюда'
+        verbose_name_plural = 'Типы блюд'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
 class Restaurant(models.Model):
     name = models.CharField(max_length=255, db_index=True, verbose_name='Название ресторана')
     address = models.CharField(max_length=100, verbose_name='Адрес')
@@ -103,6 +138,13 @@ class Post(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='posts')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts', verbose_name='Ресторан')
     dish = models.ForeignKey(Dish, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts', verbose_name='Блюдо')
+    # Классификация: на API обязательно (см. PostCreateSerializer), на модели nullable,
+    # чтобы старые данные и ORM-создание в тестах не ломались. Кухня/категория поста
+    # выводятся через dish_type, отдельно не хранятся.
+    dish_type = models.ForeignKey(
+        DishType, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='posts', verbose_name='Тип блюда'
+    )
 
     description = models.TextField(verbose_name='Текст поста')
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Цена', null=True, blank=True)

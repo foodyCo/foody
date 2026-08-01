@@ -1,0 +1,19 @@
+# Celery-контейнеры запускают тот же Django-проект, поэтому им нужны
+# те же настройки БД/Redis, что и бэкенду.
+
+# Django
+DJANGO_SECRET_KEY=<random-string-50-chars>
+DJANGO_DEBUG=0
+
+# PostgreSQL (должны совпадать с postgres_env)
+POSTGRES_DB=foody
+POSTGRES_USER=foody
+POSTGRES_PASSWORD=<db-password>
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+# Redis (брокер и бэкенд результатов Celery)
+REDIS_URL=redis://redis:6379/0
+
+# Периодичность задачи пересчёта статистики: '10s', '1m', '1h'
+UPDATE_STATS_INTERVAL=1m

@@ -1,12 +1,15 @@
-from django.db.models import Count
+from django.db.models import Count, Q
 from rest_framework import viewsets, mixins
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
-from ..models import Restaurant, Dish, Category, Tag
-from ..serializers import RestaurantSerializer, DishSerializer, CategorySerializer, TagSerializer
+from ..models import Restaurant, Dish, Category, Tag, Cuisine, DishType, Post
+from ..serializers import (
+    RestaurantSerializer, DishSerializer, CategorySerializer, TagSerializer,
+    CuisineSerializer, DishTypeSerializer, DishTypeWriteSerializer,
+)
 
 
 class TagViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -37,13 +40,12 @@ class RestaurantViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     search_fields = ['name']
     ordering = ['name']
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class ReferenceBookViewSet(viewsets.ModelViewSet):
     """
-    Категории для ресторанов и блюд.
-    Чтение — для всех авторизованных. Создание/изменение/удаление — только стаф.
+    База для админских справочников (категории, кухни, блюда):
+    чтение — публично (лента и фильтры доступны анониму),
+    создание/изменение/удаление — только стаф.
     """
-    queryset = Category.objects.all().order_by('name')
-    serializer_class = CategorySerializer
     filter_backends = [SearchFilter]
     search_fields = ['name']
 
@@ -88,6 +90,52 @@ class CategoryViewSet(viewsets.ModelViewSet):
         )
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
+
+
+class CategoryViewSet(ReferenceBookViewSet):
+    """Справочник категорий еды (Фастфуд, Супы, Десерты…)."""
+    queryset = Category.objects.all().order_by('name')
+    serializer_class = CategorySerializer
+
+
+class CuisineViewSet(ReferenceBookViewSet):
+    """Справочник кухонь (Американская, Итальянская…)."""
+    queryset = Cuisine.objects.all().order_by('name')
+    serializer_class = CuisineSerializer
+
+
+class DishTypeViewSet(ReferenceBookViewSet):
+    """
+    Справочник блюд с маппингом на кухню/категорию.
+    Пользователь выбирает блюдо при создании поста; кухня и категория
+    проставляются автоматически через это соответствие.
+    """
+    queryset = DishType.objects.select_related('cuisine', 'category').order_by('name')
+
+    def get_permissions(self):
+        # popular — тоже публичное чтение; базовый класс знает только list/retrieve
+        if self.action == 'popular':
+            return [AllowAny()]
+        return super().get_permissions()
+
+    def get_serializer_class(self):
+        # Чтение — с вложенными cuisine/category, staff-запись — по id
+        if self.action in ['list', 'retrieve', 'popular']:
+            return DishTypeSerializer
+        return DishTypeWriteSerializer
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def popular(self, request):
+        """Топ блюд по числу одобренных постов: /dish-types/popular/?limit=8"""
+        try:
+            limit = int(request.query_params.get('limit', 8))
+        except ValueError:
+            limit = 8
+        limit = max(1, min(limit, 50))
+        queryset = self.get_queryset().annotate(
+            posts_count=Count('posts', filter=Q(posts__status=Post.STATUS_APPROVED))
+        ).order_by('-posts_count', 'name')[:limit]
+        return Response(DishTypeSerializer(queryset, many=True).data)
 
 
 class DishViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):

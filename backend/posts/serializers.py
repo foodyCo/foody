@@ -2,7 +2,10 @@ import bleach
 from django.db import transaction, IntegrityError
 from django.conf import settings
 from rest_framework import serializers
-from .models import Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment, CommentLike, Restaurant, Dish, Category
+from .models import (
+    Post, PostImage, PostStatistics, Tag, PostTag, PostReview, Comment,
+    CommentLike, Restaurant, Dish, Category, Cuisine, DishType,
+)
 from users.serializers import UserSerializer, FeedPostAuthorSerializer
 
 # Разрешённые HTML-теги для комментариев: никаких (только plain text)
@@ -56,6 +59,26 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name']
+
+class CuisineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cuisine
+        fields = ['id', 'name']
+
+class DishTypeSerializer(serializers.ModelSerializer):
+    """Блюдо-справочник с вложенными кухней и категорией (могут быть null)."""
+    cuisine = CuisineSerializer(read_only=True)
+    category = CategorySerializer(read_only=True)
+
+    class Meta:
+        model = DishType
+        fields = ['id', 'name', 'cuisine', 'category']
+
+class DishTypeWriteSerializer(serializers.ModelSerializer):
+    """Для staff-CRUD справочника: кухня/категория передаются по id."""
+    class Meta:
+        model = DishType
+        fields = ['id', 'name', 'cuisine', 'category']
 
 class RestaurantSerializer(serializers.ModelSerializer):
     categories = CategorySerializer(many=True, read_only=True)
@@ -125,6 +148,7 @@ class PostListSerializer(serializers.ModelSerializer):
     # (одна и та же категория может быть привязана к обеим — на фронте OK дедуп
     # сам через id).
     categories = serializers.SerializerMethodField()
+    dish_type = DishTypeSerializer(read_only=True)
     is_liked = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
     status = serializers.CharField(read_only=True)
@@ -134,7 +158,7 @@ class PostListSerializer(serializers.ModelSerializer):
         model = Post
         fields = [
             'id', 'user', 'restaurant', 'restaurant_name', 'dish', 'dish_name',
-            'description', 'price', 'created_at', 'images', 'statistics',
+            'dish_type', 'description', 'price', 'created_at', 'images', 'statistics',
             'tags', 'categories', 'is_liked', 'is_saved', 'status', 'rejection_reason'
         ]
 
@@ -249,10 +273,24 @@ class PostCreateSerializer(serializers.ModelSerializer):
     restaurant_name = serializers.CharField(write_only=True, required=False, max_length=255)
     restaurant_address = serializers.CharField(write_only=True, required=False, max_length=100)
 
+    # Классификация: пользователь выбирает только блюдо из справочника,
+    # кухня и категория выводятся из него на бэке автоматически.
+    dish_type_id = serializers.PrimaryKeyRelatedField(
+        queryset=DishType.objects.all(),
+        source='dish_type',
+        write_only=True,
+        required=True,
+        error_messages={
+            'required': 'Выберите блюдо из справочника.',
+            'does_not_exist': 'Блюдо с id={pk_value} не найдено в справочнике.',
+            'incorrect_type': 'dish_type_id должен быть числом.',
+        },
+    )
+
     class Meta:
         model = Post
         fields = [
-            'id', 'dish_name', 'description', 'price', 'uploaded_images',
+            'id', 'dish_name', 'dish_type_id', 'description', 'price', 'uploaded_images',
             'tags_list', 'rating',
             'restaurant_id', 'restaurant_name', 'restaurant_address'
         ]

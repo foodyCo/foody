@@ -1,35 +1,23 @@
 #!/bin/bash
 set -e
 
-echo "Waiting for PostgreSQL..."
-while ! python -c "
-import socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-    s.connect(('${POSTGRES_HOST:-db}', ${POSTGRES_PORT:-5432}))
-    s.close()
-    exit(0)
-except Exception:
-    exit(1)
-" 2>/dev/null; do
-    sleep 1
-done
-echo "PostgreSQL is ready!"
-
-# Если мы передали команду при запуске контейнера (например, 'docker-compose run backend bash')
-# Переменная $# (кол-во переданных аргументов) будет больше 0.
+# Если контейнеру переданы аргументы — выполняем их вместо стандартного запуска.
+# Так работают celery_worker и celery_beat: их `command:` из compose приходит
+# сюда аргументами, и exec запускает celery вместо gunicorn.
+# Это же позволяет выполнить разовую команду: `docker compose run backend bash`.
 if [ $# -gt 0 ]; then
-    echo "Executing custom command: $@"
-    # Заменяет текущий shell на переданную команду
+    echo "Выполняю переданную команду: $@"
     exec "$@"
 else
-    # Если аргументы не переданы, выполняем стандартный запуск бэкенда
-    echo "Applying migrations..."
+    # Аргументов нет — стандартный запуск бэкенда.
+    # Ожидание PostgreSQL не нужно: compose стартует контейнер только после
+    # healthcheck БД (depends_on: condition: service_healthy).
+    echo "Примение миграции..."
     python manage.py migrate --noinput
-    echo "Collecting static files..."
+    echo "Сбор статики..."
     python manage.py collectstatic --noinput
-    echo "Creating superuser..."
+    echo "Создание суперпользователя..."
     python manage.py createsuperuser --noinput || true
-    echo "Starting server..."
+    echo "Запуск сервера..."
     exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2
 fi

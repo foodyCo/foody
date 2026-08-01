@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
@@ -32,6 +33,8 @@ class ThrottledTokenRefreshView(TokenRefreshView):
 
 
 urlpatterns = [
+    path('api/v1/health/', lambda r: JsonResponse({'status': 'ok'}), name='health'),
+
     path('admin/', admin.site.urls),
 
     # Auth Endpoints (JWT) с rate-limit для защиты от brute-force

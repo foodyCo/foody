@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Post, PostStatistics, PostLike, PostSave, PostReview
+from .models import Post, PostStatistics, PostLike, PostSave, PostReview, Cuisine, DishType, Category
 
 class PostStatisticsInline(admin.StackedInline):
     model = PostStatistics
@@ -18,3 +18,20 @@ admin.site.register(PostStatistics)
 admin.site.register(PostLike)
 admin.site.register(PostSave)
 admin.site.register(PostReview)
+
+@admin.register(Cuisine)
+class CuisineAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('name',)
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('name',)
+
+@admin.register(DishType)
+class DishTypeAdmin(admin.ModelAdmin):
+    """Справочник блюд: здесь админ задаёт маппинг блюдо → кухня + категория."""
+    list_display = ('id', 'name', 'cuisine', 'category')
+    list_filter = ('cuisine', 'category')
+    search_fields = ('name',)

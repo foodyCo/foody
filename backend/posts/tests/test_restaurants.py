@@ -1,6 +1,6 @@
 import pytest
 from django.urls import reverse
-from posts.models import Restaurant, Dish, Category, Post
+from posts.models import Restaurant, Dish, Category, Post, DishType
 from users.models import User
 from rest_framework.test import APIClient
 
@@ -78,14 +78,17 @@ class TestRestaurantsViews:
 class TestCategoryViews:
 
     def test_list_categories_authenticated(self, auth_client):
-        """Авторизованный пользователь получает список категорий."""
+        """Авторизованный пользователь получает список категорий (сиды + созданные)."""
         client, _ = auth_client
         Category.objects.create(name="Суши")
         Category.objects.create(name="Паста")
 
         response = client.get(reverse('category-list'))
         assert response.status_code == 200
-        assert len(response.data['results']) == 2
+        names = {item['name'] for item in response.data['results']}
+        # Созданные в тесте видны вместе с засеянными справочными категориями
+        assert {"Суши", "Паста"} <= names
+        assert "Фастфуд" in names  # из сид-миграции
 
     def test_list_categories_unauthenticated(self, api_client):
         """
@@ -101,11 +104,11 @@ class TestCategoryViews:
     def test_retrieve_category(self, auth_client):
         """Авторизованный пользователь может получить категорию по id."""
         client, _ = auth_client
-        category = Category.objects.create(name="Десерты")
+        category = Category.objects.create(name="Молекулярная кухня")
 
         response = client.get(reverse('category-detail', kwargs={'pk': category.pk}))
         assert response.status_code == 200
-        assert response.data['name'] == "Десерты"
+        assert response.data['name'] == "Молекулярная кухня"
 
     def test_search_categories(self, auth_client):
         """Поиск категорий по имени работает."""
@@ -179,10 +182,12 @@ class TestRestaurantNameNormalization:
         client, _ = auth_client
         url = reverse('post-list')
 
+        burger_type_id = DishType.objects.get(name='Бургер').id
         data1 = {
             "restaurant_name": "KFC",
             "restaurant_address": "Lenina 1",
             "dish_name": "Burger",
+            "dish_type_id": burger_type_id,
             "description": "Tasty",
             "rating": 8.0,
         }
@@ -190,6 +195,7 @@ class TestRestaurantNameNormalization:
             "restaurant_name": "  KFC  ",
             "restaurant_address": "Lenina 1",
             "dish_name": "Chicken",
+            "dish_type_id": burger_type_id,
             "description": "Good",
             "rating": 7.0,
         }

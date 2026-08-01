@@ -1,6 +1,7 @@
 import bleach
 from django.db import IntegrityError
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User, Follow
@@ -118,6 +119,20 @@ class FeedPostAuthorSerializer(serializers.ModelSerializer):
         return Follow.objects.filter(follower=viewer, following=obj).exists()
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
+    # Явные поля с русскими сообщениями уникальности вместо английских дефолтов
+    username = serializers.CharField(
+        max_length=150,
+        validators=[UniqueValidator(
+            queryset=User.objects.all(),
+            message='Пользователь с таким логином уже существует.',
+        )],
+    )
+    email = serializers.EmailField(
+        validators=[UniqueValidator(
+            queryset=User.objects.all(),
+            message='Пользователь с таким email уже существует.',
+        )],
+    )
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True, required=True)
     city = serializers.CharField(required=True, allow_blank=False, max_length=100)

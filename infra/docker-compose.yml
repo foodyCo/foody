@@ -5,7 +5,7 @@ services:
     image: postgres:15-alpine
     restart: unless-stopped
     env_file:
-      - .env
+      - .environments/postgres_env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,13 +28,19 @@ services:
     build: ../backend
     restart: unless-stopped
     env_file:
-      - .env
+      - .environments/backend_env
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
     volumes:
       - ../backend:/app
       - django_static:/app/static
       - django_media:/app/media
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy
@@ -50,7 +56,7 @@ services:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
     restart: unless-stopped
     env_file:
-      - .env
+      - .environments/frontend_env
     depends_on:
       - backend
 
@@ -59,24 +65,28 @@ services:
     build: ../backend
     command: celery -A config worker -l info
     env_file:
-      - .env
+      - .environments/celery_env
     volumes:
       - ../backend:/app
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   celery_beat:
     image: foody/backend:dev
     build: ../backend
     command: celery -A config beat -l info
     env_file:
-      - .env
+      - .environments/celery_env
     volumes:
       - ../backend:/app
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   caddy:
     image: caddy:2-alpine
@@ -95,7 +105,7 @@ services:
       - django_static:/var/www/static:ro
       - django_media:/var/www/media:ro
     env_file:
-      - .env
+      - .environments/caddy_env
     depends_on:
       - frontend
       - backend

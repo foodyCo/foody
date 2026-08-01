@@ -31,8 +31,15 @@ class PostFilterSet(django_filters.FilterSet):
     # ?restaurant_id=1 — по ресторану
     restaurant_id = django_filters.NumberFilter(field_name='restaurant_id')
 
-    # ?category_id=5 — ищет по dish.categories ИЛИ restaurant.categories
+    # ?category_id=5 — ищет по dish.categories, restaurant.categories
+    # ИЛИ dish_type.category (справочник классификации)
     category_id = django_filters.NumberFilter(method='filter_by_category')
+
+    # ?dish_type_id=3 — по типу блюда из справочника DishType
+    dish_type_id = django_filters.NumberFilter(field_name='dish_type_id')
+
+    # ?cuisine_id=2 — по кухне (через справочник DishType)
+    cuisine_id = django_filters.NumberFilter(field_name='dish_type__cuisine_id')
 
     # ?city=Москва — по адресу ресторана (icontains)
     city = django_filters.CharFilter(field_name='restaurant__address', lookup_expr='icontains')
@@ -52,11 +59,14 @@ class PostFilterSet(django_filters.FilterSet):
             'tag_id', 'tags', 'tag_name',
             'author', 'user_id', 'user',
             'restaurant_id', 'category_id',
+            'dish_type_id', 'cuisine_id',
             'city', 'price_min', 'price_max',
         ]
 
     def filter_by_category(self, queryset, name, value):
-        """Фильтрация по категории через dish или restaurant (OR-логика с distinct)."""
+        """Фильтрация по категории через dish, restaurant или dish_type (OR-логика с distinct)."""
         return queryset.filter(
-            Q(dish__categories__id=value) | Q(restaurant__categories__id=value)
+            Q(dish__categories__id=value)
+            | Q(restaurant__categories__id=value)
+            | Q(dish_type__category_id=value)
         ).distinct()

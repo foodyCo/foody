@@ -32,6 +32,7 @@ class BasePostViewSet(viewsets.ModelViewSet):
         'dish__name', 'restaurant__name',
         'dish__categories__name', 'restaurant__categories__name',
         'tags__name',  # S11: поиск по тегам
+        'dish_type__name', 'dish_type__cuisine__name', 'dish_type__category__name',
     ]
     ordering_fields = ['created_at', 'statistics__rating', 'statistics__likes_count', 'price']
     ordering = ['-created_at', '-id']  # S7: tie-breaker по id
@@ -46,7 +47,8 @@ class BasePostViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         posts_queryset = Post.objects.select_related(
-            'user', 'statistics', 'restaurant', 'dish'
+            'user', 'statistics', 'restaurant', 'dish',
+            'dish_type', 'dish_type__cuisine', 'dish_type__category',
         ).prefetch_related('images', 'tags')
         if user.is_authenticated:
             posts_queryset = posts_queryset.prefetch_related(
@@ -58,6 +60,8 @@ class BasePostViewSet(viewsets.ModelViewSet):
             return posts_queryset.order_by('-created_at', '-id')
         # все остальные list-действия: только одобренные посты
         # (retrieve использует get_object() который расширяет это правило для владельца)
+        # Фильтры по классификации (dish_type_id/cuisine_id/category_id), городу
+        # и цене живут в PostFilterSet (filters.py), не здесь.
         return posts_queryset.filter(status=Post.STATUS_APPROVED).order_by('-created_at', '-id')
 
     def get_serializer_class(self):

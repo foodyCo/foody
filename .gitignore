@@ -8,8 +8,9 @@ __pycache__/
 venv/
 .venv/
 
-# Environment variables
+# Environment variables (секреты — не коммитить; шаблоны в infra/environments.example/)
 infra/.env
+infra/.environments/
 
 # Django
 db.sqlite3

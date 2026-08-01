@@ -1,0 +1,2 @@
+# Домен для Caddy: localhost — локально, реальный домен/IP — на сервере
+DOMAIN_NAME=localhost
