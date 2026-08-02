@@ -31,7 +31,11 @@
 
     # NextAuth → frontend (важно: до /api/*)
     handle /api/auth/* {
-        reverse_proxy frontend:3000
+        reverse_proxy frontend:3000 {
+            # CVE-2025-29927: заголовок позволяет обойти auth-middleware Next.js —
+            # срезаем его от клиентов до проксирования
+            header_up -X-Middleware-Subrequest
+        }
     }
 
     # Django API
@@ -46,7 +50,10 @@
 
     # Next.js (всё остальное)
     handle {
-        reverse_proxy frontend:3000
+        reverse_proxy frontend:3000 {
+            # CVE-2025-29927: см. блок /api/auth/* выше
+            header_up -X-Middleware-Subrequest
+        }
     }
 
     handle_errors {
