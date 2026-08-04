@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Settings as SettingsIcon, MapPin, ShieldCheck, Clock, AlertTriangle } from "lucide-react";
-import { apiRequest, fixMediaUrl, mapDjangoPostToDish } from "@/lib/api";
+import { apiRequest, fixAvatarUrl, mapDjangoPostToDish } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GlassSurface } from "@/components/feed/glass-surface";
 
@@ -98,7 +98,7 @@ export default async function MePage({
 
   const handle = userProfile?.username || session.user.email?.split("@")[0] || "user";
   const name = userProfile?.full_name || userProfile?.username || "Пользователь";
-  const avatar = fixMediaUrl(userProfile?.avatar) || "";
+  const avatar = fixAvatarUrl(userProfile?.avatar) || "";
   const city = userProfile?.city || "";
   const bio = userProfile?.bio_text || "";
   const stats = {

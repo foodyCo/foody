@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { apiRequest, fixMediaUrl } from "@/lib/api";
+import { apiRequest, fixAvatarUrl } from "@/lib/api";
 import EditProfileForm from "@/app/(main)/profile/edit/EditProfileForm";
 
 export default async function MeEditPage() {
@@ -25,10 +25,10 @@ export default async function MeEditPage() {
   const initialData = {
     name: userProfile?.full_name || userProfile?.username || session.user.name || "",
     username: userProfile?.username || "",
-    avatar: fixMediaUrl(userProfile?.avatar) || session.user.image || "",
+    avatar: fixAvatarUrl(userProfile?.avatar) || session.user.image || "",
     bio: userProfile?.bio_text || "",
     city: userProfile?.city || "",
   };
 
-  return <EditProfileForm initialData={initialData} accessToken={session.user.accessToken} />;
+  return <EditProfileForm initialData={initialData} accessToken="authed" />;
 }

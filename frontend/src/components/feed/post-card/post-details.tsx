@@ -3,7 +3,46 @@ import Link from "next/link";
 
 import type { Post } from "@/lib/mock-data";
 
-import { STAR_COLOR } from "./post-card-shared";
+const STAR_YELLOW = "#FFB400";
+const STAR_EMPTY = "#DBDFDB";
+
+/** 5 звёзд: горит столько, сколько поставил автор (как в форме отзыва). */
+function RatingStars({ rating }: { rating: number }) {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-0.5"
+      aria-label={`Оценка ${rating} из 5`}
+    >
+      {[0, 1, 2, 3, 4].map((index) => {
+        const fill = Math.max(0, Math.min(1, rating - index));
+        return (
+          <span key={index} className="relative inline-grid place-items-center">
+            <Star
+              className="size-[20px]"
+              strokeWidth={0}
+              color={STAR_EMPTY}
+              fill={STAR_EMPTY}
+            />
+            {fill > 0 && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden"
+                style={{ clipPath: `inset(0 ${100 - fill * 100}% 0 0)` }}
+              >
+                <Star
+                  className="size-[20px]"
+                  strokeWidth={0}
+                  color={STAR_YELLOW}
+                  fill={STAR_YELLOW}
+                />
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 type PostDetailsProps = {
   post: Post;
@@ -12,6 +51,15 @@ type PostDetailsProps = {
 };
 
 export function PostDetails({ post, expanded = false }: PostDetailsProps) {
+  const placeInner = (
+    <>
+      <MapPin className="size-[11px] shrink-0" strokeWidth={2.2} />
+      <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+        {post.place}
+      </span>
+    </>
+  );
+
   return (
     <>
       <div className="px-4 pb-1 max-[390px]:pb-0.5 [@media(max-width:430px)_and_(max-height:860px)]:px-3.5">
@@ -20,50 +68,21 @@ export function PostDetails({ post, expanded = false }: PostDetailsProps) {
         </h3>
       </div>
 
-      <div className="px-4 pt-1 pb-2.5 max-[390px]:pb-2 [@media(max-width:430px)_and_(max-height:860px)]:px-3.5 [@media(max-width:430px)_and_(max-height:860px)]:pb-1.5">
+      {/* Заведение слева + оценка звёздами справа — в одной строке */}
+      <div className="flex items-center justify-between gap-2.5 px-4 pt-1 pb-2.5 max-[390px]:pb-2 [@media(max-width:430px)_and_(max-height:860px)]:px-3.5 [@media(max-width:430px)_and_(max-height:860px)]:pb-1.5">
         {post.restaurantId !== undefined ? (
           <Link
             href={`/restaurant/${post.restaurantId}`}
-            className="inline-flex max-w-full items-center gap-1.5 rounded-[9px] bg-[rgba(20,40,28,0.05)] px-2.5 py-[5px] text-[12.5px] font-semibold text-[#13251a]"
+            className="inline-flex min-w-0 items-center gap-1.5 rounded-[9px] bg-[rgba(20,40,28,0.05)] px-2.5 py-[5px] text-[12.5px] font-semibold text-[#13251a]"
           >
-            <MapPin className="size-[11px] shrink-0" strokeWidth={2.2} />
-            <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-              {post.place}
-            </span>
+            {placeInner}
           </Link>
         ) : (
-          <div className="inline-flex max-w-full items-center gap-1.5 rounded-[9px] bg-[rgba(20,40,28,0.05)] px-2.5 py-[5px] text-[12.5px] font-semibold text-[#13251a]">
-            <MapPin className="size-[11px] shrink-0" strokeWidth={2.2} />
-            <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-              {post.place}
-            </span>
+          <div className="inline-flex min-w-0 items-center gap-1.5 rounded-[9px] bg-[rgba(20,40,28,0.05)] px-2.5 py-[5px] text-[12.5px] font-semibold text-[#13251a]">
+            {placeInner}
           </div>
         )}
-      </div>
-
-      <div className="flex items-center justify-between gap-3 px-4 pt-1 pb-2.5 max-[390px]:pb-2 [@media(max-width:430px)_and_(max-height:860px)]:px-3.5 [@media(max-width:430px)_and_(max-height:860px)]:pb-1.5">
-        <span className="inline-flex items-center gap-2 rounded-[11px] bg-[rgba(20,40,28,0.045)] px-3 py-1.5 [@media(max-width:430px)_and_(max-height:860px)]:px-2.5 [@media(max-width:430px)_and_(max-height:860px)]:py-1">
-          <span className="text-[10.5px] font-bold tracking-[0.38px] text-[#8A958E] uppercase">
-            Цена
-          </span>
-          <span className="text-[16.5px] leading-none font-extrabold tracking-[-0.18px] text-[#17913F] tabular-nums">
-            {post.price}
-          </span>
-        </span>
-        <div className="inline-flex items-baseline gap-1.5">
-          <span className="text-[11px] font-bold tracking-[0.4px] text-[#5C6B62] uppercase">
-            Оценка
-          </span>
-          <span className="inline-flex items-center gap-1 text-[18px] font-extrabold tracking-[-0.3px] text-[#15291C]">
-            <Star
-              className="size-3.5"
-              color={STAR_COLOR}
-              fill={STAR_COLOR}
-              strokeWidth={0}
-            />{" "}
-            {post.rating}
-          </span>
-        </div>
+        <RatingStars rating={post.rating} />
       </div>
 
       <p

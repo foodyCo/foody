@@ -7,6 +7,12 @@ import { SearchResultsHeader } from "@/components/search/search-results-header";
 import { DEFAULT_TWEAKS } from "@/lib/tweaks";
 import { mapApiPostToFeedPost, type ApiPost } from "@/lib/feed-adapter";
 import {
+  getCuisineCategories,
+  getDishCategories,
+  getPlaceCategories,
+} from "@/lib/categories";
+import type { CategoryGroups } from "@/components/search/results-category-control";
+import {
   getSingleSearchParam,
   normalizeSearchQuery,
 } from "@/lib/search";
@@ -34,6 +40,18 @@ export default async function SearchResultsPage({
 
   const session = (await auth()) as any;
   const accessToken: string | null = session?.user?.accessToken ?? null;
+
+  // Группы категорий для фильтра в шапке результатов (Блюда / Кухни / Формат).
+  // Заглушка на фронте; сейчас фильтруют через текстовый запрос q.
+  const [dishes, cuisines] = await Promise.all([
+    getDishCategories(),
+    getCuisineCategories(),
+  ]);
+  const categoryGroups: CategoryGroups = {
+    dishes: dishes.map((c) => ({ id: `dish-${c.id}`, label: c.label, emoji: c.emoji })),
+    cuisines: cuisines.map((c) => ({ id: `cui-${c.id}`, label: c.label, emoji: c.emoji })),
+    formats: getPlaceCategories().map((c) => ({ id: `fmt-${c.id}`, label: c.label, emoji: c.emoji })),
+  };
 
   const qs = new URLSearchParams();
   if (normalizedQuery) qs.set("search", normalizedQuery);
@@ -80,7 +98,11 @@ export default async function SearchResultsPage({
     <main className="absolute inset-0 overflow-hidden">
       <SaveRecentSearchQuery query={query} />
       <div className="absolute inset-0 flex flex-col pt-2">
-        <SearchResultsHeader key={query.trim()} initialQuery={query.trim()} />
+        <SearchResultsHeader
+          key={query.trim()}
+          initialQuery={query.trim()}
+          categoryGroups={categoryGroups}
+        />
 
         <section
           aria-label="Результаты поиска"
@@ -90,7 +112,7 @@ export default async function SearchResultsPage({
             <SearchResultsFeed
               brand={DEFAULT_TWEAKS.brand}
               currentUser={currentUserHandle}
-              accessToken={accessToken}
+              accessToken={accessToken ? "authed" : null}
               density={DEFAULT_TWEAKS.density}
               initialFollowingUsers={[]}
               initialLikedPostIds={likedPostIds}

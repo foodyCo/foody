@@ -38,7 +38,8 @@ export function BottomTabBar({ brand }: BottomTabBarProps) {
     isPostCardExpanded ||
     pathname === "/new-review" ||
     pathname === "/create" ||
-    pathname === "/categories"
+    pathname === "/categories" ||
+    pathname === "/search/results"
   ) {
     return null;
   }

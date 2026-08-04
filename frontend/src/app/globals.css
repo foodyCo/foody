@@ -14,3 +14,42 @@
     display: none;
   }
 }
+
+/* Двойной слайдер цены (price-range-slider.tsx). Нативные range-инпуты
+   накладываются друг на друга; клики ловит только «бегунок». */
+.price-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+.price-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  height: 22px;
+  width: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #2ecc71;
+  box-shadow: 0 2px 6px rgba(20, 40, 28, 0.28);
+  cursor: pointer;
+}
+.price-range::-moz-range-thumb {
+  pointer-events: auto;
+  height: 22px;
+  width: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #2ecc71;
+  box-shadow: 0 2px 6px rgba(20, 40, 28, 0.28);
+  cursor: pointer;
+}
+.price-range::-webkit-slider-runnable-track { background: transparent; }
+.price-range::-moz-range-track { background: transparent; }
+.price-range:focus-visible::-webkit-slider-thumb { outline: 2px solid rgba(21, 41, 28, 0.35); outline-offset: 2px; }

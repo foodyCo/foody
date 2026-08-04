@@ -29,6 +29,7 @@ import {
 } from "@/components/feed/post-card/photo-carousel";
 import { PhotoViewerModal } from "@/components/feed/post-card/photo-viewer-modal";
 import { CopyLinkAlert } from "@/components/shared/copy-link-alert";
+import { sharePost } from "@/lib/share";
 import { useSearchSubmit } from "@/components/search/use-search-submit";
 import type {
   Density,
@@ -251,27 +252,17 @@ export function FullScreenPost({
     };
   }, [isCommentsOpen, isPhotoViewerOpen, onClose]);
 
-  async function copyPostLink() {
-    const postUrl = new URL("/saved", window.location.origin);
-    postUrl.searchParams.set("post", String(post.id));
-
-    try {
-      await navigator.clipboard.writeText(postUrl.toString());
-      setCopyLinkAlertKey((currentKey) => currentKey + 1);
-      return;
-    } catch {
-      const fallbackField = document.createElement("textarea");
-      fallbackField.value = postUrl.toString();
-      fallbackField.setAttribute("readonly", "");
-      fallbackField.style.position = "fixed";
-      fallbackField.style.top = "-999px";
-      fallbackField.style.left = "-999px";
-      document.body.appendChild(fallbackField);
-      fallbackField.select();
-      document.execCommand("copy");
-      fallbackField.remove();
-      setCopyLinkAlertKey((currentKey) => currentKey + 1);
-    }
+  function handleShareClick() {
+    triggerSharePulse();
+    // Нативное меню «Поделиться» (телефон), иначе — копирование ссылки.
+    void sharePost(post.id, {
+      title: post.dish,
+      text: post.place ? `${post.dish} — ${post.place}` : post.dish,
+    }).then((result) => {
+      if (result === "copied") {
+        setCopyLinkAlertKey((currentKey) => currentKey + 1);
+      }
+    });
   }
 
   function handlePhotoOpen() {
@@ -390,10 +381,7 @@ export function FullScreenPost({
         headerActions={{
           morePulse,
           onMoreClick: triggerMorePulse,
-          onShareClick: () => {
-            triggerSharePulse();
-            void copyPostLink();
-          },
+          onShareClick: handleShareClick,
           sharePulse,
         }}
         mainTag={mainTag}

@@ -9,6 +9,7 @@ type RecentSearchesProps = {
   items: string[];
   onChange: (items: string[]) => void;
   onSubmitQuery: (query: string) => void;
+  title?: string;
 };
 
 const PRESS_CLASSES =
@@ -18,6 +19,7 @@ export function RecentSearches({
   items,
   onChange,
   onSubmitQuery,
+  title = "Последнее",
 }: RecentSearchesProps) {
   if (items.length === 0) return null;
 
@@ -25,7 +27,7 @@ export function RecentSearches({
     <div className="px-[18px] pb-4">
       <SectionHeader
         icon={<Clock size={15} strokeWidth={2} color="#3A4A40" />}
-        title="Последнее"
+        title={title}
         action={
           <button
             type="button"

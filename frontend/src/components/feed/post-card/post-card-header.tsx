@@ -5,9 +5,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { type ReactNode } from "react";
 
-import { GlassSurface } from "@/components/feed/glass-surface";
 import {
   FULLSCREEN_SUBSCRIBE_BUTTON,
   SubscribeStyleButton,
@@ -28,19 +26,6 @@ const SUBSCRIBE_STATE_TRANSITION = {
 } as const;
 const FULLSCREEN_COMPACT_AUTHOR_LENGTH = 11;
 const FULLSCREEN_SMALL_COMPACT_AUTHOR_LENGTH = 10;
-
-const FULLSCREEN_HEADER_GLASS = {
-  outer:
-    "shrink-0 px-3.5 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-3 max-[409px]:px-3",
-  surface:
-    "rounded-[24px] shadow-[0_16px_28px_rgba(20,40,28,0.14),0_2px_8px_rgba(255,255,255,0.42)]",
-  tint:
-    "before:bg-white/60 before:backdrop-blur-[30px] before:backdrop-saturate-[220%]",
-  highlight:
-    "after:border-[0.5px] after:border-white/55 after:shadow-[inset_1px_1px_0_rgba(255,255,255,0.76),inset_-1px_-1px_0_rgba(255,255,255,0.98)]",
-  content:
-    "flex min-h-13 items-center gap-2.5 px-2.5 py-2 max-[380px]:gap-2 max-[380px]:px-2",
-} as const;
 
 const FULLSCREEN_AUTHOR_TEXT = {
   usernameBase:
@@ -87,21 +72,6 @@ function formatFullscreenAuthorMeta(when: string) {
   }
 
   return normalizedWhen;
-}
-
-function FullscreenHeaderGlass({ children }: { children: ReactNode }) {
-  return (
-    <div className={FULLSCREEN_HEADER_GLASS.outer}>
-      <GlassSurface
-        className={FULLSCREEN_HEADER_GLASS.surface}
-        contentClassName={FULLSCREEN_HEADER_GLASS.content}
-        highlightClassName={FULLSCREEN_HEADER_GLASS.highlight}
-        tintClassName={FULLSCREEN_HEADER_GLASS.tint}
-      >
-        {children}
-      </GlassSurface>
-    </div>
-  );
 }
 
 export function PostCardHeader({
@@ -215,10 +185,8 @@ export function PostCardHeader({
     </>
   );
 
-  if (expanded) {
-    return <FullscreenHeaderGlass>{headerContent}</FullscreenHeaderGlass>;
-  }
-
+  // И в ленте, и в раскрытом посте — одинаковая плоская шапка на фрейме
+  // (без отдельной стеклянной «пилюли»). В раскрытом в начале — стрелка назад.
   return (
     <div className="flex items-center gap-2.5 px-3 pt-3 pr-3 pb-2.5 pl-3.5">
       {headerContent}

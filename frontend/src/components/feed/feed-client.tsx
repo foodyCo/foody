@@ -104,12 +104,12 @@ export function FeedClient({
     try {
       const params = new URLSearchParams();
       params.set("page", String(nextPage));
-      const headers: Record<string, string> = {};
-      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-      const res = await fetch(`/api/v1${endpoint}?${params.toString()}`, {
-        headers,
-        cache: "no-store",
-      });
+      // Через BFF-прокси /backend — токен подставит сервер из сессии.
+      // Без завершающего слэша (иначе Next делает 308), прокси сам добавит.
+      const res = await fetch(
+        `/backend${endpoint.replace(/\/$/, "")}?${params.toString()}`,
+        { cache: "no-store" },
+      );
       if (!res.ok) {
         throw new Error(`status ${res.status}`);
       }

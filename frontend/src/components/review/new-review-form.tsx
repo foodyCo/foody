@@ -2,9 +2,11 @@
 
 import {
   type ChangeEvent,
+  type DragEvent as ReactDragEvent,
   type InputHTMLAttributes,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -15,12 +17,15 @@ import {
   ChevronRight,
   CircleAlert,
   ImageUp,
+  Pencil,
   Plus,
   Star,
   UtensilsCrossed,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+
+import { PhotoCropModal } from "@/components/review/photo-crop-modal";
 
 import { CategorySelectionScreen } from "@/components/categories/category-selection-screen";
 import { GlassSurface } from "@/components/feed/glass-surface";
@@ -37,7 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { FoodCategory } from "@/lib/categories";
+import { detectDishCategory, type FoodCategory } from "@/lib/categories";
 import type { Palette } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import {
@@ -219,6 +224,58 @@ function RatingControl({
   );
 }
 
+// Стабильные id и object-URL для файлов — чтобы при переносе (реордере) не
+// пересоздавать превью (иначе мигает и ломается анимация layout).
+function usePhotoItems(files: File[]) {
+  const idMapRef = useRef(new WeakMap<File, string>());
+  const counterRef = useRef(0);
+  const urlMapRef = useRef(new Map<string, string>());
+
+  const idFor = useCallback((file: File) => {
+    let id = idMapRef.current.get(file);
+    if (!id) {
+      id = `p${counterRef.current++}`;
+      idMapRef.current.set(file, id);
+    }
+    return id;
+  }, []);
+
+  const items = useMemo(
+    () =>
+      files.map((file) => {
+        const id = idFor(file);
+        let url = urlMapRef.current.get(id);
+        if (!url) {
+          url = URL.createObjectURL(file);
+          urlMapRef.current.set(id, url);
+        }
+        return { id, url, name: file.name, file };
+      }),
+    [files, idFor]
+  );
+
+  // Чистим URL'ы удалённых файлов.
+  useEffect(() => {
+    const alive = new Set(items.map((it) => it.id));
+    for (const [id, url] of urlMapRef.current) {
+      if (!alive.has(id)) {
+        URL.revokeObjectURL(url);
+        urlMapRef.current.delete(id);
+      }
+    }
+  }, [items]);
+
+  useEffect(() => {
+    const urls = urlMapRef.current;
+    return () => {
+      for (const url of urls.values()) URL.revokeObjectURL(url);
+      urls.clear();
+    };
+  }, []);
+
+  return items;
+}
+
 function PhotoUpload({
   files,
   onFilesChange,
@@ -227,29 +284,19 @@ function PhotoUpload({
   onFilesChange: (files: File[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const previews = useMemo(
-    () =>
-      files.map((file) => ({
-        name: file.name,
-        url: URL.createObjectURL(file),
-      })),
-    [files]
-  );
+  const items = usePhotoItems(files);
 
-  useEffect(() => {
-    return () => {
-      previews.forEach((preview) => URL.revokeObjectURL(preview.url));
-    };
-  }, [previews]);
+  const [isDropActive, setIsDropActive] = useState(false);
+  const [cropIndex, setCropIndex] = useState<number | null>(null);
+
+  function addFiles(incoming: File[]) {
+    const images = incoming.filter((f) => f.type.startsWith("image/"));
+    if (images.length === 0) return;
+    onFilesChange([...files, ...images].slice(0, MAX_PHOTOS));
+  }
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
-    const selectedFiles = Array.from(event.target.files ?? []);
-
-    if (selectedFiles.length === 0) {
-      return;
-    }
-
-    onFilesChange([...files, ...selectedFiles].slice(0, MAX_PHOTOS));
+    addFiles(Array.from(event.target.files ?? []));
     event.target.value = "";
   }
 
@@ -257,45 +304,70 @@ function PhotoUpload({
     onFilesChange(files.filter((_, index) => index !== indexToRemove));
   }
 
-  // Перетаскивание фото (мышь + тач через Pointer Events). Логика — в ref'ах,
-  // чтобы не ловить устаревшие замыкания; state — только для подсветки.
+  // Перенос файлов с рабочего стола (нативный drag&drop файлов в браузер).
+  function handleDrop(event: ReactDragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDropActive(false);
+    const dropped = Array.from(event.dataTransfer.files ?? []);
+    if (dropped.length > 0) addFiles(dropped);
+  }
+  function handleDragOver(event: ReactDragEvent<HTMLDivElement>) {
+    if (Array.from(event.dataTransfer.types).includes("Files")) {
+      event.preventDefault();
+      setIsDropActive(true);
+    }
+  }
+  function handleDragLeave(event: ReactDragEvent<HTMLDivElement>) {
+    // Уходим только если курсор покинул сам контейнер (не дочерний элемент).
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDropActive(false);
+    }
+  }
+
+  // Реордер плиток (мышь+тач, Pointer Events) с живой перестановкой и
+  // анимацией через motion layout. Целевой индекс считаем по ГЕОМЕТРИИ сетки
+  // (а не elementFromPoint) — иначе анимирующиеся плитки ломают хит-тест и
+  // перенос дёргается/не срабатывает. dragIndexRef = текущий индекс тащимой.
+  const gridRef = useRef<HTMLDivElement>(null);
   const dragIndexRef = useRef<number | null>(null);
-  const overIndexRef = useRef<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
 
   function beginDrag(event: ReactPointerEvent<HTMLDivElement>, index: number) {
     dragIndexRef.current = index;
-    overIndexRef.current = index;
     setDragIndex(index);
-    setOverIndex(index);
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function moveDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (dragIndexRef.current === null) return;
-    const el = document.elementFromPoint(event.clientX, event.clientY);
-    const tile = el?.closest<HTMLElement>("[data-photo-idx]");
-    if (!tile) return;
-    const idx = Number(tile.dataset.photoIdx);
-    if (Number.isNaN(idx) || idx === overIndexRef.current) return;
-    overIndexRef.current = idx;
-    setOverIndex(idx);
+    const from = dragIndexRef.current;
+    const grid = gridRef.current;
+    if (from === null || !grid) return;
+
+    const COLS = 3;
+    const GAP = 8; // gap-2
+    const TILE_H = 122; // высота плитки
+    const rect = grid.getBoundingClientRect();
+    const cellW = (rect.width - GAP * (COLS - 1)) / COLS;
+
+    let col = Math.floor((event.clientX - rect.left) / (cellW + GAP));
+    let row = Math.floor((event.clientY - rect.top) / (TILE_H + GAP));
+    col = Math.min(Math.max(col, 0), COLS - 1);
+    row = Math.max(row, 0);
+
+    const to = Math.min(row * COLS + col, files.length - 1);
+    if (to < 0 || to === from) return;
+
+    const next = files.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    dragIndexRef.current = to;
+    setDragIndex(to);
+    onFilesChange(next);
   }
 
   function endDrag() {
-    const from = dragIndexRef.current;
-    const to = overIndexRef.current;
-    if (from !== null && to !== null && from !== to) {
-      const next = files.slice();
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      onFilesChange(next);
-    }
     dragIndexRef.current = null;
-    overIndexRef.current = null;
     setDragIndex(null);
-    setOverIndex(null);
   }
 
   return (
@@ -304,79 +376,108 @@ function PhotoUpload({
         Фотография блюда
       </h2>
       <p className="mt-1 mb-2 font-[family-name:var(--font-roboto)] text-[13px] leading-snug font-medium text-[#5C6B62]">
-        Мин. 1 фото. Перетаскивайте, чтобы менять порядок — первое станет главным (покажется в ленте первым).
+        Мин. 1 фото. Перетаскивайте, чтобы менять порядок — первое станет главным. Карандаш — обрезать фото.
       </p>
-      {previews.length === 0 ? (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className={cn(
-            "flex min-h-[122px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-[26px] border-[1.5px] border-[#2ECC71] bg-white px-5 text-center text-[#15291C]",
-            "outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
-            PRESS_CLASSES
-          )}
-        >
-          <ImageUp className="size-9" strokeWidth={2.15} />
-          <span className="font-[family-name:var(--font-roboto)] text-[14px] font-medium text-[#5C6B62]">
-            Выберите фотографии нажав сюда
-          </span>
-        </button>
-      ) : (
-        <div className="grid grid-cols-3 gap-2">
-          {previews.map((preview, index) => (
-            <div
-              key={`${preview.name}-${index}`}
-              data-photo-idx={index}
-              onPointerDown={(event) => beginDrag(event, index)}
-              onPointerMove={moveDrag}
-              onPointerUp={endDrag}
-              onPointerCancel={endDrag}
-              className={cn(
-                "relative h-[122px] w-full cursor-grab touch-none overflow-hidden rounded-[26px] border border-[rgba(20,40,28,0.08)] transition-[opacity,box-shadow] select-none active:cursor-grabbing",
-                index === 0 && "border-transparent ring-2 ring-[#2ECC71]",
-                overIndex === index && dragIndex !== index && "ring-2 ring-[#15291C]/45",
-                dragIndex === index && "opacity-40"
-              )}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={preview.url}
-                alt={preview.name}
-                draggable={false}
-                className="pointer-events-none h-full w-full object-cover select-none"
-              />
-              {index === 0 && (
-                <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-[#2ECC71] px-2 py-[3px] text-[10.5px] font-extrabold text-white shadow-[0_2px_8px_rgba(20,40,28,0.28)]">
-                  Главное
-                </span>
-              )}
+
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={cn(
+          "rounded-[28px] transition-colors",
+          isDropActive &&
+            "bg-[rgba(46,204,113,0.10)] outline-2 outline-dashed outline-[#2ECC71] outline-offset-4"
+        )}
+      >
+        {items.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className={cn(
+              "flex min-h-[122px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-[26px] border-[1.5px] border-[#2ECC71] bg-white px-5 text-center text-[#15291C]",
+              "outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
+              PRESS_CLASSES
+            )}
+          >
+            <ImageUp className="size-9" strokeWidth={2.15} />
+            <span className="font-[family-name:var(--font-roboto)] text-[14px] font-medium text-[#5C6B62]">
+              {isDropActive
+                ? "Отпустите — загрузим"
+                : "Выберите фото или перетащите сюда"}
+            </span>
+          </button>
+        ) : (
+          <div ref={gridRef} className="grid grid-cols-3 gap-2">
+            {items.map((item, index) => (
+              <motion.div
+                key={item.id}
+                layout
+                transition={{ type: "spring", stiffness: 700, damping: 48, mass: 0.6 }}
+                data-photo-idx={index}
+                onPointerDown={(event) => beginDrag(event, index)}
+                onPointerMove={moveDrag}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                style={{ zIndex: dragIndex === index ? 2 : 1 }}
+                className={cn(
+                  "relative h-[122px] w-full cursor-grab touch-none overflow-hidden rounded-[26px] border border-[rgba(20,40,28,0.08)] select-none active:cursor-grabbing",
+                  index === 0 && "border-transparent ring-2 ring-[#2ECC71]",
+                  dragIndex === index &&
+                    "shadow-[0_10px_24px_rgba(20,40,28,0.26)] ring-2 ring-[#15291C]/35"
+                )}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.url}
+                  alt={item.name}
+                  draggable={false}
+                  className="pointer-events-none h-full w-full object-cover select-none"
+                />
+                {index === 0 && (
+                  <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-[#2ECC71] px-2 py-[3px] text-[10.5px] font-extrabold text-white shadow-[0_2px_8px_rgba(20,40,28,0.28)]">
+                    Главное
+                  </span>
+                )}
+                <div className="absolute top-1.5 right-1.5 flex gap-1">
+                  <button
+                    type="button"
+                    aria-label={`Обрезать фото ${index + 1}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => setCropIndex(index)}
+                    className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-black/45 text-white outline-none backdrop-blur-[2px]"
+                  >
+                    <Pencil className="size-3" strokeWidth={2.6} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Удалить фото ${index + 1}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => removePhoto(index)}
+                    className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-black/45 text-white outline-none backdrop-blur-[2px]"
+                  >
+                    <X className="size-3.5" strokeWidth={2.6} />
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+            {files.length < MAX_PHOTOS && (
               <button
                 type="button"
-                aria-label={`Удалить фото ${index + 1}`}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={() => removePhoto(index)}
-                className="absolute top-1.5 right-1.5 grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-black/45 text-white outline-none backdrop-blur-[2px]"
+                aria-label="Добавить фото"
+                onClick={() => inputRef.current?.click()}
+                className={cn(
+                  "grid h-[122px] w-full cursor-pointer place-items-center rounded-[26px] border-[1.5px] border-[#2ECC71] bg-white text-[#15291C]",
+                  "outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
+                  PRESS_CLASSES
+                )}
               >
-                <X className="size-3.5" strokeWidth={2.6} />
+                <Plus className="size-8" strokeWidth={2.25} />
               </button>
-            </div>
-          ))}
-          {files.length < MAX_PHOTOS && (
-            <button
-              type="button"
-              aria-label="Добавить фото"
-              onClick={() => inputRef.current?.click()}
-              className={cn(
-                "grid h-[122px] w-full cursor-pointer place-items-center rounded-[26px] border-[1.5px] border-[#2ECC71] bg-white text-[#15291C]",
-                "outline-none focus-visible:ring-2 focus-visible:ring-[#15291C]/18",
-                PRESS_CLASSES
-              )}
-            >
-              <Plus className="size-8" strokeWidth={2.25} />
-            </button>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
+
       <input
         ref={inputRef}
         type="file"
@@ -385,6 +486,19 @@ function PhotoUpload({
         onChange={handleChange}
         className="sr-only"
       />
+
+      {cropIndex !== null && files[cropIndex] && (
+        <PhotoCropModal
+          file={files[cropIndex]}
+          onCancel={() => setCropIndex(null)}
+          onApply={(cropped) => {
+            const next = files.slice();
+            next[cropIndex] = cropped;
+            onFilesChange(next);
+            setCropIndex(null);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -516,6 +630,8 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
   const [photos, setPhotos] = useState<File[]>([]);
   const [review, setReview] = useState("");
   const [category, setCategory] = useState<FoodCategory | null>(null);
+  // true — категорию выбрал юзер вручную (авто-распознавание больше не вмешивается).
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [showRequiredAlert, setShowRequiredAlert] = useState(false);
@@ -551,6 +667,16 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
       }
     };
   }, []);
+
+  // Авто-подстановка категории по названию блюда (с дебаунсом). Не трогаем,
+  // если юзер выбрал категорию вручную.
+  useEffect(() => {
+    if (categoryTouched) return;
+    const handle = window.setTimeout(() => {
+      setCategory(detectDishCategory(dish));
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [dish, categoryTouched]);
 
   function leaveForm() {
     if (window.history.length > 1) {
@@ -643,6 +769,7 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
 
   function handleSelectCategory(nextCategory: FoodCategory) {
     setCategory(nextCategory);
+    setCategoryTouched(true);
     setShowCategoryPicker(false);
   }
 
@@ -741,10 +868,17 @@ export function NewReviewForm({ brand, palette }: NewReviewFormProps) {
               onChange={setDish}
             />
 
-            <CategoryButton
-              category={category}
-              onClick={() => setShowCategoryPicker(true)}
-            />
+            <div>
+              <CategoryButton
+                category={category}
+                onClick={() => setShowCategoryPicker(true)}
+              />
+              {category && !categoryTouched && (
+                <p className="mt-1.5 px-1 font-[family-name:var(--font-roboto)] text-[12.5px] font-medium text-[#17913F]">
+                  Определили автоматически по названию — можно сменить.
+                </p>
+              )}
+            </div>
 
             <section>
               <h2 className="mb-2 text-[22px] leading-tight font-semibold tracking-[0px] text-[#15291C] max-[380px]:text-[20px]">
