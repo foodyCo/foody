@@ -46,3 +46,8 @@ EMAIL_CODE_RESEND_COOLDOWN=60s
 EMAIL_CODE_RETENTION=2d
 UNVERIFIED_ACCOUNT_TTL=7d
 CLEANUP_INTERVAL=24h
+
+# Вход в админку: сколько неудачных попыток с одного адреса терпим и на какое
+# окно закрываемся. Успешный вход счётчик обнуляет.
+ADMIN_LOGIN_MAX_ATTEMPTS=10
+ADMIN_LOGIN_ATTEMPT_WINDOW=5m

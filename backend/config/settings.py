@@ -79,6 +79,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Перебор на форме входа в админку — см. users/middleware.py
+    'users.middleware.AdminLoginRateLimitMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -288,6 +290,12 @@ YANDEX_SUGGEST_CACHE_TTL = int(get_env_time_interval('YANDEX_SUGGEST_CACHE_TTL',
 
 # Размер страницы для очереди модерации. Можно изменить через ENV и перезапустить Django.
 MODERATION_PAGE_SIZE = get_env_int('MODERATION_PAGE_SIZE', 10)
+
+# Вход в админку: сколько неудачных попыток с одного адреса терпим и на какое
+# окно закрываемся после этого. Считаются только неудачи, успешный вход
+# счётчик обнуляет, поэтому обычной работе администратора лимит не мешает.
+ADMIN_LOGIN_MAX_ATTEMPTS = get_env_int('ADMIN_LOGIN_MAX_ATTEMPTS', 10)
+ADMIN_LOGIN_ATTEMPT_WINDOW = get_env_time_interval('ADMIN_LOGIN_ATTEMPT_WINDOW', '5m')
 
 # JWT Settings
 SIMPLE_JWT = {
