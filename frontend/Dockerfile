@@ -1,5 +1,5 @@
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec9fd069a35a1a67c#nodealpine to understand why libc6-compat might be needed.
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps

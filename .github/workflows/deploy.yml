@@ -65,9 +65,12 @@ jobs:
       # без dev-зависимостей, а тащить их туда ради CI — раздувать прод.
       # Версия та же, что в Dockerfile фронта: тесты должны падать там же,
       # где упадёт прод, а не на разнице рантаймов.
+      # Двадцать вторая, а не двадцатая: undici внутри jsdom зовёт
+      # webidl.util.markAsUncloneable — это API Node 22, и на двадцатой jsdom
+      # не грузится вовсе, роняя vitest ещё до старта тестов.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
