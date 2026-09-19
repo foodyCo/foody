@@ -99,8 +99,16 @@ jobs:
 
   deploy:
     needs: [test-build-push]
-    # workflow_dispatch пропускает сборку, а needs при skip блокирует джобу — разрешаем явно
-    if: always() && (needs.test-build-push.result == 'success' || github.event_name == 'workflow_dispatch')
+    # workflow_dispatch пропускает сборку, а needs при skip блокирует джобу — разрешаем явно.
+    #
+    # Выкатка включается переменной репозитория DEPLOY_ENABLED=true
+    # (Settings → Secrets and variables → Actions → Variables). Пока сервера
+    # нет, джоба пропускается: иначе каждый прогон краснеет на SSH, и красный
+    # CI перестаёт что-либо значить — привыкнув к нему, пропустишь настоящую
+    # поломку. Проверять наличие секрета вместо переменной нельзя: secrets в
+    # условии джобы недоступны, да и SERVER_HOST никуда не делся — выключен сам
+    # сервер, а не доступ к нему.
+    if: always() && vars.DEPLOY_ENABLED == 'true' && (needs.test-build-push.result == 'success' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment: production
     steps:

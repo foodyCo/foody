@@ -193,23 +193,41 @@ Compose не объявляет именованных сетей → испол
 
 | Переменная | Где используется | Текущее значение (`.env`) | Нужна в проде |
 |---|---|---|---|
-| `DJANGO_SECRET_KEY` | Django settings | `ULJhnI2^P*gsoGCc@STA#45QW#dwNy_l^6rp6nynZxnv@fB4hR` | Да, **сменить** перед прод-деплоем |
+| `DJANGO_SECRET_KEY` | Django settings | *(был опубликован — сгенерировать заново)* | Да, **сменить** перед прод-деплоем |
 | `DJANGO_DEBUG` | Django settings | `0` | Да (`0`) |
 | `DJANGO_ALLOWED_HOSTS` | Django middleware | `*` | сузить до `foody.press,176.108.251.124` |
 | `CORS_ALLOWED_ORIGINS` | django-cors-headers | `http://localhost,http://localhost:3000,http://155.212.136.226` | заменить IP на актуальный/домен |
-| `DJANGO_SUPERUSER_USERNAME/EMAIL/PASSWORD` | entrypoint `createsuperuser` | `admin / admin@example.com / admin123` | **обязательно сменить пароль** |
-| `POSTGRES_DB / USER / PASSWORD` | Postgres + Django | `foody / foody / foody_secret` | сменить пароль |
+| `DJANGO_SUPERUSER_USERNAME/EMAIL/PASSWORD` | entrypoint `createsuperuser` | `admin / admin@example.com /` *(был опубликован — сменить)* | **обязательно сменить пароль** |
+| `POSTGRES_DB / USER / PASSWORD` | Postgres + Django | `foody / foody /` *(был опубликован — сменить)* | сменить пароль |
 | `POSTGRES_HOST / PORT` | Django | `db / 5432` | оставить |
 | `REDIS_URL` | Django + Celery | `redis://redis:6379/0` | оставить |
 | `UPDATE_STATS_INTERVAL` | Celery Beat | `1s` (агрессивно для прода) | `1m`+ |
 | `NEXT_PUBLIC_API_URL` | Next.js build-time | `http://155.212.136.226/api/v1` | переписать под актуальный домен/IP |
 | `INTERNAL_API_URL` | Next.js server-side | `http://backend:8000/api/v1` | оставить |
-| `AUTH_SECRET` | NextAuth | `f2af45cf39d4fd279723f8d882b7542818bcf7f2b1d797c36aa097f86f05ba2c` | сменить |
+| `AUTH_SECRET` | NextAuth | *(был опубликован — сгенерировать заново)* | сменить |
 | `AUTH_TRUST_HOST` | NextAuth | `true` | оставить |
 | `AUTH_URL` | NextAuth | `http://155.212.136.226` | переписать |
 | `DOMAIN_NAME` | nginx envsubst | `155.212.136.226` | `foody.press` или актуальный IP |
 
 `NEXT_PUBLIC_API_URL` зашивается в **build-time** фронта (см. `ARG` в compose). Смена этой переменной требует **rebuild** фронта, не просто рестарт.
+
+---
+
+## Переключатель выкатки (`DEPLOY_ENABLED`)
+
+Джоба `deploy` в `.github/workflows/deploy.yml` выполняется только когда в
+переменных репозитория (Settings → Secrets and variables → Actions → Variables)
+задано `DEPLOY_ENABLED=true`. Переменной нет — джоба пропускается, прогон
+остаётся зелёным.
+
+Это не про удобство. Пока сервера нет, деплой краснеет на каждом пуше, и
+красный CI перестаёт что-либо означать: привыкнув к нему, пропустишь настоящую
+поломку тестов. Сборка и тесты при этом гоняются как обычно — выключен только
+последний шаг.
+
+Поднимете сервер — поставьте `DEPLOY_ENABLED=true`, и выкатка вернётся сама.
+Проверять вместо этого наличие секрета `SERVER_HOST` нельзя: `secrets` в
+условии джобы недоступны, да и секрет никуда не девался — выключен сервер.
 
 ---
 
@@ -336,7 +354,7 @@ docker compose logs --tail=50 backend
 |---|---|
 | Порты 5432 / 6379 проброшены наружу | **Нет** — Postgres и Redis торчат только во внутренней сети compose |
 | `infra/.env` в гите | **Нет** — есть в `.gitignore` (строка `infra/.env`). Хорошо. |
-| Дефолтный пароль `admin/admin123` создаётся entrypoint-ом | **Да** — критично, обязательно переопределить `DJANGO_SUPERUSER_PASSWORD` перед прод-запуском |
+| Пароль суперпользователя создаётся entrypoint-ом из env | **Да** — критично, задать `DJANGO_SUPERUSER_PASSWORD` перед прод-запуском; прежний был опубликован |
 | Bind-mount `../backend:/app` в проде | **Да** — `docker-compose.yml` монтирует исходники, что удобно для dev, но в проде смешивает образ и worktree (любой `git checkout` на хосте мгновенно меняет код в контейнере). Решение для прода — отдельный compose-файл без volume. |
 | `docker-compose.override.yml` пробрасывает `8000:8000` | По умолчанию compose грузит и его → в проде backend будет торчать на 8000 без nginx. Использовать `-f docker-compose.yml` явно. |
 | Redis без volume | потеря очередей celery при рестарте |
